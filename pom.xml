@@ -1,60 +1,148 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- XML宣言: UTF-8エンコーディングで記述されたXMLファイルであることを定義 -->
+
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.1.0</version>
-		<relativePath/> <!-- lookup parent from repository -->
-	</parent>
-	<groupId>com.example</groupId>
-	<artifactId>bulletinboard</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<name>bulletinboard</name>
-	<description/>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
-	<properties>
-		<java.version>21</java.version>
-	</properties>
-	<dependencies>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-webmvc</artifactId>
-		</dependency>
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <!-- project: XMLのルート要素。Mavenの設定仕様（名前空間やスキーマ）を定義 -->
 
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-devtools</artifactId>
-			<scope>runtime</scope>
-			<optional>true</optional>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-webmvc-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-	</dependencies>
+    <!-- modelVersion: このpom.xmlが従っているPOMのバージョン（4.0.0で固定） -->
+    <modelVersion>4.0.0</modelVersion>
 
-	<build>
-		<plugins>
+    <!-- parent: 親プロジェクト（設定の継承元）の定義グループ -->
+    <parent>
+        <!-- groupId: 親プロジェクトのグループ識別子（Spring Boot公式） -->
+        <groupId>org.springframework.boot</groupId>
+        <!-- artifactId: 親プロジェクト名（共通設定・ライブラリ管理用のスターター親） -->
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <!-- version: 継承するSpring Bootのバージョン -->
+        <version>4.1.0</version>
+        <!-- relativePath: ローカルファイルではなくリポジトリから親POMを検索させる設定 -->
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+
+    <!-- groupId: 自分のプロジェクトのグループ識別名 -->
+    <groupId>com.example</groupId>
+    <!-- artifactId: 自分のプロジェクト名（生成される成果物の名称） -->
+    <artifactId>bulletinboard</artifactId>
+    <!-- version: 自分のプロジェクトのバージョン（-SNAPSHOTは開発中を示す） -->
+    <version>0.0.1-SNAPSHOT</version>
+    <!-- name: プロジェクトの表示用・管理用の名称 -->
+    <name>bulletinboard</name>
+    <!-- description: プロジェクトの詳細説明（現在は空） -->
+    <description/>
+    <!-- url: プロジェクトのWebサイトURL（現在は空） -->
+    <url/>
+
+    <!-- licenses: ライセンス情報をまとめるグループ -->
+    <licenses>
+        <!-- license: 個別のライセンス情報（現在は空） -->
+        <license/>
+    </licenses>
+
+    <!-- developers: 開発者情報をまとめるグループ -->
+    <developers>
+        <!-- developer: 個々の開発者情報（現在は空） -->
+        <developer/>
+    </developers>
+
+    <!-- scm: ソースコード管理（Git等）情報をまとめるグループ -->
+    <scm>
+        <!-- connection: 読み取り専用のSCM接続URL（現在は空） -->
+        <connection/>
+        <!-- developerConnection: 開発者用の書き込み可能SCM接続URL（現在は空） -->
+        <developerConnection/>
+        <!-- tag: リリース時のタグ名（現在は空） -->
+        <tag/>
+        <!-- url: Web上でコードを閲覧するためのURL（現在は空） -->
+        <url/>
+    </scm>
+
+    <!-- properties: プロジェクト全体で共有する変数・プロパティの設定グループ -->
+    <properties>
+        <!-- java.version: 使用するJavaのバージョン指定（Java 21） -->
+        <java.version>21</java.version>
+    </properties>
+
+    <!-- dependencies: プロジェクトに必要な外部ライブラリの一覧グループ -->
+    <dependencies>
+        <!-- dependency: Webアプリケーション構築用ライブラリ -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+
+        <!-- dependency: 開発時の自動再起動などの開発支援ツール -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <!-- scope: 実行時（runtime）のみ使用するスコープ指定 -->
+            <scope>runtime</scope>
+            <!-- optional: 他プロジェクトに継承させないオプション設定 -->
+            <optional>true</optional>
+        </dependency>
+
+		<!-- （Thymeleaf）を使用するための設定 -->
+		<dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+
+        <!-- dependency: Web機能のテスト用ライブラリ -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <!-- scope: テスト実行時（test）のみ使用するスコープ指定 -->
+            <scope>test</scope>
+        </dependency>
+
+                <!-- Lombok本体（インポートを有効にするための設定） -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+
+        <!-- データベース（JPA）を扱うための部品 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- テスト用の軽量データベース（H2） -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+
+    </dependencies>
+
+    <!-- build: ビルド（パッケージングや実行手順）に関する設定グループ -->
+    <build>
+        <!-- plugins: ビルド時に使用する拡張機能（プラグイン）の一覧グループ -->
+        <plugins>
+            <!-- plugin: Spring Bootアプリの起動や実行可能JAR生成を行うプラグイン -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+			<!-- Lombok: ゲッターやセッターを自動生成するためのライブラリ -->
 			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
+			   <groupId>org.apache.maven.plugins</groupId>
+               <artifactId>maven-compiler-plugin</artifactId>
+			   <configuration>
+            <annotationProcessorPaths>
+             <path>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>1.18.36</version>
+             </path>
+           </annotationProcessorPaths>
+       </configuration>
 			</plugin>
-		</plugins>
-	</build>
+        </plugins>
+    </build>
 
 </project>
