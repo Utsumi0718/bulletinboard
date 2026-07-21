@@ -109,14 +109,19 @@
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
 
+        <!-- 本番用データベース（MySQL） -->
+                <!-- MySQL接続用ドライバー -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
         <!-- テスト用の軽量データベース（H2） -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
-
-
     </dependencies>
 
     <!-- build: ビルド（パッケージングや実行手順）に関する設定グループ -->
