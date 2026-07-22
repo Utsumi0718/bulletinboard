@@ -45,4 +45,15 @@ public class PostController {
         postService.savePost(post);
         return "redirect:/posts"; //投稿後、掲示板一覧にリダイレクト
     }
+
+    //投稿の詳細表示
+    @GetMapping("/{id}")// @GetMapping("/{id}"): /posts/{id} 形式の HTTP GET リクエストに対応付け（{id} は可変の値）
+    public String viewPost(@PathVariable Long id, Model model){
+    // @PathVariable: URL パスの {id} 部分を引数 Long id に割り当て。Model は画面へ渡すデータの格納用
+      Post post = postService.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid post Id:" + id));
+     // データが存在すれば Post を取り出し、存在しなければ例外（IllegalArgumentException）を発生させる
+       model.addAttribute("post", post);
+        return "post/detail"; // templates/posts/detail.html を表示
+    }
 }
