@@ -52,8 +52,8 @@
               <!-- th:each="post :${posts}": Controllerから渡された posts リストの要素数だけ <tr> を繰り返し生成 -->
 
                   <td>
-                    <!-- タイトルをクリックすると詳細（未実装）や編集へ -->
-                     <span th:text="${post.title}">タイトル</span>
+                   <!-- list.html 内のタイトル表示箇所を修正 -->
+                     <a th:href="@{/posts/{id}(id=${post.id})}" th:text="${post.title}">タイトル</a>
                      <!-- th:text="${post.title}": postオブジェクトの getTitle() の値をスパンタグ内に表示 -->
                   </td>
 
