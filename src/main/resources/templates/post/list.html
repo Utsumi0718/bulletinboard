@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<!-- HTML5のドキュメントタイプ宣言 -->
+
+<html lang="ja" xmlns:th="http://www.thymeleaf.org"
+                xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+                layout:decorate="~{layout/layout}">
+<!-- layout:decorate="~{layout/layout}": ベースとなる共通レイアウト（templates/layout/layout.html）を適用宣言 -->
+
+<head>
+  <title layout:fragment="title">投稿一覧</title>
+  <!-- layout:fragment="title": 親レイアウトの title フラグメント領域に「投稿一覧」という文字列を注入 -->
+</head>
+
+<body>
+  <div layout:fragment="content">
+  <!-- layout:fragment="content": 親レイアウトの content フラグメント領域に以下のHTMLをまるごと挿入 -->
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+    <!-- タイトルとボタンを左右に分散配置するFlexboxレイアウト -->
+
+            <h1>投稿一覧</h1>
+            <!-- 画面見出し -->
+
+            <!-- 新規投稿画面へのリンク -->
+            <a th:href="@{/posts/new}" class="btn btn-primary">新規投稿</a>
+            <!-- th:href="@{/posts/new}": 新規投稿画面（/posts/new）へのリンクURLを動的生成 -->
+        </div>
+
+      <table class="table table-striped">
+      <!-- ストライプ模様（交互に着色）のテーブルタグ -->
+
+         <thead>
+         <!-- テーブルのヘッダー行グループ -->
+
+            <tr>
+                <th>タイトル</th>
+                <!-- 列見出し1: タイトル -->
+
+                <th>作成日</th>
+                <!-- 列見出し2: 作成日（※直下のtd構造との差異あり） -->
+
+                <th>操作</th>
+                <!-- 列見出し3: 操作 -->
+            </tr>
+            </thead>
+
+            <tbody>
+            <!-- テーブルのボディ行グループ -->
+
+              <!-- 投稿リストループ表示 -->
+              <tr th:each="post :${posts}">
+              <!-- th:each="post :${posts}": Controllerから渡された posts リストの要素数だけ <tr> を繰り返し生成 -->
+
+                  <td>
+                    <!-- タイトルをクリックすると詳細（未実装）や編集へ -->
+                     <span th:text="${post.title}">タイトル</span>
+                     <!-- th:text="${post.title}": postオブジェクトの getTitle() の値をスパンタグ内に表示 -->
+                  </td>
+
+                  <td th:text="${post.content}">内容</td>
+                  <!-- th:text="${post.content}": postオブジェクトの getContent() の値を表示 -->
+
+                  <td th:text="${#temporals.format(post.createdAt, 'yyyy/MM/dd HH:mm')}">日時</td>
+                  <!-- #temporals.format(...): LocalDateTime型の createdAt を「年/月/日 時:分」形式にフォーマット表示 -->
+              </tr>
+            </tbody>
+    </table>
+
+    <!-- まだ投稿がない場合の表示 -->
+     <div th:if="${#lists.isEmpty(posts)}" class="alert alert-info">
+     <!-- th:if="${#lists.isEmpty(posts)}": postsリストが空（0件）の場合のみ、この div タグを表示する -->
+
+        投稿がありません。最初の投稿をしてみましょう。
+        <!-- メッセージテキスト -->
+      </div>
+  </div>
+</body>
+</html>
