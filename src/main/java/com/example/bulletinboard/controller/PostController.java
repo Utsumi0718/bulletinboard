@@ -8,6 +8,9 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.stereotype.Controller;
 import java.util.List;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
 
 /*
  * 【クラスの役割】
@@ -89,4 +92,13 @@ public class PostController {
     return "redirect:/posts"; // 更新後は一覧へ
     //  更新完了後、ブラウザに対して投稿一覧画面（/posts）へリダイレクト（転送）指示を出す
     }
+
+    //投稿の削除
+    @PostMapping("/{id}delete")
+    public String deletePost(@PathVariable Long id) {
+        postService.deleteById(id);
+
+        return "posts/deleteComplete";//削除後削除完了画面を表示
+    }
+
 }
