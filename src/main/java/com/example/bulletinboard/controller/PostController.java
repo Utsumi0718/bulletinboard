@@ -27,22 +27,23 @@ public class PostController {
     //掲示板の一覧を表示
     @GetMapping
     public String ListPosts(Model model){
-       List<Post> posts = postService.getAllPosts();
+       List<Post> posts = postService.findAll();
        model.addAttribute("posts", posts); //画面に渡すデータをセット
-        return "post/list"; // templates/posts/list.html を表示
+        return "posts/list"; // templates/posts/list.html を表示
     }
 
     //新規投稿フォームの表示
     @GetMapping("/new")
     public String newPostForm(Model model){
     model.addAttribute("post", new Post());
-    return "post/new"; // templates/posts/new.html を表示
+    return "posts/new"; // templates/posts/new.html を表示
     }
 
     //新規投稿の保存の処理
+    @PostMapping
     public String createPost(@ModelAttribute Post post){
         // createPostメソッド: フォームから送信されたデータを @ModelAttribute で Post オブジェクトに自動マッピングして受け取る
-        postService.savePost(post);
+        postService.save(post);
         return "redirect:/posts"; //投稿後、掲示板一覧にリダイレクト
     }
 
@@ -54,6 +55,6 @@ public class PostController {
                 .orElseThrow(() -> new IllegalArgumentException("Invalid post Id:" + id));
      // データが存在すれば Post を取り出し、存在しなければ例外（IllegalArgumentException）を発生させる
        model.addAttribute("post", post);
-        return "post/detail"; // templates/posts/detail.html を表示
+        return "posts/detail"; // templates/posts/detail.html を表示
     }
 }

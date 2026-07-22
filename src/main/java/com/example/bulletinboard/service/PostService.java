@@ -41,7 +41,7 @@ public class PostService {
     // コンストラクタの終了
 
     // 投稿一覧を取得するメソッド
-    public List<Post> getAllPosts() {
+    public List<Post> findAll() {
     // getAllPostsメソッド: 戻り値として Post のリスト（List<Post>）を返す
 
         return postRepository.findAll();
@@ -59,7 +59,7 @@ public class PostService {
     // findByIdメソッドの終了
 
     // 新規投稿を保存するメソッド
-    public Post savePost(Post post) {
+    public Post save(Post post) {
     // savePostメソッド: 保存対象の Post オブジェクトを受け取り、保存後の Post オブジェクトを返す
 
         return postRepository.save(post);
