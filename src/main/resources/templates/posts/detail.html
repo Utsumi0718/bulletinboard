@@ -19,8 +19,9 @@
  <div class="d-flex gap-2">
             <a th:href="@{/posts}" class="btn btn-secondary">一覧に戻る</a>
             <!-- 編集と削除は後ほど実装します -->
-            <a href="#" class="btn btn-primary">編集</a>
-            <button class="btn btn-danger">削除</button>
+            <!-- 編集ボタンを実装 -->
+           <a th:href="@{/posts/{id}/edit(id=${post.id})}" class="btn btn-primary">編集</a>
+           <button class="btn btn-danger">削除</button>
     </div>
 </div>
 </body>
