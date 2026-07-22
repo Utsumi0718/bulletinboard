@@ -57,4 +57,36 @@ public class PostController {
        model.addAttribute("post", post);
         return "posts/detail"; // templates/posts/detail.html を表示
     }
+
+    //編集画面の表示
+    @GetMapping("/{id}/edit")
+    public String editPostForm(@PathVariable Long id, Model model){
+        Post post = postService.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid post Id:" + id));
+        model.addAttribute("post", post);
+        return "posts/edit"; // templates/posts/edit.html を表示
+    }
+
+    //投稿の更新処理
+    @PostMapping("/{id}")
+    // @PathVariable: 対象のIDを取得 / @ModelAttribute: フォームから送信された入力値（タイトル・本文）を自動で Post オブジェクトにマッピング
+    public String updatePost(@PathVariable Long id, @ModelAttribute Post post){
+     // 既存のデータを取得して、内容を書き換えて保存する。
+     Post existingPost = postService.findById(id)
+    // データベースから「書き換える前の本物の投稿データ」を取得
+            .orElseThrow(() -> new IllegalArgumentException("Invalid post Id:" + id));
+    //対象データが存在しない場合は安全に例外を発生させる
+
+    existingPost.setTitle(post.getTitle());
+    // 画面から送られてきた新しいタイトル（post.getTitle()）で、既存データ（existingPost）のタイトルを上書き
+
+    existingPost.setContent(post.getContent());
+    // 画面から送られてきた新しい本文（post.getContent()）で、既存データ（existingPost）の本文を上書き
+
+    postService.save(existingPost);
+    //内容を上書きした既存データ（existingPost）をデータベースに保存（UPDATE文が発行される）
+
+    return "redirect:/posts"; // 更新後は一覧へ
+    //  更新完了後、ブラウザに対して投稿一覧画面（/posts）へリダイレクト（転送）指示を出す
+    }
 }
