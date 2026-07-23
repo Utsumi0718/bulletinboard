@@ -5,6 +5,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Entity
+@Table(name = "posts") //テーブル名を明示的に指定
 @Data
 /*
  * 【クラスの役割】
