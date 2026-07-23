@@ -4,6 +4,11 @@
 - Spring Boot を使用した Web アプリケーション開発の学習
 - Java によるサーバーサイド処理と、画面表示（フロントエンド）の連携の流れを理解する
 
+## データベース設計の自動化について
+本プロジェクトでは、学習の効率化のため `spring.jpa.hibernate.ddl-auto` 設定を利用し、JavaのEntityクラスからデータベーステーブルを自動生成しています。
+
+*   **意図**: 本来必要なSQLによるテーブル作成手順を自動化することで、Javaによるサーバーサイド処理や画面連携の実装に集中するためです [1, 2]。
+
 ## 1. 開発環境
 - **言語**: Java 21
 - **フレームワーク**: Spring Boot 3.x
@@ -54,8 +59,19 @@ Spring BootとMySQLの連携にあたり、以下の3つのエラーに直面し
 * **目的**データベースへの保存や検索が正しく行えるか確認します
 * **使用するもの** @SpringBootTest と MockMvc を使用します
 
-
-
 ##追加機能を実装（2026/07/23）
 * **機能**：ログイン・認証機能の実装（Spring Security）
 
+## 開発中に発生したエラーと解決記録（2026/07/23）
+
+### 1. H2データベースのテーブル未検出エラー
+* **事象**: `Table "POSTS" not found (this database is empty)`
+* **原因**: Spring Boot 3の仕様により、`@Sql`によるデータ投入がHibernateによるテーブル自動生成よりも先に実行されてしまったためです。また、`@DataJpaTest`がデフォルトで設定ファイルを無視し、独自のDB接続を試みたことも原因でした。
+* **解決策**:
+    1. `application-default.properties` に `spring.jpa.defer-datasource-initialization=true` を追加し、初期化順序を調整しました。
+    2. テストクラスに `@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)` を付与し、独自の設定（MySQL互換モードなど）を強制適用しました。
+
+### 2. SQL実行時のカラム名不一致エラー
+* **事象**: `Column "CREATEDAT" not found`
+* **原因**: Javaのフィールド名（`createdAt`）とデータベースのカラム名（`created_at`）の命名規則の不一致です。SQLファイル内でJavaの変数名をそのまま使用していたため、H2がカラムを特定できませんでした。
+* **解決策**: SQLスクリプト内のカラム名をスネークケース（`created_at`, `updated_at`）に修正しました。
