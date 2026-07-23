@@ -1,8 +1,0 @@
-# Hibernateが発行するSQLを表示
-logging.level.org.hibernate.SQL=DEBUG
-# SQLに渡されるパラメータ（値）を表示
-logging.level.org.hibernate.type.descriptor.sql.BasicBinder=TRACE
-
-# トランザクションの開始・コミット・ロールバックのログを表示
-logging.level.org.springframework.transaction=DEBUG
-logging.level.org.springframework.jdbc.support.JdbcTransactionManager=DEBUG

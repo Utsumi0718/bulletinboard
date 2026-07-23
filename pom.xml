@@ -15,7 +15,8 @@
         <!-- artifactId: 親プロジェクト名（共通設定・ライブラリ管理用のスターター親） -->
         <artifactId>spring-boot-starter-parent</artifactId>
         <!-- version: 継承するSpring Bootのバージョン -->
-        <version>4.1.0</version>
+        <!-- テストクラスに@DataJpaTest使うためにversionを修正 -->
+        <version>3.4.13</version>
         <!-- relativePath: ローカルファイルではなくリポジトリから親POMを検索させる設定 -->
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
@@ -66,10 +67,11 @@
     <!-- dependencies: プロジェクトに必要な外部ライブラリの一覧グループ -->
     <dependencies>
         <!-- dependency: Webアプリケーション構築用ライブラリ -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webmvc</artifactId>
-        </dependency>
+       <dependency>
+         <groupId>org.springframework.boot</groupId>
+         <artifactId>spring-boot-starter-web</artifactId>
+      </dependency>
+
 
         <!-- dependency: 開発時の自動再起動などの開発支援ツール -->
         <dependency>
@@ -88,14 +90,14 @@
         </dependency>
 
         <!-- dependency: Web機能のテスト用ライブラリ -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webmvc-test</artifactId>
-            <!-- scope: テスト実行時（test）のみ使用するスコープ指定 -->
-            <scope>test</scope>
-        </dependency>
+        <!-- scope: テスト実行時（test）のみ使用するスコープ指定 -->
+      <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+       <scope>test</scope>
+    </dependency>
 
-                <!-- Lombok本体（インポートを有効にするための設定） -->
+ <!-- Lombok本体（インポートを有効にするための設定） -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
