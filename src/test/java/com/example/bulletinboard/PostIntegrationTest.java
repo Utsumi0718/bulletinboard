@@ -10,6 +10,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -73,7 +74,19 @@ public class PostIntegrationTest {
               .andExpect(content().string(containsString("テストタイトル1")));
    }
 
-   //自分で考えてテストコードを書いてみる(異常系のテスト)
+   //(異常系のテスト)
+   @Test
+   @DisplayName("タイトルと投稿内容が空だと、バリテーションエラーが発生すること")
+   void test_createValidationOverUp() throws Exception{
+      mockMvc.perform(post("/posts")
+             .param("title","")//タイトルを空にする
+             .param("content",""))//投稿内容も空にする
+             .andExpect(status().isOk())//画面がリダイレクトされずに200OK
+             .andExpect(view().name("posts/new"))//入力画面に戻っているか
+             .andExpect(model().attributeHasFieldErrors("post","title"))
+             .andExpect(model().attributeHasFieldErrors("post","content"));
+
+    }
 
 
    ////自分で考えてテストコードを書いてみる(異常系のテスト)
