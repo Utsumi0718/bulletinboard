@@ -97,6 +97,14 @@
        <scope>test</scope>
     </dependency>
 
+           <!-- バリデーション（@NotBlankなど）を使用するための設定 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+
+
  <!-- Lombok本体（インポートを有効にするための設定） -->
         <dependency>
             <groupId>org.projectlombok</groupId>
