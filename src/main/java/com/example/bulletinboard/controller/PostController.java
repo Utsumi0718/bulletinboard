@@ -10,6 +10,9 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.stereotype.Controller;
 import java.util.List;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 
 /*
@@ -98,12 +101,22 @@ public class PostController {
     //  更新完了後、ブラウザに対して投稿一覧画面（/posts）へリダイレクト（転送）指示を出す
     }
 
-    //投稿の削除
-    @PostMapping("/{id}delete")
+    //deleteメソッドの二重送信を防ぐ
+
+    @PostMapping("/{id}/delete")
     public String deletePost(@PathVariable Long id) {
         postService.deleteById(id);
 
-        return "posts/deleteComplete";//削除後削除完了画面を表示
+        //直接ビューを返さず完了画面へリダイレクトさせる
+
+        return "redirect:/posts/delete-complete";//削除後削除完了画面を表示
     }
+
+    //削除完了画面を表示
+    @GetMapping("/delete-complete")
+    public String showDeleteComplete() {
+        return "posts/deleteComplete";
+    }
+
 
 }

@@ -10,11 +10,19 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+
+import com.example.bulletinboard.model.Post;
+import com.example.bulletinboard.repository.PostRepository;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+
 import static org.hamcrest.Matchers.containsString;
 
 /*
@@ -33,6 +41,11 @@ public class PostIntegrationTest {
 
    @Autowired
    private MockMvc mockMvc; // 擬似的なブラウザ操作（リクエスト送信・レスポンス検証）を行うためのオブジェクト
+
+  @Autowired
+  private PostRepository postRepository; // テスト対象となるPostRepositoryのインスタンスを自動注入
+
+
 
    @Test // テストメソッドであることを宣言
    @DisplayName("投稿画面が正常に表示されること") // テスト結果に表示されるわかりやすい説明文
@@ -89,6 +102,26 @@ public class PostIntegrationTest {
     }
 
 
-   ////自分で考えてテストコードを書いてみる(異常系のテスト)
+   // 投稿削除のテスト
+   @Test
+   @Sql("repository/PostRepositoryTest.sql")
+   @DisplayName("投稿したものが、削除されるか検証(PRG対応版)")
+   void test_deletePostFlow() throws Exception{
+    mockMvc.perform(post("/posts/1/delete"))//ID1が削除そのリクエストを送信する
+           .andExpect(status().isFound())// 303 Found(リダイレクト)を確認する
+           .andExpect(redirectedUrl("/posts/delete-complete")); //遷移先のURLを角印ん
+
+           Optional<Post> post = postRepository.findById(1L);//IDが 1L の投稿データを取得
+           assertThat(post).isEmpty();  //検証：取得した Optional の中に Post エンティティが削除されてることを確認
+   }
+
+   @Test
+   @DisplayName("削除完了画面が表示されるか検証する")
+   void test_deleteCompletePage() throws Exception{
+      mockMvc.perform(get("/posts/delete-complete"))
+             .andExpect(status().isOk())//ステータスコードが 200 OK であることを検証
+             .andExpect(view().name("posts/deleteComplete"));//表示されるビューがdeleteCompleteであることを確認
+   }
+
 
 }
