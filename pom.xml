@@ -103,7 +103,7 @@
         </dependency>
 
 
-        <!-- データベース（JPA）を扱うための部品 -->
+        <!--  データベース操作を簡単にする(SQLを自動作成) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -122,6 +122,18 @@
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
+       <!-- アプリにログイン機能やセキュリティ機能を書ける設定 -->
+        <dependency>
+         <groupId>org.springframework.boot</groupId>
+         <artifactId>spring-boot-starter-security</artifactId>
+      </dependency>
+
+      <!-- ログイン状態を画面と連携させる設定 -->
+     <dependency>
+       <groupId>org.thymeleaf.extras</groupId>
+       <artifactId>thymeleaf-extras-springsecurity6</artifactId>
+     </dependency>
+
     </dependencies>
 
     <!-- build: ビルド（パッケージングや実行手順）に関する設定グループ -->
