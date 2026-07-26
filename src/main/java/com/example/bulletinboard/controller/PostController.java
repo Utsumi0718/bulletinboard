@@ -5,11 +5,14 @@ import com.example.bulletinboard.service.PostService;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.stereotype.Controller;
 import java.util.List;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 
 /*
@@ -44,8 +47,13 @@ public class PostController {
 
     //新規投稿の保存の処理
     @PostMapping
-    public String createPost(@ModelAttribute Post post){
+    public String createPost(@Validated @ModelAttribute Post post, BindingResult result){
         // createPostメソッド: フォームから送信されたデータを @ModelAttribute で Post オブジェクトに自動マッピングして受け取る
+
+        if(result.hasErrors()){ //エラーがあれば入力画面を再表示する
+          return "posts/new";
+        }
+
         postService.save(post);
         return "redirect:/posts"; //投稿後、掲示板一覧にリダイレクト
     }
@@ -93,12 +101,22 @@ public class PostController {
     //  更新完了後、ブラウザに対して投稿一覧画面（/posts）へリダイレクト（転送）指示を出す
     }
 
-    //投稿の削除
-    @PostMapping("/{id}delete")
+    //deleteメソッドの二重送信を防ぐ
+
+    @PostMapping("/{id}/delete")
     public String deletePost(@PathVariable Long id) {
         postService.deleteById(id);
 
-        return "posts/deleteComplete";//削除後削除完了画面を表示
+        //直接ビューを返さず完了画面へリダイレクトさせる
+
+        return "redirect:/posts/delete-complete";//削除後削除完了画面を表示
     }
+
+    //削除完了画面を表示
+    @GetMapping("/delete-complete")
+    public String showDeleteComplete() {
+        return "posts/deleteComplete";
+    }
+
 
 }

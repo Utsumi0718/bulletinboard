@@ -26,19 +26,23 @@
    <div class="mb-3">
     <label for="title" class="form-label">タイトル</label>
     <!-- 入力項目のラベル表現 -->
-
     <!-- th:field を使うことでモデルのプロパティと紐付けます -->
-    <input type="text" th:field="*{title}" class="form-control" id="title" placeholder="タイトルを入力してください" required>
+    <input type="text" th:field="*{title}" class="form-control" id="title" placeholder="タイトルを入力してください">
     <!-- th:field="*{title}": postオブジェクトのtitleプロパティと入力欄を双方向バインド（name, value, idを自動設定） -->
-   </div>
+    <!-- titleにフィールドエラーがある場合（空白）spanタグが表示される -->
+    <span th:errors="*{title}" style="color: red;"></span>
+  </div>
 
    <div class="mb-3">
     <label for="content" class="form-label">内容</label>
     <!-- 入力項目のラベル表現 -->
 
-    <textarea th:field="*{content}" class="form-control" id="content" rows="5" placeholder="内容を入力してください" required></textarea>
+    <textarea th:field="*{content}" class="form-control" id="content" rows="5" placeholder="内容を入力してください"></textarea>
     <!-- th:field="*{content}": postオブジェクトのcontentプロパティとテキストエリアを双方向バインド -->
-   </div>
+    <!-- contentにフィールドエラーがある場合（空白）spanタグが表示される -->
+    <span th:errors="*{content}" style="color: red;"></span>
+
+  </div>
 
    <div class="d-flex gap-2">
     <!-- ボタンを横並びにして間隔をあけるレイアウト -->
