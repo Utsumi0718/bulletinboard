@@ -5,11 +5,11 @@ import com.example.bulletinboard.service.PostService;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.stereotype.Controller;
 import java.util.List;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 
 
 /*
@@ -44,8 +44,11 @@ public class PostController {
 
     //新規投稿の保存の処理
     @PostMapping
-    public String createPost(@ModelAttribute Post post){
+    public String createPost(@Validated @ModelAttribute Post post, BindingResult bindingResult){
         // createPostメソッド: フォームから送信されたデータを @ModelAttribute で Post オブジェクトに自動マッピングして受け取る
+        if (bindingResult.hasErrors()) {
+        return "posts/new"; // エラーがあれば入力画面に戻る（これでテストの isOk() が通る）
+    }
         postService.save(post);
         return "redirect:/posts"; //投稿後、掲示板一覧にリダイレクト
     }
