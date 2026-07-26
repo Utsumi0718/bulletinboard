@@ -10,13 +10,9 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.stereotype.Controller;
 import java.util.List;
-<<<<<<< HEAD
-=======
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-
->>>>>>> main
-
 
 /*
  * 【クラスの役割】
@@ -50,21 +46,11 @@ public class PostController {
 
     //新規投稿の保存の処理
     @PostMapping
-<<<<<<< HEAD
     public String createPost(@Validated @ModelAttribute Post post, BindingResult bindingResult){
         // createPostメソッド: フォームから送信されたデータを @ModelAttribute で Post オブジェクトに自動マッピングして受け取る
         if (bindingResult.hasErrors()) {
         return "posts/new"; // エラーがあれば入力画面に戻る（これでテストの isOk() が通る）
     }
-=======
-    public String createPost(@Validated @ModelAttribute Post post, BindingResult result){
-        // createPostメソッド: フォームから送信されたデータを @ModelAttribute で Post オブジェクトに自動マッピングして受け取る
-
-        if(result.hasErrors()){ //エラーがあれば入力画面を再表示する
-          return "posts/new";
-        }
-
->>>>>>> main
         postService.save(post);
         return "redirect:/posts"; //投稿後、掲示板一覧にリダイレクト
     }
