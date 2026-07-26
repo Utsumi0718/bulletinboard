@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org"
+                xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+                layout:decorate="~{layout/layout}">
+<head>
+    <title>新規ユーザ登録</title>
+</head>
+<h1>ユーザー登録</h1>
+<!--  th:actionを使うことで、Spring Securityに必要なCSRFトークンが自動挿入されます -->
+  <form th:action="@{/register}" th:object="${user}" method="post">
+    <div>
+        <label for="username">ユーザー名</label>
+        <input type="text" th:field="*{username}" required id="username">
+
+    </div>
+    <div>
+        <label for="password">パスワード</label>
+        <input type="password" th:field="*{password}" required>
+    </div>
+    <button type="submit">登録</button>
+  </form>
+  <a th:href="@{/login}">ログインはこちら</a>
+</html>
