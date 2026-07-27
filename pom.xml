@@ -84,6 +84,12 @@
         <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
 
+        <!-- ログイン時のみ表示）などのセキュリティタグを使う -->
+        <dependency>
+       <groupId>org.thymeleaf.extras</groupId>
+       <artifactId>thymeleaf-extras-springsecurity6</artifactId>
+      </dependency>
+
         <!-- dependency: Web機能のテスト用ライブラリ -->
         <!-- scope: テスト実行時（test）のみ使用するスコープ指定 -->
       <dependency>
