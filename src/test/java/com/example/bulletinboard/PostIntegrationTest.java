@@ -52,6 +52,27 @@ public class PostIntegrationTest {
     @Autowired
     private PostRepository postRepository; // テスト対象となるPostRepositoryのインスタンスを自動注入
 
+    @Test
+    @DisplayName("新規登録したユーザーがログインできるか検証")
+    void test_loginFlow() throws Exception{
+
+  // 1. ユーザー登録
+     mockMvc.perform(post("/register").with(csrf()) // ★ここに .with(csrf()) を追加！
+        .param("username", "tester")
+        .param("password", "password123"))
+        .andExpect(status().isFound()) // 登録後はログイン画面へリダイレクト
+        .andExpect(redirectedUrl("/login?register_success"));
+
+
+        // 2. 1で登録したアカウントでログイン処理（POST /login）
+    mockMvc.perform(post("/login")
+            .with(csrf())
+            .param("username", "tester")
+            .param("password", "password123"))
+            .andExpect(status().isFound()) // ログイン成功のリダイレクト
+            .andExpect(redirectedUrl("/posts")); // ログイン完了後の画面へ
+
+    }
 
     @Test // テストメソッドであることを宣言
     @DisplayName("投稿画面が正常に表示されること") // テスト結果に表示されるわかりやすい説明文
@@ -182,6 +203,17 @@ void test_createPostFlow() throws Exception {
               Post updatePost = post.get();
               assertThat(updatePost.getTitle()).isEqualTo("更新：タイトル");
               assertThat(updatePost.getContent()).isEqualTo("更新：内容");
+
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("ログアウトの検証")
+    void test_logoutFlow() throws Exception{
+      mockMvc.perform(post("/logout")
+             .with(csrf()))//ログアウトのリクエストの送信
+             .andExpect(status().isFound())//ログアウト後はログイン画面へリダイレクト
+             .andExpect(redirectedUrl("/login?logout"));
 
     }
 

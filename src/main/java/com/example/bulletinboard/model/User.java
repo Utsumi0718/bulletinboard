@@ -15,6 +15,7 @@ import lombok.Data;
  */
 @Entity // このクラスがJPAのエンティティ（DBのテーブルとマッピングされるオブジェクト）であることを宣言
 @Data // Lombokのアノテーション。Getter/Setter、equals、hashCode、toString等を自動生成する
+@Table(name = "users")//テーブル名を明示的に指定
 public class User {
 
     @Id // このフィールド（id）がテーブルの主キー（Primary Key）であることを指定
