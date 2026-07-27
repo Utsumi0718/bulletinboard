@@ -96,6 +96,15 @@ public class PostIntegrationTest {
 
     }
 
+    @Test
+    @DisplayName("未ログイン状態でのアクセス制御")
+    void test_unauthenticatedAccess() throws Exception{
+      mockMvc.perform(post("/new")
+              .with(csrf()))
+              .andExpect(status().isFound())//リダイレクトを確認
+              .andExpect(redirectedUrl("http://localhost/posts?error=unauthorized"));//新規投稿できないことを確認
+    }
+
     @Test // テストメソッドであることを宣言
     @DisplayName("投稿画面が正常に表示されること") // テスト結果に表示されるわかりやすい説明文
      @WithMockUser
