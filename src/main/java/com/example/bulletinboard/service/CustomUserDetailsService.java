@@ -2,6 +2,9 @@ package com.example.bulletinboard.service;
 
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.UserRepository;
+
+import jakarta.transaction.Transactional;
+
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -9,7 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-
+import java.util.Optional;
 /*
  * 【クラス全体の役割】
  * Spring Securityのログイン認証処理および新規ユーザー登録（アカウント作成）を担当するサービス層（ビジネスロジック）クラスです。
@@ -18,7 +21,10 @@ import java.util.ArrayList;
  * - `UserDetailsService` インターフェースを実装することで、Spring Security がログイン時に自動的にこのクラスの `loadUserByUsername` メソッドを呼び出せるようにしています。
  * - 独自の `User` エンティティ（DBのデータ構造）を、Spring Security が理解できる認証用オブジェクト（`UserDetails`）へ変換する「仲介役」を果たします。
  * - パスワード暗号化（`PasswordEncoder`）と DB 保存（`UserRepository`）を組み合わせたユーザー登録処理（`registerUser`）も提供します。
- */
+ * - 指定されたユーザーのパスワードを新しいパスワード（暗号化済み）で更新します。
+ * * @param username 対象のユーザー名
+ * * @return ユーザーが存在し、更新に成功した場合は true、存在しない場合は false
+*/
 
 @Service // Springのサービス層コンポーネントとしてコンテナに登録（@Autowired可能にする）
 public class CustomUserDetailsService implements UserDetailsService {
@@ -60,5 +66,30 @@ public class CustomUserDetailsService implements UserDetailsService {
     // 2. パスワードが安全になった User オブジェクトを DB に保存する
     userRepository.save(user);
   }
+
+  /*
+   * パスワードの再設定メソッド
+   */
+
+  @Transactional
+  public boolean updatePassword(String username, String rawNewPassword){
+    //データベースから該当のユーザーを検索
+    Optional<User> userOptional = userRepository.findByUsername(username);
+
+    //ユーザー存在しない場合はfalseを返す
+    if(userOptional.isEmpty()){
+       return false;
+    }
+
+    //ユーザーが存在する場合はパスワードを暗号化してセット
+    User user = userOptional.get();
+    user.setPassword(passwordEncoder.encode(rawNewPassword));
+
+    //DBに保存（更新）
+    userRepository.save(user);
+    return true;
+  }
+
+
 
 }
