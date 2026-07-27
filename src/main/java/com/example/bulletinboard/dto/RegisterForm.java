@@ -1,4 +1,4 @@
-package com.example.bulletinboard.form; //form（データ転送オブジェクト）クラスが所属するパッケージ
+package com.example.bulletinboard.dto; //form（データ転送オブジェクト）クラスが所属するパッケージ
 
 import jakarta.validation.constraints.NotNull; // 未入力（null）チェック用のアノテーションをインポート
 import jakarta.validation.constraints.Pattern; // 正規表現（文字列形式）チェック用のアノテーションをインポート

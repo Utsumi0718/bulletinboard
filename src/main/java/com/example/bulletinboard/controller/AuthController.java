@@ -1,6 +1,6 @@
 package com.example.bulletinboard.controller;
 
-import com.example.bulletinboard.form.RegisterForm;
+import com.example.bulletinboard.dto.RegisterForm;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.service.CustomUserDetailsService;
 import jakarta.validation.Valid;
