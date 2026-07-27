@@ -12,14 +12,14 @@
         <label for="username">ユーザー名</label>
         <input type="text" th:field="*{username}" required id="username">
         <!-- バリテーションエラーメッセージを追加：ユーザー名 -->
-        <div th:if="{#fields.hasErrors('username')}" th:errors="*{username}" style="color: red;"></div>
+        <div th:if="${#fields.hasErrors('username')}" th:errors="*{username}" style="color: red;"></div>
 
     </div>
     <div>
         <label for="password">パスワード</label>
         <input type="password" th:field="*{password}" required>
          <!-- バリテーションエラーメッセージを追加：パスワード-->
-        <div th:if="{#fields.hasErrors('password')}" th:errors="*{password}" style="color: red;"></div>
+        <div th:if="${#fields.hasErrors('password')}" th:errors="*{password}" style="color: red;"></div>
     </div>
     <button type="submit">登録</button>
   </form>

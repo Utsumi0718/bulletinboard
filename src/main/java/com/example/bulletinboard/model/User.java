@@ -29,14 +29,14 @@ public class User {
     //ユーザー名（username）のバリデーション・DB定義
     @NotNull(message = "{NotNull.user.username}") //必須チェック（null不可）
     @Size(min = 4, max = 10, message = "{Size.user.username}")//文字数チェック（4文字以上10文字以内）
-    @Pattern(regexp = "^[a-zA-Z0-9]+$", message = "{Pattern.user.username}")// 形式チェック（半角英数字のみ：a〜z, A〜Z, 0〜9 の1文字以上繰り返し）
+    @Pattern(regexp = "^(?=.*[a-zA-Z])(?=.*[0-9])[a-zA-Z0-9]+$", message = "{Pattern.user.username}")// 形式チェック（半角英字と半角数字がそれぞれ1文字以上含まれる4〜10文字の半角英数字）
     @Column(nullable = false, unique = true) // DBのカラム設定：NOT NULL（必須）かつ UNIQUE（重複不可）制約を付与
     private String username; // ログイン等に使用するユーザー名
 
     //パスワード（password）のバリデーション・DB定義
     @NotNull(message = "{NotNull.user.password}") //必須チェック（null不可）
     @Size(min = 8, max = 20, message = "{Size.user.password}")//文字数チェック（8文字以上20文字以内）
-    @Pattern(regexp = "^[a-zA-Z0-9]+$", message = "{Pattern.user.password}")// 形式チェック（半角英数字のみ：a〜z, A〜Z, 0〜9 の1文字以上繰り返し）
+   @Pattern(regexp = "^(?=.*[a-zA-Z])(?=.*[0-9])[a-zA-Z0-9]+$", message = "{Pattern.user.password}")// 形式チェック（半角英字と半角数字がそれぞれ1文字以上含まれる8〜20文字の半角英数字）
     @Column(nullable = false) // DBのカラム設定：NOT NULL（必須）制約を付与
     private String password; // ハッシュ化されたパスワード文字列を保持するフィールド
 
