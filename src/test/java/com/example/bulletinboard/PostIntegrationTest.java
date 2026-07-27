@@ -58,7 +58,7 @@ public class PostIntegrationTest {
 
   // 1. ユーザー登録
      mockMvc.perform(post("/register").with(csrf()) // ★ここに .with(csrf()) を追加！
-        .param("username", "tester")
+        .param("username", "tester01")
         .param("password", "password123"))
         .andExpect(status().isFound()) // 登録後はログイン画面へリダイレクト
         .andExpect(redirectedUrl("/login?register_success"));
@@ -67,7 +67,7 @@ public class PostIntegrationTest {
         // 2. 1で登録したアカウントでログイン処理（POST /login）
     mockMvc.perform(post("/login")
             .with(csrf())
-            .param("username", "tester")
+            .param("username", "tester01")
             .param("password", "password123"))
             .andExpect(status().isFound()) // ログイン成功のリダイレクト
             .andExpect(redirectedUrl("/posts")); // ログイン完了後の画面へ
@@ -95,6 +95,23 @@ public class PostIntegrationTest {
             .andExpect(redirectedUrl("/login?error")); // ログイン失敗時の画面へ
 
     }
+    // 異常系のテスト
+    @Test
+    @DisplayName("ユーザー名やパスワードが英数混在でない場合、登録画面に戻りエラーになること")
+    void test_registerValidationError_notAlphaNumeric() throws Exception {
+
+        // 英字が含まれない値（数字のみ）で送信
+        mockMvc.perform(post("/register")
+                .with(csrf())
+                .param("username", "1111111")        // 数字のみ（英字なしルール違反）
+                .param("password", "11111111"))      // 数字のみ（英字なしルール違反）
+                .andExpect(status().isOk())          // 登録されず画面描画（200 OK）
+                .andExpect(view().name("auth/register")) // 登録画面に戻ること
+                .andExpect(model().hasErrors())      // バリデーションエラーが存在すること
+                .andExpect(model().attributeHasFieldErrors("user", "username")) // usernameにエラーがあること
+                .andExpect(model().attributeHasFieldErrors("user", "password")); // passwordにエラーがあること
+    }
+
 
     @Test
     @DisplayName("未ログイン状態でのアクセス制御")

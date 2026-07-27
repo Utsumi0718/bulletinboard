@@ -1,5 +1,6 @@
 package com.example.bulletinboard.controller;
 
+import com.example.bulletinboard.form.RegisterForm;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.service.CustomUserDetailsService;
 import jakarta.validation.Valid;
@@ -31,17 +32,22 @@ public class AuthController {
    //新規登録画面の表示
    @GetMapping("/register")
    public String resisterForm(Model model) {
-       model.addAttribute("user", new User());
+       model.addAttribute("registerForm", new RegisterForm()); //Form
        return "auth/register";
    }
 
   //新規登録処理の実行
   @PostMapping("/register")
-  public String register(@Valid @ModelAttribute User user, BindingResult result){
+  public String register(@Valid @ModelAttribute("registerForm") RegisterForm form, BindingResult result){
     //バリテーションエラーがある場合は登録画面に戻る
     if(result.hasErrors()){
       return "auth/register";
     }
+
+    // Form から User エンティティへ値を移し替える
+        User user = new User();
+        user.setUsername(form.getUsername());
+        user.setPassword(form.getPassword());
     userDetailsService.registerUser(user);
     return "redirect:/login?register_success"; //登録後はログイン画面へ
   }
