@@ -74,6 +74,28 @@ public class PostIntegrationTest {
 
     }
 
+    @Test
+    @DisplayName("間違ったパスワードでログインしてエラーが出るか検証")
+    void test_loginFailure() throws Exception{
+
+    // ユーザー登録
+     mockMvc.perform(post("/register").with(csrf()) // ★ここに .with(csrf()) を追加！
+        .param("username", "tester01")
+        .param("password", "password345"))
+        .andExpect(status().isFound()) // 登録後はログイン画面へリダイレクト
+        .andExpect(redirectedUrl("/login?register_success"));
+
+
+        // 2. 1で登録したアカウントでログイン処理（POST /login）
+    mockMvc.perform(post("/login")
+            .with(csrf())
+            .param("username", "tester01")
+            .param("password", "wrongpassword"))//間違ったパスワードを入力
+            .andExpect(status().isFound()) // ログイン失敗時ののリダイレクト
+            .andExpect(redirectedUrl("/login?error")); // ログイン失敗時の画面へ
+
+    }
+
     @Test // テストメソッドであることを宣言
     @DisplayName("投稿画面が正常に表示されること") // テスト結果に表示されるわかりやすい説明文
      @WithMockUser
