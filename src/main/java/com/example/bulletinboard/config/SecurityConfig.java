@@ -38,6 +38,10 @@ public class SecurityConfig {
          .defaultSuccessUrl("/posts", true) // ログイン成功時の移動先URL（/posts：投稿一覧）を設定
          .permitAll() // ログイン画面処理自体へのアクセスは全員に許可する
         )
+        //未ログインで認証が必要なページ（新規投稿など）にアクセスした時の処理
+        .exceptionHandling(exception -> exception
+            .authenticationEntryPoint(new org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint("/posts?error=unauthorized"))
+        )
         // 3. ログアウト処理に関する動作を設定
         .logout(logout -> logout
          .logoutUrl("/logout") // ログアウト処理を実行するためのURLを指定（ここにPOSTするとログアウト）

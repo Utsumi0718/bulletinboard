@@ -24,6 +24,12 @@
             <!-- 新規投稿画面へのリンク -->
             <a th:href="@{/posts/new}" class="btn btn-primary">新規投稿</a>
             <!-- th:href="@{/posts/new}": 新規投稿画面（/posts/new）へのリンクURLを動的生成 -->
+
+
+          <!-- 👇未ログインで弾かれて戻ってきた時だけ表示する -->
+          <div th:if="${param.error != null and param.error[0] == 'unauthorized'}" style="color: red; margin-top: 5px; font-size: 0.9rem;">
+           ※新規投稿するにはログインをしてください。
+          </div>
         </div>
 
       <table class="table table-striped">
@@ -90,6 +96,8 @@
         <button type="submit">ログアウト</button>
     </form>
 </div>
+
   </div>
+
 </body>
 </html>
