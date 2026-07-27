@@ -103,7 +103,7 @@ void test_createPostFlow() throws Exception {
     @DisplayName("投稿したものが、削除されるか検証(PRG対応版)")
     @WithMockUser
     void test_deletePostFlow() throws Exception {
-        mockMvc.perform(post("/posts/1/delete")) // ID1が削除そのリクエストを送信する
+        mockMvc.perform(post("/posts/1/delete").with(csrf())) // ID1が削除そのリクエストを送信する
                .andExpect(status().isFound()) // 302/303 Found(リダイレクト)を確認する
                .andExpect(redirectedUrl("/posts/delete-complete")); // 遷移先のURLを確認
 
