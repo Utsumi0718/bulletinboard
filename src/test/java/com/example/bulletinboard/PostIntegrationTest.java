@@ -86,7 +86,7 @@ public class PostIntegrationTest {
         .andExpect(redirectedUrl("/login?register_success"));
 
 
-        // 2. 1で登録したアカウントでログイン処理（POST /login）
+        // 間違ったパスワードでログイン
     mockMvc.perform(post("/login")
             .with(csrf())
             .param("username", "tester01")
