@@ -2,8 +2,10 @@ package com.example.bulletinboard.controller;
 
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.service.CustomUserDetailsService;
+import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,7 +37,11 @@ public class AuthController {
 
   //新規登録処理の実行
   @PostMapping("/register")
-  public String register(@ModelAttribute User user){
+  public String register(@Valid @ModelAttribute User user, BindingResult result){
+    //バリテーションエラーがある場合は登録画面に戻る
+    if(result.hasErrors()){
+      return "auth/register";
+    }
     userDetailsService.registerUser(user);
     return "redirect:/login?register_success"; //登録後はログイン画面へ
   }
