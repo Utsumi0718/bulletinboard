@@ -29,6 +29,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /*
  * 【クラス全体の役割】
@@ -100,7 +101,7 @@ void test_createPostFlow() throws Exception {
     // 投稿削除のテスト
     @Test
     @Sql("repository/PostRepositoryTest.sql")
-    @DisplayName("投稿したものが、削除されるか検証(PRG対応版)")
+    @DisplayName("ログイン済みのユーザなら投稿したものが、削除されるか検証(PRG対応版)")
     @WithMockUser
     void test_deletePostFlow() throws Exception {
         mockMvc.perform(post("/posts/1/delete").with(csrf())) // ID1が削除そのリクエストを送信する
@@ -152,4 +153,38 @@ void test_createPostFlow() throws Exception {
         assertThat(posts).extracting(Post::getTitle).contains("セキュリティテスト");
     }
 
-} // ★クラスの閉じカッコ（アノテーションの放置エラーを解消）
+    @Test
+    @Sql("repository/PostRepositoryTest.sql")
+    @WithMockUser
+    @DisplayName("ログイン済みのユーザなら編集画面が表示されるか検証")
+    void test_editPage() throws Exception{
+       mockMvc.perform(get("/posts/1/edit"))
+              .andExpect(status().isOk())//ステータスコードが200であることを検証
+              .andExpect(view().name("posts/edit"));//posts配下のedit.htmlが表示されればOK
+    }
+
+    @Test
+    @Sql("repository/PostRepositoryTest.sql")
+    @WithMockUser
+    @DisplayName("投稿したタイトルや内容が編集（更新）されるか検証")
+    void test_editPostFlow () throws Exception{
+         mockMvc.perform(post("/posts/1")
+                .with(csrf())
+                .param("title", "更新：タイトル")
+                .param("content","更新：内容"))//編集のリクエストを送信
+                .andExpect(status().isFound())//更新後は一覧へリダイレクトされているか
+                .andExpect(redirectedUrl("/posts"));//リダイレクトの確認
+
+                //編集した内容が反映されているか確認
+              Optional<Post> post =  postRepository.findById(1L); // IDが 1L の投稿データを取得
+              assertThat(post).isPresent();//中身が入ってるか確認
+              ////Optionalの中身を取り出してタイトルと内容が更新されているか検証
+              Post updatePost = post.get();
+              assertThat(updatePost.getTitle()).isEqualTo("更新：タイトル");
+              assertThat(updatePost.getContent()).isEqualTo("更新：内容");
+
+    }
+
+
+
+}
