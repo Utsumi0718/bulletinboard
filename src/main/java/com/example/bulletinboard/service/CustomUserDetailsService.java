@@ -24,6 +24,7 @@ import java.util.Optional;
  * - 指定されたユーザーのパスワードを新しいパスワード（暗号化済み）で更新します。
  * * @param username 対象のユーザー名
  * * @return ユーザーが存在し、更新に成功した場合は true、存在しない場合は false
+ * * ログインの成功時・失敗時のカウント操作用メソッドと、Spring Security がアカウントのロック状態（accountNonLocked）を判定できるようにする修正を行います。
 */
 
 @Service // Springのサービス層コンポーネントとしてコンテナに登録（@Autowired可能にする）
@@ -31,6 +32,8 @@ public class CustomUserDetailsService implements UserDetailsService {
 
   private final UserRepository userRepository; // DB操作を行うリポジトリ
   private final PasswordEncoder passwordEncoder; // パスワードのハッシュ化（暗号化）を行うコンポーネント
+
+  public static final int MAX_FAILED_ATTEMPTS = 3; // 最大許容失敗回数
 
   // コンストラクタインジェクション（Springが自動的に必要な依存関係を注入する）
   public CustomUserDetailsService(UserRepository userRepository, PasswordEncoder passwordEncoder){
@@ -44,17 +47,18 @@ public class CustomUserDetailsService implements UserDetailsService {
    */
   @Override
   public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-    // 1. ユーザー名でDBを検索（見つからない場合は UsernameNotFoundException 例外をスロー）
+    // ユーザー名でDBを検索（見つからない場合は UsernameNotFoundException 例外をスロー）
     User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("ユーザーが見つかりません" + username));
 
-    // 2. 自作の User エンティティを Spring Security 標準の UserDetails (User) オブジェクトに変換して返す
-    return new org.springframework.security.core.userdetails.User(
-                user.getUsername(), // ユーザー名
-                user.getPassword(), // ハッシュ化されたパスワード
-                new ArrayList<>() // 権限リスト（今回は役割・権限指定なしのため空のリスト）
-        );
-  }
+    // Spring Security 向けのUserDetailsを生成
+    return org.springframework.security.core.userdetails.User.builder()
+           .username(user.getUsername())
+           .password(user.getPassword())
+           .accountLocked(!user.isAccountNonLocked())//ロック状態を反映
+           .roles("USER")
+           .build();
+    }
 
   /*
    * 【新規ユーザー登録メソッド】
@@ -69,6 +73,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
   /*
    * パスワードの再設定メソッド
+   * パスワード再設定成功時にアカウントロックも解除するように既存の updatePassword を拡張
    */
 
   @Transactional
@@ -85,10 +90,35 @@ public class CustomUserDetailsService implements UserDetailsService {
     User user = userOptional.get();
     user.setPassword(passwordEncoder.encode(rawNewPassword));
 
+    //パスワードを再設定したらアカウントロックを解除して、失敗回数もリセット
+    user.setAccountNonLocked(true);
+    user.setFailedAttempt(0);
+
     //DBに保存（更新）
     userRepository.save(user);
     return true;
   }
+
+  /**
+   * ログイン失敗時の処理（失敗回数＋1し、3回に達したらロック）
+  */
+ @Transactional
+ public void increaseFailedAttempts(User user){
+  int newFailAttempts = user.getFailedAttempt() + 1;
+  userRepository.updateFailedAttempts(user.getUsername());
+
+  //3回パスワード入力が失敗したら、アカウントロック
+  if(newFailAttempts >= MAX_FAILED_ATTEMPTS){
+    userRepository.updateAccountNonLocked(user.getUsername(), false);
+  }
+ }
+
+ /**
+  * ログイン成功時の処理（失敗回数をリセット）
+  */
+ public void resetFailedAttempts(String username){
+   userRepository.resetFailedAttempts(username);
+ }
 
 
 
