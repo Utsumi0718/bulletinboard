@@ -34,4 +34,12 @@ public class User {
     @Column(nullable = false) // DBのカラム設定：NOT NULL（必須）制約を付与
     private String password; // ハッシュ化されたパスワード文字列を保持するフィールド
 
+    // ログイン失敗回数（初期値 0）
+    @Column(nullable = false)
+    private int failedAttempt = 0;
+
+    // アカウントがロックされていないか（true: 通常 / false: ロック中、初期値 true）
+    @Column(nullable = false)
+    private boolean accountNonLocked = true;
+
 }
