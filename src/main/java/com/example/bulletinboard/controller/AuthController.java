@@ -12,7 +12,12 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-
+/**
+ * 【クラス全体の役割】
+ * ユーザー認証（ログイン画面の表示）および新規ユーザー登録に関するリクエストを制御するコントローラークラスです。
+ * 画面からの入力を受け取り、バリデーションチェック（入力検証）を行った上で、
+ * サービス層（CustomUserDetailsService）を呼び出してユーザー情報の登録処理や画面遷移を制御します。
+ */
 @Controller
 public class AuthController {
 
