@@ -7,27 +7,35 @@
 </head>
     <body>
         <h1>ログイン</h1>
-        <!-- 登録成功時のメッセージ -->
-         <div th:if="${param.register_success}">
+
+        <div th:if="${param.register_success}">
             ユーザー登録が完了しました。ログインしてください。
-         </div>
-
-         <!-- ログイン時の失敗のメッセージ -->
-          <div th:if="${param.error}" style="color: red;">
-             ユーザー名またはパスワードが正しくありません。
-          </div>
-
-           <form th:action="@{/login}" method="post">
-        <div>
-            <label for="username">ユーザー名: </label>
-            <input type="text" name="username" id="username" required />
         </div>
-        <div>
-            <label for="password">パスワード: </label>
-            <input type="password" name="password" id="password" required />
+
+        <div th:if="${param.reset_success}" style="color: green;">
+            パスワードの再設定が完了しました。新しいパスワードでログインしてください。
         </div>
-        <button type="submit">ログイン</button>
-    </form>
-    <a th:href="@{/register}">新規登録はこちら</a>
+
+        <div th:if="${param.error}" style="color: red;">
+            ユーザー名またはパスワードが正しくありません。
+        </div>
+
+        <form th:action="@{/login}" method="post">
+            <div>
+                <label for="username">ユーザー名: </label>
+                <input type="text" name="username" id="username" required />
+            </div>
+            <div>
+                <label for="password">パスワード: </label>
+                <input type="password" name="password" id="password" required />
+            </div>
+            <button type="submit">ログイン</button>
+        </form>
+
+        <a th:href="@{/register}">新規登録はこちら</a>
+
+        <br>
+        <a th:href="@{/reset-password}">パスワードをお忘れの方はこちら</a>
+
     </body>
 </html>

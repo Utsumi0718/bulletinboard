@@ -60,7 +60,7 @@ public class PasswordResetController{
 
 
      //成功したらログイン画面へリダイレクト（成功クエリを付与）
-     return "redirect:/login?register_success";
+     return "redirect:/login?reset_success";
  }
 
 
