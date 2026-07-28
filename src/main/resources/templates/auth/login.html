@@ -17,11 +17,13 @@
         </div>
 
         <!-- パスワード入力ミスエラーメッセージ -->
-
+        <div th:if="${param.error != null and param.error[0] == 'wrong'}" style="color: red;">
+            ユーザー名またはパスワードが正しくありません
+        </div>
         <!-- パスワードの入力制限のメッセージを追記 -->
-        <div th:if="${param.error}" style="color: red;">
-            ユーザー名またはパスワードが正しくないか、アカウントがロックされています。<br>
-            ※3回連続で失敗するとアカウントがロックされます。ログインできない場合は<a th:href="@{/reset-password}">パスワード再設定</a>を行ってください。
+        <div th:if="${param.error != null and param.error[0] == 'locked'}" style="color: red;">
+            入力制限に達したため、アカウントロックされました。<br>
+            ログインできない場合は<a th:href="@{/reset-password}">パスワード再設定</a>を行ってください。
         </div>
 
         <form th:action="@{/login}" method="post">
