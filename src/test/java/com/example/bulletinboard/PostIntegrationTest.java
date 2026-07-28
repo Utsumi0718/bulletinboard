@@ -92,7 +92,7 @@ public class PostIntegrationTest {
             .param("username", "tester01")
             .param("password", "wrongpassword"))//間違ったパスワードを入力
             .andExpect(status().isFound()) // ログイン失敗時ののリダイレクト
-            .andExpect(redirectedUrl("/login?error")); // ログイン失敗時の画面へ
+            .andExpect(redirectedUrl("/login?error=wrong")); // ログイン失敗時の画面へ
 
     }
     // 異常系のテスト
