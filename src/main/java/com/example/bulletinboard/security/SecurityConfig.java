@@ -36,6 +36,15 @@ public class SecurityConfig {
         .formLogin(login -> login
          .loginPage("/login") // デフォルトのログイン画面ではなく、自作の "/login" 画面を表示に使用する
          .defaultSuccessUrl("/posts", true) // ログイン成功時の移動先URL（/posts：投稿一覧）を設定
+         .failureHandler((request, response, exception) -> {
+           String errorType = "wrong";
+           //失敗した理由がアカウントロックLockedException）」だった場合
+           if(exception instanceof org.springframework.security.authentication.LockedException){
+            errorType = "locked";
+           }
+           //それぞれに応じたURL（?error=wrong または ?error=locked））へリダイレクト
+           response.sendRedirect("/login?error=" + errorType);
+         })
          .permitAll() // ログイン画面処理自体へのアクセスは全員に許可する
         )
         //未ログインで認証が必要なページ（新規投稿など）にアクセスした時の処理
