@@ -108,8 +108,8 @@ public class PostIntegrationTest {
                 .andExpect(status().isOk())          // 登録されず画面描画（200 OK）
                 .andExpect(view().name("auth/register")) // 登録画面に戻ること
                 .andExpect(model().hasErrors())      // バリデーションエラーが存在すること
-                .andExpect(model().attributeHasFieldErrors("user", "username")) // usernameにエラーがあること
-                .andExpect(model().attributeHasFieldErrors("user", "password")); // passwordにエラーがあること
+                .andExpect(model().attributeHasFieldErrors("registerForm", "username")) // usernameにエラーがあること
+                .andExpect(model().attributeHasFieldErrors("registerForm", "password")); // passwordにエラーがあること
     }
 
 
