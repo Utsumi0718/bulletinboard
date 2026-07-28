@@ -19,7 +19,7 @@ public class AuthController {
    private final CustomUserDetailsService userDetailsService;
 
    //依存オブジェクトをインジェクション
-   public AuthController(CustomUserDetailsService userDetailsService, CustomUserDetailsService customUserDetailsService){
+   public AuthController(CustomUserDetailsService userDetailsService){
      this.userDetailsService = userDetailsService;
      }
 

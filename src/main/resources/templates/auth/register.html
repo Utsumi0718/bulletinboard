@@ -7,7 +7,7 @@
 </head>
 <h1>ユーザー登録</h1>
 <!--  th:actionを使うことで、Spring Securityに必要なCSRFトークンが自動挿入されます -->
-  <form th:action="@{/register}" th:object="${user}" method="post">
+  <form th:action="@{/register}" th:object="${registerForm}" method="post">
     <div>
         <label for="username">ユーザー名</label>
         <input type="text" th:field="*{username}" required id="username">

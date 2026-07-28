@@ -65,9 +65,14 @@ public class CustomUserDetailsService implements UserDetailsService {
    * 生のパスワードをハッシュ化し、安全な状態でDBへ保存します。
    */
   public void registerUser(User user){
-    // 1. 入力された生のパスワードをハッシュ化（BCrypt等）してセットし直す
+    //  入力された生のパスワードをハッシュ化（BCrypt等）してセットし直す
     user.setPassword(passwordEncoder.encode(user.getPassword()));
-    // 2. パスワードが安全になった User オブジェクトを DB に保存する
+
+    // ★追記: 新規登録時は初期値として「ロックなし(true)」「失敗回数(0)」を明示的にセットする
+    user.setAccountNonLocked(true);
+    user.setFailedAttempt(0);
+
+    //  パスワードが安全になった User オブジェクトを DB に保存する
     userRepository.save(user);
   }
 

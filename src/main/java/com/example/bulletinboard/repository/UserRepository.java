@@ -3,6 +3,7 @@ package com.example.bulletinboard.repository;
 import com.example.bulletinboard.model.User;
 import org.springframework.data.jpa.repository.JpaRepository; // Spring Data JPAの基本リポジトリ機能を読み込み
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.transaction.annotation.Transactional; // ★追加
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.Optional; // 値が存在しない可能性がある（nullの可能性がある）場合に使用するラッパー型
@@ -17,6 +18,7 @@ import java.util.Optional; // 値が存在しない可能性がある（nullの�
  */
 
 // ※通常は JpaRepository<User, Long> を継承（extends）させて定義します
+@Transactional
 public interface UserRepository extends JpaRepository<User, Long> {
 
     // ユーザー名を指定してDBからユーザー情報を1件検索するカスタムメソッド
