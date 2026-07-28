@@ -1,4 +1,4 @@
-package com.example.bulletinboard.config;
+package com.example.bulletinboard.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

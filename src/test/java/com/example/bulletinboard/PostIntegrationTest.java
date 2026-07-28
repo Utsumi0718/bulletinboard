@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Import; // ★これが不足し�
 
 import com.example.bulletinboard.model.Post;
 import com.example.bulletinboard.repository.PostRepository;
-import com.example.bulletinboard.config.SecurityConfig;
+import com.example.bulletinboard.security.SecurityConfig;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
