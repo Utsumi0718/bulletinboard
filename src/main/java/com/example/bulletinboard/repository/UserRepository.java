@@ -26,7 +26,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUsername(String username);
 
     // 失敗回数を +1 加算する
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE User u SET u.failedAttempt = u.failedAttempt + 1 WHERE u.username = :username")
     void updateFailedAttempts(String username);
 
