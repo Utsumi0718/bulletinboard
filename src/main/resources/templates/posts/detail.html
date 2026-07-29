@@ -7,6 +7,7 @@
 </head>
 <body>
 <div layout:fragment="content">
+
  <h1 th:text="${post.title}">タイトル</h1>
 
 <div class="card mb-4">
@@ -18,13 +19,15 @@
 
  <div class="d-flex gap-2">
             <a th:href="@{/posts}" class="btn btn-secondary">一覧に戻る</a>
-            <!-- 編集と削除は後ほど実装します -->
+            <!-- 追記：ログイン済みユーザと他のユーザーでのボタンの非表示 -->
+            <th:block th:if="${post.user != null and #authentication.name == post.user.username}">
             <!-- 編集ボタンを有効化 -->
            <a th:href="@{/posts/{id}/edit(id=${post.id})}" class="btn btn-primary">編集</a>
            <!-- 削除ボタンを有効化 -->
            <form th:action="@{/posts/{id}/delete(id=${post.id})}"method="post" style="display: inline;">
             <button type="submit" class="btn btn-danger" onclick="return confirm('本当に削除しますか？')">削除</button>
            </form>
+           </th:block>
     </div>
 </div>
 </body>

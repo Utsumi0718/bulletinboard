@@ -63,6 +63,7 @@ public class PostController {
      if(userDetails != null){
        User currentUser = userDetailsService.findByUsername(userDetails.getUsername())
                           .orElseThrow(() -> new IllegalArgumentException("ユーザーが見つかりません"));
+            post.setUser(currentUser); // 👈 このセット処理を追加！
      }
         postService.save(post);
         return "redirect:/posts"; //投稿後、掲示板一覧にリダイレクト
