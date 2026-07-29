@@ -24,6 +24,12 @@
             <!-- 新規投稿画面へのリンク -->
             <a th:href="@{/posts/new}" class="btn btn-primary">新規投稿</a>
             <!-- th:href="@{/posts/new}": 新規投稿画面（/posts/new）へのリンクURLを動的生成 -->
+
+
+          <!-- 👇未ログインで弾かれて戻ってきた時だけ表示する -->
+          <div th:if="${param.error != null and param.error[0] == 'unauthorized'}" style="color: red; margin-top: 5px; font-size: 0.9rem;">
+           ※新規投稿するにはログインをしてください。
+          </div>
         </div>
 
       <table class="table table-striped">
@@ -36,10 +42,10 @@
                 <th>タイトル</th>
                 <!-- 列見出し1: タイトル -->
 
-                <th>作成日</th>
+                <th>投稿内容</th>
                 <!-- 列見出し2: 作成日（※直下のtd構造との差異あり） -->
 
-                <th>操作</th>
+                <th>投稿日</th>
                 <!-- 列見出し3: 操作 -->
             </tr>
             </thead>
@@ -73,6 +79,25 @@
         投稿がありません。最初の投稿をしてみましょう。
         <!-- メッセージテキスト -->
       </div>
+
+      <!-- ログイン・ログアウトボタン -->
+
+      <!-- 未ログイン状態での表示  -->
+      <div sec:authorize="isAnonymous()">
+          <a th:href="@{/login}">ログイン</a>
+          <a th:href="@{/register}">新規登録</a>
+      </div>
+
+      <!-- ログイン状態での表示 -->
+       <div sec:authorize="isAuthenticated()">
+    <span>ログイン中: <strong sec:authentication="name">ユーザー名</strong> さん</span>
+
+    <form th:action="@{/logout}" method="post" style="display: inline;">
+        <button type="submit">ログアウト</button>
+    </form>
+</div>
+
   </div>
+
 </body>
 </html>

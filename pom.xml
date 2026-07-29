@@ -8,20 +8,15 @@
     <!-- modelVersion: このpom.xmlが従っているPOMのバージョン（4.0.0で固定） -->
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- parent: 親プロジェクト（設定の継承元）の定義グループ -->
-    <parent>
-        <!-- groupId: 親プロジェクトのグループ識別子（Spring Boot公式） -->
-        <groupId>org.springframework.boot</groupId>
-        <!-- artifactId: 親プロジェクト名（共通設定・ライブラリ管理用のスターター親） -->
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <!-- version: 継承するSpring Bootのバージョン -->
-        <!-- テストクラスに@DataJpaTest使うためにversionを修正 -->
-        <version>3.4.13</version>
-        <!-- relativePath: ローカルファイルではなくリポジトリから親POMを検索させる設定 -->
-        <relativePath/> <!-- lookup parent from repository -->
-    </parent>
+   <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <!-- 4.1.0 から実在するバージョンへ変更してください -->
+    <version>3.4.1</version>
+    <relativePath/> <!-- lookup parent from repository -->
+  </parent>
 
-    <!-- groupId: 自分のプロジェクトのグループ識別名 -->
+   <!-- groupId: 自分のプロジェクトのグループ識別名 -->
     <groupId>com.example</groupId>
     <!-- artifactId: 自分のプロジェクト名（生成される成果物の名称） -->
     <artifactId>bulletinboard</artifactId>
@@ -67,10 +62,10 @@
     <!-- dependencies: プロジェクトに必要な外部ライブラリの一覧グループ -->
     <dependencies>
         <!-- dependency: Webアプリケーション構築用ライブラリ -->
-       <dependency>
-         <groupId>org.springframework.boot</groupId>
-         <artifactId>spring-boot-starter-web</artifactId>
-      </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
 
 
         <!-- dependency: 開発時の自動再起動などの開発支援ツール -->
@@ -89,6 +84,12 @@
         <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
 
+        <!-- ログイン時のみ表示）などのセキュリティタグを使う -->
+        <dependency>
+       <groupId>org.thymeleaf.extras</groupId>
+       <artifactId>thymeleaf-extras-springsecurity6</artifactId>
+      </dependency>
+
         <!-- dependency: Web機能のテスト用ライブラリ -->
         <!-- scope: テスト実行時（test）のみ使用するスコープ指定 -->
       <dependency>
@@ -98,14 +99,21 @@
     </dependency>
 
            <!-- バリデーション（@NotBlankなど）を使用するための設定 -->
+       <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+
+        <!-- Web機能・Security機能のテスト用ライブラリ -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
+        <groupId>org.springframework.security</groupId>
+        <artifactId>spring-security-test</artifactId>
+        <scope>test</scope>
+       </dependency>
 
 
-
- <!-- Lombok本体（インポートを有効にするための設定） -->
+                <!-- Lombok本体（インポートを有効にするための設定） -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -113,7 +121,7 @@
         </dependency>
 
 
-        <!-- データベース（JPA）を扱うための部品 -->
+        <!--  データベース操作を簡単にする(SQLを自動作成) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -132,6 +140,18 @@
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
+       <!-- アプリにログイン機能やセキュリティ機能を書ける設定 -->
+        <dependency>
+         <groupId>org.springframework.boot</groupId>
+         <artifactId>spring-boot-starter-security</artifactId>
+      </dependency>
+
+      <!-- ログイン状態を画面と連携させる設定 -->
+     <dependency>
+       <groupId>org.thymeleaf.extras</groupId>
+       <artifactId>thymeleaf-extras-springsecurity6</artifactId>
+     </dependency>
+
     </dependencies>
 
     <!-- build: ビルド（パッケージングや実行手順）に関する設定グループ -->
