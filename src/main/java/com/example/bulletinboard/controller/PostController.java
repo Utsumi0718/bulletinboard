@@ -1,8 +1,11 @@
 package com.example.bulletinboard.controller;
 
 import com.example.bulletinboard.model.Post;
+import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.service.PostService;
-
+import com.example.bulletinboard.service.CustomUserDetailsService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -11,22 +14,22 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.stereotype.Controller;
 import java.util.List;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-
 /*
  * 【クラスの役割】
  * ユーザーからの HTTP リクエストを受け取り、適切な画面表示やデータ処理を制御する Web コントローラークラスです。
  * `PostService` を呼び出して投稿データの取得や保存を行い、取得したデータを画面側（Thymeleaf 等のテンプレート）へ渡したり、
  * 処理完了後の画面遷移（リダイレクト等）の指示を出したりする役割を担います。
+ *[追記]：「投稿時にユーザー情報を関連付ける処理」と「編集・削除時に本人かどうかの認可チェック」
  */
 @Controller//このクラスがコントローラであることを宣言する。
 @RequestMapping("/posts")//このコントローラーがベースとなるURLパスを指定する。
 public class PostController {
     private final PostService postService;
+    private final CustomUserDetailsService userDetailsService; //ユーザー専用のサービス
 
-    public PostController(PostService postService) { //コンストラクタでPostServiceを注入（DI）インジェクションする。
+    public PostController(PostService postService, CustomUserDetailsService userDetailsService) { //コンストラクタでPostServiceとCustomUserDetailsServiceを注入（DI）インジェクションする。
         this.postService = postService;
+        this.userDetailsService = userDetailsService;
     }
 
     //掲示板の一覧を表示
@@ -46,11 +49,21 @@ public class PostController {
 
     //新規投稿の保存の処理
     @PostMapping
-    public String createPost(@Validated @ModelAttribute Post post, BindingResult bindingResult){
-        // createPostメソッド: フォームから送信されたデータを @ModelAttribute で Post オブジェクトに自動マッピングして受け取る
+    public String createPost(
+        @Validated @ModelAttribute Post post,
+        BindingResult bindingResult,
+        @AuthenticationPrincipal UserDetails userDetails){ //追記：ログイン情報を受け取る
+
+    // createPostメソッド: フォームから送信されたデータを @ModelAttribute で Post オブジェクトに自動マッピングして受け取る
         if (bindingResult.hasErrors()) {
         return "posts/new"; // エラーがあれば入力画面に戻る（これでテストの isOk() が通る）
     }
+
+    //追記：ログインユーザーを取得してPostにセットする処理を追加
+     if(userDetails != null){
+       User currentUser = userDetailsService.findByUsername(userDetails.getUsername())
+                          .orElseThrow(() -> new IllegalArgumentException("ユーザーが見つかりません"));
+     }
         postService.save(post);
         return "redirect:/posts"; //投稿後、掲示板一覧にリダイレクト
     }
@@ -68,22 +81,33 @@ public class PostController {
 
     //編集画面の表示
     @GetMapping("/{id}/edit")
-    public String editPostForm(@PathVariable Long id, Model model){
+    public String editPostForm(@PathVariable Long id, Model model, @AuthenticationPrincipal UserDetails userDetails){
         Post post = postService.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid post Id:" + id));
-        model.addAttribute("post", post);
+
+     //追記：本人チェック（投稿者がいない、または別のユーザーの場合はアクセス拒否をして一覧へ）
+     if(post.getUser() == null || !post.getUser().getUsername().equals(userDetails.getUsername())){
+       return "redirect:/posts";
+     }
+
+         model.addAttribute("post", post);
         return "posts/edit"; // templates/posts/edit.html を表示
     }
 
     //投稿の更新処理
     @PostMapping("/{id}")
     // @PathVariable: 対象のIDを取得 / @ModelAttribute: フォームから送信された入力値（タイトル・本文）を自動で Post オブジェクトにマッピング
-    public String updatePost(@PathVariable Long id, @ModelAttribute Post post){
+    public String updatePost(@PathVariable Long id, @ModelAttribute Post post, @AuthenticationPrincipal UserDetails userDetails){
      // 既存のデータを取得して、内容を書き換えて保存する。
      Post existingPost = postService.findById(id)
     // データベースから「書き換える前の本物の投稿データ」を取得
             .orElseThrow(() -> new IllegalArgumentException("Invalid post Id:" + id));
     //対象データが存在しない場合は安全に例外を発生させる
+
+    //追記：本人チェック
+    if (existingPost.getUser() == null || !existingPost.getUser().getUsername().equals(userDetails.getUsername())) {
+            return "redirect:/posts";
+        }
 
     existingPost.setTitle(post.getTitle());
     // 画面から送られてきた新しいタイトル（post.getTitle()）で、既存データ（existingPost）のタイトルを上書き
@@ -101,11 +125,18 @@ public class PostController {
     //deleteメソッドの二重送信を防ぐ
 
     @PostMapping("/{id}/delete")
-    public String deletePost(@PathVariable Long id) {
+    public String deletePost(@PathVariable Long id, @AuthenticationPrincipal UserDetails userDetails) {
+       //追記例外
+       Post post = postService.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid post Id:" + id));
+
+       // 追記：本人チェック
+        if (post.getUser() == null || !post.getUser().getUsername().equals(userDetails.getUsername())) {
+            return "redirect:/posts";
+        }
+
         postService.deleteById(id);
-
-        //直接ビューを返さず完了画面へリダイレクトさせる
-
+       //直接ビューを返さず完了画面へリダイレクトさせる
         return "redirect:/posts/delete-complete";//削除後削除完了画面を表示
     }
 

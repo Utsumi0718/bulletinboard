@@ -125,6 +125,13 @@ public class CustomUserDetailsService implements UserDetailsService {
    userRepository.resetFailedAttempts(username);
  }
 
+/**
+   * ユーザー名でユーザー情報を検索する
+   */
+  public Optional<User> findByUsername(String username) {
+      return userRepository.findByUsername(username);
+  }
+
 
 
 }
