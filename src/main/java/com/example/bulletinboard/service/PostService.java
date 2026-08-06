@@ -21,6 +21,11 @@ import java.util.Optional;
  * 掲示板システムの「ビジネスロジック（業務処理）」を担うサービス層のクラスです。
  * コントローラー層からの要求を受け取り、`PostRepository` を介してデータベースとのデータ疎通を行い、
  * 投稿一覧の取得・個別取得・新規保存・削除などの具体的な処理を取りまとめます。
+ * 【追記】
+ * キーワードと一致条件を指定して投稿を検索するメソッドを追加
+ * @param keyword 検索キーワード
+ * @param matchType 一致条件 (contains, starts, ends)
+ * @return 検索結果のリスト
  */
 @Service
 // @Service: このクラスを Spring の DI コンテナにビジネスロジック担当のコンポーネントとして登録するアノテーション
@@ -33,48 +38,39 @@ public class PostService {
 
     // コンストラクタで Repository クラスをインジェクション
     public PostService(PostRepository postRepository) {
-    // コンストラクタ定義: 外部（Spring）から PostRepository のインスタンスを受け取る
-
         this.postRepository = postRepository;
-        // 渡された PostRepository のインスタンスを自身（this）のフィールドに設定
     }
-    // コンストラクタの終了
+
 
     // 投稿一覧を取得するメソッド
     public List<Post> findAll() {
-    // getAllPostsメソッド: 戻り値として Post のリスト（List<Post>）を返す
-
-        return postRepository.findAll();
-        // リポジトリの findAll() を呼び出し、データベース内のすべての投稿データを取得してそのまま返す
-    }
-    // getAllPostsメソッドの終了
+     return postRepository.findAll();
+   }
 
     // 投稿をIDで取得するメソッド
     public Optional<Post> findById(Long id) {
-    // findByIdメソッド: 指定された id（Long型）を受け取り、検索結果を Optional<Post> 型で返す
-
-        return postRepository.findById(id);
-        // リポジトリの findById(id) を呼び出し、該当する投稿データを取得して返す（データがない場合は空の Optional）
+     return postRepository.findById(id);
     }
-    // findByIdメソッドの終了
 
     // 新規投稿を保存するメソッド
     public Post save(Post post) {
-    // savePostメソッド: 保存対象の Post オブジェクトを受け取り、保存後の Post オブジェクトを返す
 
         return postRepository.save(post);
-        // リポジトリの save(post) を呼び出し、データベースへ保存（新規追加または更新）した結果を返す
     }
-    // savePostメソッドの終了
 
     // IDで投稿を削除するメソッド
     public void deleteById(Long id) {
-    // deleteByIdメソッド: 削除対象の id（Long型）を受け取り、戻り値なし（void）で処理を実行
-
-        postRepository.deleteById(id);
-        // リポジトリの deleteById(id) を呼び出し、該当する ID の投稿データをデータベースから削除する
+     postRepository.deleteById(id);
     }
-    // deleteByIdメソッドの終了
+
+    // キーワードと一致条件を指定して投稿を検索するメソッド
+    public List<Post> searchPosts(String keyword, String matchType){
+      //matchType に応じて検索条件を切り替える
+      return switch (matchType){
+       case "starts" -> postRepository.findByTitleStartingWithOrContentStartingWith(keyword,keyword);
+       case "ends" -> postRepository.findByTitleEndingWithOrContentEndingWith(keyword,keyword);
+       default -> postRepository.findByTitleContainingOrContentContaining(keyword,keyword); //デフォルトは部分一致
+    };
+}
 
 }
-// PostService クラスの定義終了

@@ -32,6 +32,35 @@
           </div>
         </div>
 
+         <!-- 🔍 ここから追記：検索フォーム [7: 1245, 1246] -->
+    <div class="card mb-4 shadow-sm">
+      <div class="card-body">
+        <form th:action="@{/posts}" method="get">
+          <div class="row g-2 align-items-center">
+            <!-- キーワード入力欄 -->
+            <div class="col-md-6">
+              <input type="text" name="keyword" th:value="${keyword}" class="form-control" placeholder="検索キーワードを入力してください">
+            </div>
+            <!-- 一致条件の選択（セレクトボックス） [7: 1250, 1251] -->
+            <div class="col-md-4">
+              <select name="matchType" class="form-select">
+                <option value="contains" th:selected="${matchType == 'contains'}">部分一致</option>
+                <option value="starts" th:selected="${matchType == 'starts'}">前方一致</option>
+                <option value="ends" th:selected="${matchType == 'ends'}">後方一致</option>
+              </select>
+            </div>
+            <!-- 検索ボタン -->
+            <div class="col-md-2">
+              <button type="submit" class="btn btn-outline-primary w-100">
+                検索
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- 🔍 ここまで追記 -->
+
       <table class="table table-striped">
       <!-- ストライプ模様（交互に着色）のテーブルタグ -->
 
