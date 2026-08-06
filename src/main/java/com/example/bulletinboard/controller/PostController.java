@@ -21,6 +21,7 @@ import java.util.List;
  * `PostService` を呼び出して投稿データの取得や保存を行い、取得したデータを画面側（Thymeleaf 等のテンプレート）へ渡したり、
  * 処理完了後の画面遷移（リダイレクト等）の指示を出したりする役割を担います。
  *[追記]：「投稿時にユーザー情報を関連付ける処理」と「編集・削除時に本人かどうかの認可チェック」
+ *[追記]：listPostsメソッド内に検索機能を追加
  */
 @Controller//このクラスがコントローラであることを宣言する。
 @RequestMapping("/posts")//このコントローラーがベースとなるURLパスを指定する。
@@ -37,9 +38,24 @@ public class PostController {
 
     //掲示板の一覧を表示
     @GetMapping
-    public String ListPosts(Model model){
-       List<Post> posts = postService.findAll();
-       model.addAttribute("posts", posts); //画面に渡すデータをセット
+    public String ListPosts(@RequestParam(required = false) String keyword,
+                            @RequestParam(required = false) String matchType,
+                            Model model){
+       List<Post> posts;
+
+       //検索キーワードが指定されている場合は検索結果を取得
+       if(keyword != null && !keyword.isEmpty()){
+         posts = postService.searchPosts(keyword, matchType);
+       }else{
+         posts = postService.findAll();
+       }
+
+        model.addAttribute("posts", posts); //画面に渡すデータをセット
+
+        //画面側でキーワードと一致条件を保持するためにModelに追加
+        model.addAttribute("keyword", keyword);
+        model.addAttribute("matchType", matchType);
+
         return "posts/list"; // templates/posts/list.html を表示
     }
 
