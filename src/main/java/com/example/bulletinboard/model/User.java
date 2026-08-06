@@ -1,22 +1,29 @@
 package com.example.bulletinboard.model;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /*
  * 【クラス全体の役割】
  * データベースの「users」テーブル（ユーザー情報）と1対1で対応するJPAエンティティクラスです。
  * ユーザー名とハッシュ化されたパスワードなどの認証情報を保持し、オブジェクトとしてプログラム内で扱えるようにします。
  *
- * 【追記・補足ポイント】
+  * 【追記・補足ポイント】
  * - データベース制約（ユーザー名の必須・一意性、パスワードの必須）をJavaコード側で宣言しています。
  * - 主キー（ID）はデータベース側の自動採番（Auto Increment等）に委ねる設計になっています。
- * - Lombok（@Data）を利用することで、Getter/SetterやtoString等の定型コードを自動生成し、記述を簡略化しています。
- *
+ * - Lombok（@Data）を利用することで、定型コードを自動生成し記述を簡略化しています。
+ * - 【重要】他エンティティとの双方向リレーションを設定する場合は、無限ループ（スタックオーバーフロー）を
+ *   防止するため、@Data から @Getter / @Setter への切り替えを推奨します。
+
  */
 @Entity // このクラスがJPAのエンティティ（DBのテーブルとマッピングされるオブジェクト）であることを宣言
-@Data // Lombokのアノテーション。Getter/Setter、equals、hashCode、toString等を自動生成する
+@Getter//@Dataから変更
+@Setter//@Dataから変更
 @Table(name = "users")//テーブル名を明示的に指定
 public class User {
 
@@ -41,5 +48,9 @@ public class User {
     // アカウントがロックされていないか（true: 通常 / false: ロック中、初期値 true）
     @Column(nullable = false)
     private boolean accountNonLocked = true;
+
+     // 👇 追加：1人のユーザーは複数のコメントを持つ（1対多）
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Comment> comments = new ArrayList<>(); // Null回避のため初期化 [3]
 
 }
