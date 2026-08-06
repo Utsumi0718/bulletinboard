@@ -36,7 +36,7 @@ public class AuthController {
 
    //新規登録画面の表示
    @GetMapping("/register")
-   public String resisterForm(Model model) {
+   public String registerForm(Model model) {
        model.addAttribute("registerForm", new RegisterForm()); //Form
        return "auth/register";
    }

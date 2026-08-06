@@ -4,6 +4,7 @@ import com.example.bulletinboard.model.Post;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.service.PostService;
 import com.example.bulletinboard.service.CustomUserDetailsService;
+import com.example.bulletinboard.service.CommentService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
@@ -26,10 +27,12 @@ import java.util.List;
 public class PostController {
     private final PostService postService;
     private final CustomUserDetailsService userDetailsService; //ユーザー専用のサービス
+    private final CommentService commentService; //コメント専用のサービス
 
-    public PostController(PostService postService, CustomUserDetailsService userDetailsService) { //コンストラクタでPostServiceとCustomUserDetailsServiceを注入（DI）インジェクションする。
+    public PostController(PostService postService, CustomUserDetailsService userDetailsService, CommentService commentService) { //コンストラクタでPostServiceとCustomUserDetailsServiceを注入（DI）インジェクションする。
         this.postService = postService;
         this.userDetailsService = userDetailsService;
+        this.commentService = commentService;
     }
 
     //掲示板の一覧を表示
@@ -77,6 +80,9 @@ public class PostController {
                 .orElseThrow(() -> new IllegalArgumentException("Invalid post Id:" + id));
      // データが存在すれば Post を取り出し、存在しなければ例外（IllegalArgumentException）を発生させる
        model.addAttribute("post", post);
+
+       model.addAttribute("comments", commentService.getCommentsByPostId(id)); // コメント一覧を取得して画面に渡す
+
         return "posts/detail"; // templates/posts/detail.html を表示
     }
 
