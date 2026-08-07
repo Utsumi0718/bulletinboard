@@ -21,6 +21,9 @@ import java.util.Optional; // 値が存在しない可能性がある（nullの�
 @Transactional
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    //追記：すでにユーザー名が存在しているかを判定するメソッドを実装
+    boolean existsByUsername(String username);
+
     // ユーザー名を指定してDBからユーザー情報を1件検索するカスタムメソッド
     // （一致するユーザーがいない場合に安全に処理できるよう Optional で包んでいます）
     Optional<User> findByUsername(String username);
