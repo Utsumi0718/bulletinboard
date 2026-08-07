@@ -38,7 +38,7 @@
         <form th:action="@{/posts}" method="get">
           <div class="row g-2 align-items-center">
             <!-- キーワード入力欄 -->
-            <div class="col-md-6">
+            <div class="col-md-3">
               <input type="text" name="keyword" th:value="${keyword}" class="form-control" placeholder="検索キーワードを入力してください">
             </div>
             <!-- 一致条件の選択（セレクトボックス） [7: 1250, 1251] -->
@@ -49,6 +49,19 @@
                 <option value="ends" th:selected="${matchType == 'ends'}">後方一致</option>
               </select>
             </div>
+            <!-- 投稿の並び替えフォームを実装（昇順・降順） -->
+             <div class="col-md-2">
+               <select name="sortBy" class="form-select">
+                <option value="createdAt" th:selected="${sortBy == 'createdAt' or sortBy == null }">投稿日時</option>
+                <option value="title" th:selected="${sortBy == 'title'}">タイトル</option>
+               </select>
+             </div>
+             <div class="col-md-3">
+               <select name="sortOrder" class="form-select">
+                <option value="desc" th:selected="${sortOrder == 'desc' or sortOrder == null }">降順（新しい順/Z-A）</option>
+                <option value="asc" th:selected="${sortOrder == 'asc'}">昇順（古い順/A-Z）</option>
+               </select>
+             </div>
             <!-- 検索ボタン -->
             <div class="col-md-2">
               <button type="submit" class="btn btn-outline-primary w-100">
