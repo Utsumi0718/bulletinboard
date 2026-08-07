@@ -22,6 +22,8 @@ import java.util.List;
  * 処理完了後の画面遷移（リダイレクト等）の指示を出したりする役割を担います。
  *[追記]：「投稿時にユーザー情報を関連付ける処理」と「編集・削除時に本人かどうかの認可チェック」
  *[追記]：listPostsメソッド内に検索機能を追加
+ *[追記]：画面のフォームから送信される並び替え用のURLパラメータ（sortBy と sortOrder）をコントローラーで受け取り、
+ *サービス層（PostService）への受け渡しおよび画面（Model）への返却を行う
  */
 @Controller//このクラスがコントローラであることを宣言する。
 @RequestMapping("/posts")//このコントローラーがベースとなるURLパスを指定する。
@@ -38,16 +40,18 @@ public class PostController {
 
     //掲示板の一覧を表示
     @GetMapping
-    public String ListPosts(@RequestParam(required = false) String keyword,
+    public String listPosts(@RequestParam(required = false) String keyword,
                             @RequestParam(required = false) String matchType,
+                            @RequestParam(required = false) String sortBy,
+                            @RequestParam(required = false) String sortOrder,
                             Model model){
        List<Post> posts;
 
-       //検索キーワードが指定されている場合は検索結果を取得
+       //検索キーワードが指定されている場合は検索結果をソートして取得
        if(keyword != null && !keyword.isEmpty()){
-         posts = postService.searchPosts(keyword, matchType);
+         posts = postService.searchPosts(keyword, matchType,sortBy,sortOrder);
        }else{
-         posts = postService.findAll();
+         posts = postService.findAll(sortBy,sortOrder);
        }
 
         model.addAttribute("posts", posts); //画面に渡すデータをセット
@@ -55,6 +59,8 @@ public class PostController {
         //画面側でキーワードと一致条件を保持するためにModelに追加
         model.addAttribute("keyword", keyword);
         model.addAttribute("matchType", matchType);
+        model.addAttribute("sortBy", sortBy);
+        model.addAttribute("sortOrder", sortOrder);
 
         return "posts/list"; // templates/posts/list.html を表示
     }
