@@ -23,12 +23,12 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 // インターフェース定義: Postエンティティを扱い、主キーの型が Long である JpaRepository を継承
 
 //部分一致（Containing）: タイトルまたは本文にキーワードを含むメソッド(ページネーションに対応)
- List<Post> findByTitleContainingOrContentContaining(String title, String content, Pageable pageable);
+ Page<Post> findByTitleContainingOrContentContaining(String title, String content, Pageable pageable);
 
 //前方一致（StartingWith）: タイトルまたは本文がキーワードで始まるメソッド
- List<Post> findByTitleStartingWithOrContentStartingWith(String title, String content, Pageable pageable);
+ Page<Post> findByTitleStartingWithOrContentStartingWith(String title, String content, Pageable pageable);
 
  //後方一致 (EndingWith): タイトルがキーワードで終わる
- List<Post> findByTitleEndingWithOrContentEndingWith(String title, String content, Pageable pageable);
+ Page<Post> findByTitleEndingWithOrContentEndingWith(String title, String content, Pageable pageable);
 }
 // PostRepositoryインターフェースの定義終了
