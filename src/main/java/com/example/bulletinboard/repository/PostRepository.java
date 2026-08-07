@@ -25,7 +25,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 //前方一致（StartingWith）: タイトルまたは本文がキーワードで始まるメソッド
  List<Post> findByTitleStartingWithOrContentStartingWith(String title, String content, Sort sort);
 
- //後方一致 (EndingWith): タイトルまたは本文がキーワードで終わる
+ //後方一致 (EndingWith): タイトルがキーワードで終わる
  List<Post> findByTitleEndingWithOrContentEndingWith(String title, String content, Sort sort);
 }
 // PostRepositoryインターフェースの定義終了
