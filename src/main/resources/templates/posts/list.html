@@ -119,7 +119,7 @@
       <ul class="pagenation justify-content-center">
        <li class="page-item" th:classappend="${postPage.first} ? 'disabled'">
           <a class="page-link"
-             th:href="@{/posts(page=${postPage.number - 1}, keyword=${keyword}, matchType=${matchType}, sortBy=${sortBy}, sortOrder=${sortOrder})}">
+             th:href="${postPage.first} ? '#' : @{/posts(page=${postPage.number - 1}, keyword=${keyword}, matchType=${matchType}, sortBy=${sortBy}, sortOrder=${sortOrder})}">
             前へ
           </a>
         </li>

@@ -79,6 +79,8 @@ public class PostService {
 
     //追加：（共通の処理）ページネーションとソート用のPageableオブジェクトを生成するヘルパーメソッド
     private Pageable createPageable(int page, String sortBy, String sortOrder){
+       //0未満の数値が渡された時には強制的に0ページ目にする安全策
+       int safePage = Math.max(0, page);
        //デフォルトの値
        if(sortBy == null || sortBy.isEmpty()){
          sortBy = "createdAt";
@@ -89,7 +91,7 @@ public class PostService {
                 ? Sort.Direction.ASC
                 : Sort.Direction.DESC;
 
-     return PageRequest.of(page, PAGE_SIZE, Sort.by(direction,sortBy));
+     return PageRequest.of(safePage, PAGE_SIZE, Sort.by(direction,sortBy));
  }
 
 }
