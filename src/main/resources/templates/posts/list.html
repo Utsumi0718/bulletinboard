@@ -114,6 +114,35 @@
             </tbody>
     </table>
 
+    <!-- ナビゲーション：ページネーションボタンを追加 -->
+    <nav th:if="${postPage.totalPages > 1}" aria-lable="Page navgation" class="mt-4 mb-4">
+      <ul class="pagenation justify-content-center">
+       <li class="page-item" th:classappend="${postPage.first} ? 'disabled'">
+          <a class="page-link"
+             th:href="${postPage.first} ? '#' : @{/posts(page=${postPage.number - 1}, keyword=${keyword}, matchType=${matchType}, sortBy=${sortBy}, sortOrder=${sortOrder})}">
+            前へ
+          </a>
+        </li>
+
+        <li class="page-item"
+            th:each="i : ${#numbers.sequence(0, postPage.totalPages - 1)}"
+            th:classappend="${i == postPage.number} ? 'active'">
+          <a class="page-link"
+             th:href="@{/posts(page=${i}, keyword=${keyword}, matchType=${matchType}, sortBy=${sortBy}, sortOrder=${sortOrder})}"
+             th:text="${i + 1}">
+            1
+          </a>
+        </li>
+
+      <li class="page-item" th:classappend="${postPage.last} ? 'disabled'">
+          <a class="page-link"
+             th:href="@{/posts(page=${postPage.number + 1}, keyword=${keyword}, matchType=${matchType}, sortBy=${sortBy}, sortOrder=${sortOrder})}">
+            次へ
+          </a>
+        </li>
+      </ul>
+    </nav>
+
     <!-- まだ投稿がない場合の表示 -->
      <div th:if="${#lists.isEmpty(posts)}" class="alert alert-info">
      <!-- th:if="${#lists.isEmpty(posts)}": postsリストが空（0件）の場合のみ、この div タグを表示する -->
