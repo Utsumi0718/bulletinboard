@@ -77,6 +77,16 @@ public class CustomUserDetailsService implements UserDetailsService {
   }
 
   /*
+   *ユーザー名が既に登録されているか確認する
+  */
+
+   public boolean existsByUsername(String username){
+    return userRepository.existsByUsername(username);
+   }
+
+
+
+  /*
    * パスワードの再設定メソッド
    * パスワード再設定成功時にアカウントロックも解除するように既存の updatePassword を拡張
    */
