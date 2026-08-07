@@ -24,6 +24,7 @@ import org.springframework.data.domain.Page;
  *[追記]：listPostsメソッド内に検索機能を追加
  *[追記]：画面のフォームから送信される並び替え用のURLパラメータ（sortBy と sortOrder）をコントローラーで受け取り、
  *サービス層（PostService）への受け渡しおよび画面（Model）への返却を行う
+ *[追記]：Service から返ってきた Page<Post> を Model に渡す
  */
 @Controller//このクラスがコントローラであることを宣言する。
 @RequestMapping("/posts")//このコントローラーがベースとなるURLパスを指定する。
