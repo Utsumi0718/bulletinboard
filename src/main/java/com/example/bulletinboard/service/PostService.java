@@ -1,20 +1,11 @@
 package com.example.bulletinboard.service;
-// パッケージ宣言: このクラスが所属するグループ・フォルダ構造（サービス層）を定義
 
 import com.example.bulletinboard.model.Post;
-// インポート: 扱うデータモデルである Post エンティティを読み込み
-
 import com.example.bulletinboard.repository.PostRepository;
-// インポート: データベース操作を担う PostRepository インターフェースを読み込み
-
 import org.springframework.stereotype.Service;
-// インポート: ビジネスロジック層のコンポーネントであることを示す Spring のアノテーションを読み込み
-
 import java.util.List;
-// インポート: 複数件のデータを扱うための Java 標準 List コレクションを読み込み
-
 import java.util.Optional;
-// インポート: 値が null になる可能性があることを安全に扱うための Optional クラスを読み込み
+import org.springframework.data.domain.Sort;
 
 /*
  * 【クラスの役割】
@@ -26,6 +17,8 @@ import java.util.Optional;
  * @param keyword 検索キーワード
  * @param matchType 一致条件 (contains, starts, ends)
  * @return 検索結果のリスト
+ * [追記]
+ * コントローラーから受け取った sortBy（ソート項目）と sortOrder（ソート順）をもとに、Spring Data JPA の Sort オブジェクトを生成し、リポジトリ層へ引き渡す処理を追加
  */
 @Service
 // @Service: このクラスを Spring の DI コンテナにビジネスロジック担当のコンポーネントとして登録するアノテーション
@@ -42,9 +35,10 @@ public class PostService {
     }
 
 
-    // 投稿一覧を取得するメソッド
-    public List<Post> findAll() {
-     return postRepository.findAll();
+    // 投稿一覧を取得するメソッド(並び替え対応)
+    public List<Post> findAll(String sortBy, String sortOrder) {
+     Sort sort = createSort(sortBy,sortOrder);
+     return postRepository.findAll(sort);
    }
 
     // 投稿をIDで取得するメソッド
@@ -63,14 +57,34 @@ public class PostService {
      postRepository.deleteById(id);
     }
 
-    // キーワードと一致条件を指定して投稿を検索するメソッド
-    public List<Post> searchPosts(String keyword, String matchType){
-      //matchType に応じて検索条件を切り替える
-      return switch (matchType){
-       case "starts" -> postRepository.findByTitleStartingWithOrContentStartingWith(keyword,keyword);
-       case "ends" -> postRepository.findByTitleEndingWithOrContentEndingWith(keyword,keyword);
-       default -> postRepository.findByTitleContainingOrContentContaining(keyword,keyword); //デフォルトは部分一致
-    };
-}
+    // キーワードと一致条件を指定して投稿を検索するメソッド(並び替え対応)
+    public List<Post> searchPosts(String keyword, String matchType, String sortBy, String sortOrder) {
+        Sort sort = createSort(sortBy, sortOrder);
+
+        // matchTypeがnullの場合の対策
+        String type = (matchType == null) ? "contains" : matchType;
+
+        return switch (type) {
+            case "starts" -> postRepository.findByTitleStartingWithOrContentStartingWith(keyword, keyword, sort); // 🔍 keywordを2つ渡す
+            case "ends"   -> postRepository.findByTitleEndingWithOrContentEndingWith(keyword, keyword, sort);     // 🔍 keywordを2つ渡す
+            default       -> postRepository.findByTitleContainingOrContentContaining(keyword, keyword, sort);   // 🔍 keywordを2つ渡す
+        };
+    }
+
+    //追加：（共通の処理）並び変えの用のSortオブジェクトを生成するヘルパーメソッド
+    private Sort createSort(String sortBy, String sortOrder){
+       //デフォルトの値
+       if(sortBy == null || sortBy.isEmpty()){
+         sortBy = "createdAt";
+       }
+
+       //昇順・降順の判定
+       if("asc".equalsIgnoreCase(sortOrder)){
+         return Sort.by(Sort.Direction.ASC, sortBy);
+       }else{
+        return Sort.by(Sort.Direction.DESC, sortBy);
+       }
+
+ }
 
 }
