@@ -13,7 +13,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.stereotype.Controller;
-import java.util.List;
+import org.springframework.data.domain.Page;
 
 /*
  * 【クラスの役割】
@@ -40,23 +40,25 @@ public class PostController {
 
     //掲示板の一覧を表示
     @GetMapping
-    public String listPosts(@RequestParam(required = false) String keyword,
+    public String listPosts(@RequestParam(defaultValue = "0") int page,
+                            @RequestParam(required = false) String keyword,
                             @RequestParam(required = false) String matchType,
                             @RequestParam(required = false) String sortBy,
                             @RequestParam(required = false) String sortOrder,
                             Model model){
-       List<Post> posts;
+       Page<Post> postPage;
 
        //検索キーワードが指定されている場合は検索結果をソートして取得
        if(keyword != null && !keyword.isEmpty()){
-         posts = postService.searchPosts(keyword, matchType,sortBy,sortOrder);
+         postPage = postService.searchPosts(page,keyword, matchType,sortBy,sortOrder);
        }else{
-         posts = postService.findAll(sortBy,sortOrder);
+         postPage = postService.findAll(page,sortBy,sortOrder);
        }
 
-        model.addAttribute("posts", posts); //画面に渡すデータをセット
-
+        model.addAttribute("postPage", postPage); //  ページ情報を保持したオブジェクトを画面へ
+        model.addAttribute("posts", postPage.getContent()); // 既存の HTML (th:each="post : ${posts}") がそのまま動くようにリストもセット
         //画面側でキーワードと一致条件を保持するためにModelに追加
+        model.addAttribute("page", page);
         model.addAttribute("keyword", keyword);
         model.addAttribute("matchType", matchType);
         model.addAttribute("sortBy", sortBy);
