@@ -44,6 +44,13 @@ public class AuthController {
   //新規登録処理の実行
   @PostMapping("/register")
   public String register(@Valid @ModelAttribute("registerForm") RegisterForm form, BindingResult result){
+
+    //ユーザー名の重複チェックの条件を追加
+    if(userDetailsService.existsByUsername(form.getUsername())){
+     //"username"フィールドに重複エラーメッセージを割り当てる
+     result.rejectValue("username","duplicate","すでに登録されてるユーザー名です");
+    }
+
     //バリテーションエラーがある場合は登録画面に戻る
     if(result.hasErrors()){
       return "auth/register";
