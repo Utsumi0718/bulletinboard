@@ -81,7 +81,10 @@
          <!-- テーブルのヘッダー行グループ -->
 
             <tr>
-                <th>タイトル</th>
+
+               <th>ユーザー名</th>
+
+              <th>タイトル</th>
                 <!-- 列見出し1: タイトル -->
 
                 <th>投稿内容</th>
@@ -98,6 +101,9 @@
               <!-- 投稿リストループ表示 -->
               <tr th:each="post :${posts}">
               <!-- th:each="post :${posts}": Controllerから渡された posts リストの要素数だけ <tr> を繰り返し生成 -->
+                  <td th:text="${post.user.username}">
+                      ユーザー名
+                  </td>
 
                   <td>
                    <!-- list.html 内のタイトル表示箇所を修正 -->

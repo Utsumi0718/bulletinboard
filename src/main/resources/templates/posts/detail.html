@@ -14,6 +14,9 @@
  <div class="card-body">
   <!-- 改行を維持するために th:utext または白文字設定を使用 -->
   <p class="card-text" th:text="${post.content}" style="white-space: pre-wrap;">投稿内容</p>
+
+  <!-- 追記：ユーザー名 -->
+  <small>投稿者：<span class="user_text" th:text="${post.user.username}">ユーザー名</span></small>
  </div>
 </div>
 
