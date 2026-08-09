@@ -6,11 +6,8 @@
                 layout:decorate="~{layout/layout}">
 <!-- layout:decorate="~{layout/layout}": ベースとなる共通レイアウト（templates/layout/layout.html）を適用宣言 -->
 
-<head>
-    <meta name="_csrf" th:content="${_csrf.token}"/>
-    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
-    <!-- CSRF対策のメタタグと非同期通信用のJavaScriptを追加 -->
-  <title layout:fragment="title">投稿一覧</title>
+<head layout:fragment="head">
+    <title layout:fragment="title">投稿一覧</title>
   <!-- layout:fragment="title": 親レイアウトの title フラグメント領域に「投稿一覧」という文字列を注入 -->
 </head>
 
@@ -188,6 +185,8 @@
 </div>
 
   </div>
-   <script  th:src="@{/js/like.js}"></script>
+   <th:block layout:fragment="script">
+    <script  th:src="@{/js/like.js}"></script>
+   </th:block>
 </body>
 </html>

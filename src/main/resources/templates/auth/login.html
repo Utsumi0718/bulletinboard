@@ -3,10 +3,11 @@
                 xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
                 layout:decorate="~{layout/layout}">
 <head>
-    <title>ログイン画面</title>
+    <title  layout:fragment="title">ログイン画面</title>
 </head>
-    <body>
-        <h1>ログイン</h1>
+
+        <div  layout:fragment="content">
+               <h1>ログイン</h1>
 
         <div th:if="${param.register_success}">
             ユーザー登録が完了しました。ログインしてください。
@@ -43,5 +44,7 @@
         <br>
         <a th:href="@{/reset-password}">パスワードをお忘れの方はこちら</a>
 
-    </body>
+
+    </div>
+
 </html>

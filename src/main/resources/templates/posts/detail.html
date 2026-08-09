@@ -2,13 +2,11 @@
 <html  xmlns:th="http://www.thymeleaf.org"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/layout}">
+
 <head>
-     <meta name="_csrf" th:content="${_csrf.token}"/>
-    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
-    <!-- CSRF対策のメタタグと非同期通信用のJavaScriptを追加 -->
      <title layout:fragment="title">投稿詳細</title>
 </head>
-<body>
+
 <div layout:fragment="content">
 
  <h1 th:text="${post.title}">タイトル</h1>
@@ -86,8 +84,10 @@
         <button type="submit" class="btn btn-primary">コメントを投稿</button>
     </form>
 
-      <script  th:src="@{/js/like.js}"></script>
+   <th:block layout:fragment="script">
+    <script  th:src="@{/js/like.js}"></script>
+   </th:block>
 
 </div>
-</body>
+
 </html>
