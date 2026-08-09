@@ -53,4 +53,8 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>(); // Null回避のため初期化 [3]
 
+    // ユーザー削除時に、その人が押したいいねデータも自動で消去されます
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Like> likes = new ArrayList<>();
+
 }

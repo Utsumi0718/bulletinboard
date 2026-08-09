@@ -62,5 +62,10 @@ public class Post{
     private List<Comment> comments = new ArrayList<>();
 
 
+    //追加： 一つの投稿に紐づくすべての「いいね」の関係を定義
+    // cascade = CascadeType.ALL と orphanRemoval = true により、投稿削除時にいいねも自動で道連れ削除されます
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Like> likes = new ArrayList<>();
+
 
 }
