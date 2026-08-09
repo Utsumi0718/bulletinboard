@@ -92,6 +92,8 @@
 
                 <th>投稿日</th>
                 <!-- 列見出し3: 操作 -->
+                 <th>いいね</th>
+                 <!-- 「いいね」ボタンを追加 -->
             </tr>
             </thead>
 
@@ -116,7 +118,15 @@
 
                   <td th:text="${#temporals.format(post.createdAt, 'yyyy/MM/dd HH:mm')}">日時</td>
                   <!-- #temporals.format(...): LocalDateTime型の createdAt を「年/月/日 時:分」形式にフォーマット表示 -->
-              </tr>
+                  <td>
+                    <form th:action="@{/posts/{id}/like(id=${post.id})}" method="post" style="display: inline">
+                      <button  type="submit" class="btn btn-sm" th:classapend="${isLikedMap != null and isLikedMap[post.id]} ? 'btn-danger' : 'btn-outline-danger'">
+                        ♥ <span th:text="${likeCounts != null and likeCounts[post.id] != null ? likeCounts[post.id] : 0}">0</span>
+                      </button>
+                    </form>
+                  </td>
+                  <!-- 追記「いいねボタンの表示」 -->
+                </tr>
             </tbody>
     </table>
 

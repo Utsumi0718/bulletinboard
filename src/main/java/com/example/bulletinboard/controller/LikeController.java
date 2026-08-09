@@ -22,6 +22,7 @@ import jakarta.servlet.http.HttpServletRequest;
  *
  */
 @Controller
+@RequestMapping("/posts") // 【修正：クラスレベルに /posts を追加】
 public class LikeController{
 
 private final LikeService likeService;
