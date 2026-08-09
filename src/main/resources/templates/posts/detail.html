@@ -17,6 +17,14 @@
 
   <!-- 追記：ユーザー名 -->
   <small>投稿者：<span class="user_text" th:text="${post.user.username}">ユーザー名</span></small>
+
+  <!-- 追記：いいねボタンの表示 -->
+   <form th:action="@{/posts/{id}/like(id=${post.id})}" method="post" style="display: inline;">
+          <button type="submit" class="btn btn-sm"
+                  th:classappend="${isLiked != null and isLiked} ? 'btn-danger' : 'btn-outline-danger'">
+              ♥ いいね <span th:text="${likeCount != null ? likeCount : 0}">0</span>
+          </button>
+      </form>
  </div>
 </div>
 
