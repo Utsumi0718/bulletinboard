@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;//追加
+
 
 import com.example.bulletinboard.model.Post;
 import com.example.bulletinboard.model.User;
@@ -118,9 +120,13 @@ public class PostController {
     public String createPost(
             @Validated @ModelAttribute Post post,
             BindingResult bindingResult,
-            @AuthenticationPrincipal UserDetails userDetails) { // ログイン情報を受け取る
+            @AuthenticationPrincipal UserDetails userDetails,
+            RedirectAttributes redirectAttributes,// 追加：セッションを介して一時的に値を保持
+            Model model) {
 
         if (bindingResult.hasErrors()) {
+            //追記：Modelでエラーメッセージを設定（同じテンプレートで返す）
+            model.addAttribute("errorMessage","掲示板の投稿に失敗しました。");
             return "posts/new"; // エラーがあれば入力画面に戻る
         }
 
@@ -131,6 +137,10 @@ public class PostController {
             post.setUser(currentUser);
         }
         postService.save(post);
+
+        //追記：リダイレクト先にフラッシュメッセージをセット
+        redirectAttributes.addFlashAttribute("successMessage","掲示板投稿に成功しました！");
+
         return "redirect:/posts"; // 投稿後、掲示板一覧にリダイレクト
     }
 
@@ -179,12 +189,20 @@ public class PostController {
 
     // 投稿の更新処理
     @PostMapping("/{id}")
-    public String updatePost(@PathVariable Long id, @ModelAttribute Post post, @AuthenticationPrincipal UserDetails userDetails) {
+    public String updatePost(@PathVariable Long id,
+                             @ModelAttribute Post post,
+                             @AuthenticationPrincipal UserDetails userDetails,
+                             RedirectAttributes redirectAttributes,
+                             Model model) {
+
         Post existingPost = postService.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid post Id:" + id));
 
         // 本人チェック
+
+        // 本人チェック
         if (existingPost.getUser() == null || !existingPost.getUser().getUsername().equals(userDetails.getUsername())) {
+            model.addAttribute("errorMessage", "投稿の更新に失敗しました。");
             return "redirect:/posts";
         }
 
@@ -192,6 +210,9 @@ public class PostController {
         existingPost.setContent(post.getContent());
 
         postService.save(existingPost);
+
+        //追記：リダイレクト先にフラッシュメッセージをセット
+        redirectAttributes.addFlashAttribute("successMessage","掲示板更新に成功しました！");
 
         return "redirect:/posts"; // 更新後は一覧へ
     }
