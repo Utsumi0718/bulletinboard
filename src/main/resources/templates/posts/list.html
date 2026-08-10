@@ -6,8 +6,8 @@
                 layout:decorate="~{layout/layout}">
 <!-- layout:decorate="~{layout/layout}": ベースとなる共通レイアウト（templates/layout/layout.html）を適用宣言 -->
 
-<head>
-  <title layout:fragment="title">投稿一覧</title>
+<head layout:fragment="head">
+    <title layout:fragment="title">投稿一覧</title>
   <!-- layout:fragment="title": 親レイアウトの title フラグメント領域に「投稿一覧」という文字列を注入 -->
 </head>
 
@@ -119,13 +119,13 @@
                   <td th:text="${#temporals.format(post.createdAt, 'yyyy/MM/dd HH:mm')}">日時</td>
                   <!-- #temporals.format(...): LocalDateTime型の createdAt を「年/月/日 時:分」形式にフォーマット表示 -->
                   <td>
-                    <form th:action="@{/posts/{id}/like(id=${post.id})}" method="post" style="display: inline">
-                      <button  type="submit" class="btn btn-sm" th:classapend="${isLikedMap != null and isLikedMap[post.id]} ? 'btn-danger' : 'btn-outline-danger'">
-                        ♥ <span th:text="${likeCounts != null and likeCounts[post.id] != null ? likeCounts[post.id] : 0}">0</span>
-                      </button>
-                    </form>
+                    <button  type="button" class="btn btn-sm like-btn" th:data-post-id="${post.id}" th:classappend="${isLikedMap != null and isLikedMap[post.id]} ? 'btn-danger' : 'btn-outline-danger'">
+                      ♥ <span class="like-count" th:text="${likeCounts != null and likeCounts[post.id] != null ? likeCounts[post.id] : 0}">0</span>
+                    </button>
                   </td>
                   <!-- 追記「いいねボタンの表示」 -->
+                  <!-- 追記：formタグの削除：<button> タグのみに変更。ボタンにはJSで検知するためのクラス like-btn と、対象の投稿IDを示す th:data-post-id を付与 -->
+
                 </tr>
             </tbody>
     </table>
@@ -185,6 +185,8 @@
 </div>
 
   </div>
-
+   <th:block layout:fragment="script">
+    <script  th:src="@{/js/like.js}"></script>
+   </th:block>
 </body>
 </html>

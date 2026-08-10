@@ -2,10 +2,11 @@
 <html  xmlns:th="http://www.thymeleaf.org"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/layout}">
+
 <head>
-    <title layout:fragment="title">投稿詳細</title>
+     <title layout:fragment="title">投稿詳細</title>
 </head>
-<body>
+
 <div layout:fragment="content">
 
  <h1 th:text="${post.title}">タイトル</h1>
@@ -19,13 +20,14 @@
   <small>投稿者：<span class="user_text" th:text="${post.user.username}">ユーザー名</span></small>
 
   <!-- 追記：いいねボタンの表示 -->
-   <form th:action="@{/posts/{id}/like(id=${post.id})}" method="post" style="display: inline;">
-          <button type="submit" class="btn btn-sm"
-                  th:classappend="${isLiked != null and isLiked} ? 'btn-danger' : 'btn-outline-danger'">
-              ♥ いいね <span th:text="${likeCount != null ? likeCount : 0}">0</span>
-          </button>
-      </form>
- </div>
+
+</div>
+<!-- 追記：formタグの削除：<button> タグのみに変更。ボタンにはJSで検知するためのクラス like-btn と、対象の投稿IDを示す th:data-post-id を付与 -->
+<button type="button" class="btn btn-sm like-btn"
+              th:data-post-id="${post.id}"
+              th:classappend="${isLiked != null and isLiked} ? 'btn-danger' : 'btn-outline-danger'">
+          ♥ いいね <span class="like-count" th:text="${likeCount != null ? likeCount : 0}">0</span>
+      </button>
 </div>
 
  <div class="d-flex gap-2">
@@ -82,6 +84,10 @@
         <button type="submit" class="btn btn-primary">コメントを投稿</button>
     </form>
 
+   <th:block layout:fragment="script">
+    <script  th:src="@{/js/like.js}"></script>
+   </th:block>
+
 </div>
-</body>
+
 </html>
