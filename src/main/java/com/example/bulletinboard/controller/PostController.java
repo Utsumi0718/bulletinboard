@@ -126,7 +126,7 @@ public class PostController {
 
         if (bindingResult.hasErrors()) {
             //追記：Modelでエラーメッセージを設定（同じテンプレートで返す）
-            model.addAttribute("errorMessage","掲示板の投稿に失敗しました。");
+            model.addAttribute("errorMessage","投稿に失敗しました。");
             return "posts/new"; // エラーがあれば入力画面に戻る
         }
 
@@ -139,7 +139,7 @@ public class PostController {
         postService.save(post);
 
         //追記：リダイレクト先にフラッシュメッセージをセット
-        redirectAttributes.addFlashAttribute("successMessage","掲示板投稿に成功しました！");
+        redirectAttributes.addFlashAttribute("successMessage","投稿に成功しました！");
 
         return "redirect:/posts"; // 投稿後、掲示板一覧にリダイレクト
     }
@@ -212,29 +212,33 @@ public class PostController {
         postService.save(existingPost);
 
         //追記：リダイレクト先にフラッシュメッセージをセット
-        redirectAttributes.addFlashAttribute("successMessage","掲示板更新に成功しました！");
+        redirectAttributes.addFlashAttribute("successMessage","投稿の更新に成功しました！");
 
         return "redirect:/posts"; // 更新後は一覧へ
     }
 
     // 投稿の削除処理
     @PostMapping("/{id}/delete")
-    public String deletePost(@PathVariable Long id, @AuthenticationPrincipal UserDetails userDetails) {
+    public String deletePost(@PathVariable Long id,
+                             @AuthenticationPrincipal UserDetails userDetails,
+                             RedirectAttributes redirectAttributes,
+                             Model model) {
         Post post = postService.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid post Id:" + id));
 
         // 本人チェック
         if (post.getUser() == null || !post.getUser().getUsername().equals(userDetails.getUsername())) {
+            model.addAttribute("errorMessage", "投稿の削除に失敗しました。");
             return "redirect:/posts";
         }
 
         postService.deleteById(id);
-        return "redirect:/posts/delete-complete"; // 削除後削除完了画面を表示
+
+        //追記：リダイレクト先にフラッシュメッセージをセット
+        redirectAttributes.addFlashAttribute("successMessage","投稿の削除に成功しました！");
+
+        return "redirect:/posts"; //追記：投稿削除後は投稿一覧画面へリダイレクト
     }
 
-    // 削除完了画面を表示
-    @GetMapping("/delete-complete")
-    public String showDeleteComplete() {
-        return "posts/deleteComplete";
-    }
+
 }
