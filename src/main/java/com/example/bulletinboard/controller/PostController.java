@@ -192,8 +192,7 @@ public class PostController {
     public String updatePost(@PathVariable Long id,
                              @ModelAttribute Post post,
                              @AuthenticationPrincipal UserDetails userDetails,
-                             RedirectAttributes redirectAttributes,
-                             Model model) {
+                             RedirectAttributes redirectAttributes) {
 
         Post existingPost = postService.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid post Id:" + id));
@@ -202,7 +201,7 @@ public class PostController {
 
         // 本人チェック
         if (existingPost.getUser() == null || !existingPost.getUser().getUsername().equals(userDetails.getUsername())) {
-            model.addAttribute("errorMessage", "投稿の更新に失敗しました。");
+            redirectAttributes.addFlashAttribute("errorMessage", "投稿の更新に失敗しました。");
             return "redirect:/posts";
         }
 
@@ -221,14 +220,13 @@ public class PostController {
     @PostMapping("/{id}/delete")
     public String deletePost(@PathVariable Long id,
                              @AuthenticationPrincipal UserDetails userDetails,
-                             RedirectAttributes redirectAttributes,
-                             Model model) {
+                             RedirectAttributes redirectAttributes) {
         Post post = postService.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid post Id:" + id));
 
         // 本人チェック
         if (post.getUser() == null || !post.getUser().getUsername().equals(userDetails.getUsername())) {
-            model.addAttribute("errorMessage", "投稿の削除に失敗しました。");
+            redirectAttributes.addFlashAttribute("errorMessage", "投稿の削除に失敗しました。");
             return "redirect:/posts";
         }
 
