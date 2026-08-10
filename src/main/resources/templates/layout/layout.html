@@ -31,6 +31,21 @@
         </div>
     </nav>
 
+    <!-- 追記：アラート（フラッシュメッセージ）領域を追加します -->
+
+    <div class="container mt-3">
+        <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <span th:text="${successMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+
+        <div  th:if="${errorMessage}"  class="alert alert-success alert-dismissible fade show" role="alert">
+          <span th:text="${errorMessage}"></span>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+
+        </div>
+    </div>
+
     <!-- メインコンテンツ：各画面の内容がここに挿入される -->
     <main class="container">
     <!-- メイン表示領域のコンテナ -->

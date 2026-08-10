@@ -10,6 +10,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;//追加
 
 /*
 * 【クラスの役割】
@@ -36,11 +37,13 @@ public class CommentController {
     public String addComment(
         @RequestParam Long postId,
         @RequestParam String content,
-        @AuthenticationPrincipal UserDetails userDetails) { //ログイン情報を受け取る
+        @AuthenticationPrincipal UserDetails userDetails,
+        RedirectAttributes redirectAttributes) { //ログイン情報を受け取る
 
         //ログインユーザーの取得
         User currentUser = userDetailsService.findByUsername(userDetails.getUsername())
                 .orElseThrow(() -> new IllegalArgumentException("ユーザーが見つかりません"));
+
 
         //投稿対象のPostを取得
         Post post = postService.findById(postId)
@@ -55,6 +58,9 @@ public class CommentController {
         //コメントの保存
         commentService.saveComment(comment);
 
+        //追記：コメントのフラッシュメッセージ
+        redirectAttributes.addFlashAttribute("successMessage", userDetails.getUsername() + "さんのコメントが投稿されました！");
+
         //リダイレクト先のURLを返す（投稿詳細ページにリダイレクト）
         return "redirect:/posts/" + postId;
 
@@ -64,7 +70,8 @@ public class CommentController {
         @PostMapping("/{id}/delete")
         public String deleteComment(@PathVariable Long id,
                                 @RequestParam Long postId,
-                                @AuthenticationPrincipal UserDetails userDetails){
+                                @AuthenticationPrincipal UserDetails userDetails,
+                                RedirectAttributes redirectAttributes){
 
             Comment comment = commentService.getCommentById(id)
                     .orElseThrow(() -> new IllegalArgumentException("コメントが見つかりません"));
@@ -72,7 +79,14 @@ public class CommentController {
          //認可制御：自分が書いたコメントかチェック
          if(comment.getUser() != null && comment.getUser().getUsername().equals(userDetails.getUsername())){
              commentService.deleteComment(id);
-         }
+           // 成功時のみ if の中で成功メッセージをセット
+            redirectAttributes.addFlashAttribute("successMessage", userDetails.getUsername() + "さんのコメントが削除されました！");
+          } else {
+            // 💡 本人でない場合はエラーメッセージをセット
+            redirectAttributes.addFlashAttribute("errorMessage", "コメントの削除権限がありません。");
+          }
+
+
 
           return "redirect:/posts/" + postId;
         }
