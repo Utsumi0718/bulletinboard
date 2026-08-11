@@ -159,6 +159,12 @@
        <artifactId>thymeleaf-extras-springsecurity6</artifactId>
      </dependency>
 
+     <!-- 追記：Spring Boot のメール機能を利用 -->
+     <dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-mail</artifactId>
+   </dependency>
+
     </dependencies>
 
     <!-- build: ビルド（パッケージングや実行手順）に関する設定グループ -->
