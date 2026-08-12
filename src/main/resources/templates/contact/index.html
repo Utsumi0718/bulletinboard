@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org"
+                xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+                layout:decorate="~{layout/layout}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title layout:fragment="title">お問い合わせ</title>
+</head>
+  <div layout:fragment="content">
+    <div class="container mt-5" style="max-width: 600px;">
+        <h1 class="mb-4 text-center">お問い合わせ</h1>
+    </div>
+
+    <form th:action="@{/contact/confirm}" th:object="${contactForm}" method="post">
+
+        <div class="mb-3">
+          <label for="name" class="form-label">お名前<span class="form-required">※必須</span></label>
+          <input type="text" th:field="*{name}" id="name" class="form-input form-control" th:errorclass="is-invalid" placeholder="山田太郎" required>
+          <div class="invalid-feedback" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></div>
+        </div>
+
+        <div class="mb-3">
+          <label for="email" class="form-label">メールアドレス<span class="form-required">※必須</span></label>
+          <input type="text" th:field="*{email}" id="email" class="form-input form-control" th:errorclass="is-invalid" placeholder="example@gmail.com" required>
+          <div class="invalid-feedback" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></div>
+        </div>
+
+        <div class="mb-3">
+          <label for="subject" class="form-label">件名<span class="form-required">※必須</span></label>
+          <input type="text" th:field="*{subject}" id="subject" class="form-input form-control" th:errorclass="is-invalid" placeholder="件名を入力してください" required>
+          <div class="invalid-feedback" th:if="${#fields.hasErrors('subject')}" th:errors="*{subject}"></div>
+        </div>
+
+        <div class="mb-3">
+          <label for="message" class="form-label">お問い合わせ内容<span class="form-required">※必須</span></label>
+          <input type="text" th:field="*{message}" id="message" class="form-input form-control" th:errorclass="is-invalid" placeholder="お問い合わせ内容を入力してください" required>
+          <div class="invalid-feedback" th:if="${#fields.hasErrors('message')}" th:errors="*{message}"></div>
+        </div>
+
+        <div class="d-flex justify-content-between mt-4">
+                <a th:href="@{/posts}" class="btn btn-secondary">投稿一覧へ戻る</a>
+                <button type="submit" class="btn btn-primary">確認画面へ進む</button>
+            </div>
+    </form>
+  </div>
+</html>
