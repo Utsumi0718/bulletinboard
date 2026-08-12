@@ -38,11 +38,29 @@ public class SecurityConfig {
          .defaultSuccessUrl("/posts", true) // ログイン成功時の移動先URL（/posts：投稿一覧）を設定
          .failureHandler((request, response, exception) -> {
            String errorType = "wrong";
+
            //失敗した理由がアカウントロックLockedException）」だった場合
            if(exception instanceof org.springframework.security.authentication.LockedException){
             errorType = "locked";
+           } else{
+
+            //追記ロック以外の場合、未入力チェックを行う
+           String usernameParam = request.getParameter("username");
+           String passwordParam = request.getParameter("password");
+
+           boolean isUsernameEmpty = (usernameParam == null || usernameParam.trim().isEmpty());
+           boolean isPasswordEmpty = (passwordParam == null || passwordParam.trim().isEmpty());
+
+            if (isUsernameEmpty && isPasswordEmpty) {
+              errorType = "both_empty";     // 両方未入力
+           } else if (isUsernameEmpty) {
+              errorType = "username_empty"; // ユーザー名のみ未入力
+           } else if (isPasswordEmpty) {
+              errorType = "password_empty"; // パスワードのみ未入力
            }
-           //それぞれに応じたURL（?error=wrong または ?error=locked））へリダイレクト
+
+          }
+           // 完全に独立した1つのエラー型としてリダイレクトする
            response.sendRedirect("/login?error=" + errorType);
          })
          .permitAll() // ログイン画面処理自体へのアクセスは全員に許可する
