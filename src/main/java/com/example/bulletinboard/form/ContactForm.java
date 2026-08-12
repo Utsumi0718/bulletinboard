@@ -17,28 +17,28 @@ public class ContactForm {
     /**
      * お問い合わせ者の名前
      */
-    @NotBlank(message = "お名前を入力してください。")
-    @Size(max = 50, message = "お名前は50文字以内で入力してください。")
+    @NotBlank(message = "{NotBlank.form.name}")
+    @Size(max = 50, message = "{Size.form.name}")
     private String name;
 
     /**
      * お問い合わせ者のメールアドレス
      */
-    @NotBlank(message = "メールアドレスを入力してください。")
-    @Email(message = "正しいメールアドレスの形式で入力してください。")
+    @NotBlank(message = "{NotBlank.form.email}")
+    @Email(message = "{Email.form.name}")
     private String email;
 
     /**
      * お問い合わせ件名
      */
-    @NotBlank(message = "件名を入力してください。")
-    @Size(max = 100, message = "件名は100文字以内で入力してください。")
+    @NotBlank(message = "{NotBlank.form.subject}")
+    @Size(max = 100, message = "{Size.form.subject}")
     private String subject;
 
     /**
      * お問い合わせ内容本文
      */
-    @NotBlank(message = "お問い合わせ内容を入力してください。")
-    @Size(max = 1000, message = "お問い合わせ内容は1000文字以内で入力してください。")
+    @NotBlank(message = "{NotBlank.form.message}")
+    @Size(max = 1000, message = "{Size.form.message}")
     private String message;
 }
