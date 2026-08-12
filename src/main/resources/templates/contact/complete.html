@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org"
+                xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+                layout:decorate="~{layout/layout}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title layout:fragment="title">お問い合わせ送信完了</title>
+</head>
+  <div layout:fragment="content">
+  <div class="container mt-5 text-center" style="max-width: 600px;">
+        <h1 class="mb-4">お問い合わせありがとうございました</h1>
+
+        <p class="mb-4">お問い合わせが正常に送信されました。</p>
+
+        <div>
+            <a th:href="@{/posts}" class="btn btn-primary">トップページに戻る</a>
+        </div>
+    </div>
+  </div>
+</html>
