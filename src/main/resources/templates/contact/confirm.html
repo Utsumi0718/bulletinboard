@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org"
+                xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+                layout:decorate="~{layout/layout}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title layout:fragment="title">お問い合わせ内容確認</title>
+</head>
+  <div layout:fragment="content">
+   <div class="container mt-5" style="max-width: 600px;">
+        <h1 class="mb-4 text-center">お問い合わせ内容の確認</h1>
+
+        <p class="text-center mb-4">以下の内容で送信します。よろしければ「送信する」ボタンを押してください。</p>
+
+        <form th:action="@{/contact/send}" th:object="${contactForm}" method="post">
+
+            <input type="hidden" th:field="*{name}">
+            <input type="hidden" th:field="*{email}">
+            <input type="hidden" th:field="*{subject}">
+            <input type="hidden" th:field="*{message}">
+
+            <table class="table table-bordered">
+                <tr>
+                    <th class="bg-light" style="width: 30%;">お名前</th>
+                    <td th:text="*{name}">山田 太郎</td>
+                </tr>
+                <tr>
+                    <th class="bg-light">メールアドレス</th>
+                    <td th:text="*{email}">example@gmail.com</td>
+                </tr>
+                <tr>
+                    <th class="bg-light">件名</th>
+                    <td th:text="*{subject}">件名テキスト</td>
+                </tr>
+                <tr>
+                    <th class="bg-light">お問い合わせ内容</th>
+                    <td style="white-space: pre-wrap;" th:text="*{message}">お問い合わせ内容テキスト</td>
+                </tr>
+            </table>
+
+            <div class="d-flex justify-content-between mt-4">
+                <button type="submit" formaction="/contact" formmethod="get" class="btn btn-secondary">修正する</button>
+                <button type="submit" class="btn btn-primary">送信する</button>
+            </div>
+        </form>
+    </div>
+  </div>
+</html>
