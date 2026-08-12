@@ -25,7 +25,7 @@ public class ContactForm {
      * お問い合わせ者のメールアドレス
      */
     @NotBlank(message = "{NotBlank.form.email}")
-    @Email(message = "{Email.form.name}")
+    @Email(message = "{Email.form.email}")
     private String email;
 
     /**
