@@ -325,3 +325,16 @@ Spring BootとMySQLの連携にあたり、以下の3つのエラーに直面し
   * 送信完了メッセージおよびトップページへの導線表示
 * **メール送信処理（バックエンド）**
   * `spring-boot-starter-mail` を利用した SMTP 経由でのメール送信処理（JavaMailSender）
+
+  ### 📧 ## 修正(2026/08/12)
+
+ * **開発環境の効率化（VS Code設定）**
+        * `settings.json` の調整により、ファイル保存時の自動インポートおよびインポート文最適化（`source.organizeImports`）を有効化
+ * **ログイン画面におけるエラーメッセージの完全な出し分け機能の実現**
+        * `SecurityConfig.java` 内のカスタム `failureHandler` で、単なる入力ミス（`wrong`）と、各入力フィールドの未入力（`username_empty` / `password_empty` / `both_empty`）を厳密にJava側で判定するロジックを実装
+        * `login.html` 側で Thymeleaf の条件分岐（`th:if`）とメッセージ式（`#{...}`）を用い、入力ミス時と未入力時で重複することなく完全に独立したメッセージに切り替わる仕様にアップグレード
+
+  * **お問い合わせフォームのバリデーションメッセージ連携**
+        * `ContactForm.java`（DTOクラス）にアノテーション（`@NotBlank` 等）および固有のエラーメッセージキーを設定
+        * `application.properties` に `spring.messages.encoding=UTF-8` を明記し、日本語リソースの文字化け（文字コード起因によるデフォルトメッセージへのフォールバック）を防止
+        * バリデーション専用リソースファイルである `ValidationMessages.properties` にカスタムメッセージを定義することで、画面に「お名前を入力してください」などのオリジナルメッセージの完全な紐付け・表示に成功
