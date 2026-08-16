@@ -58,12 +58,12 @@ public class CustomUserDetailsService implements UserDetailsService {
            .username(user.getUsername())
            .password(user.getPassword())
            .accountLocked(!user.isAccountNonLocked())//ロック状態を反映
-           .roles(user.getRole())//追記：DBに保持されているロール（ROLE_USER / ROLE_ADMIN）を設定
+           .authorities(user.getRole())//追記：DBに保持されているロール（ROLE_USER / ROLE_ADMIN）を設定
            .build();
     }
 
   /*
-   * 【新規ユーザー登録メソッド】
+   * 【新規ユーザー登録メソッド】q
    * 生のパスワードをハッシュ化し、安全な状態でDBへ保存します。
    */
   public void registerUser(User user){
