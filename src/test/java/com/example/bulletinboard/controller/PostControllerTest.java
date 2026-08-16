@@ -1,20 +1,5 @@
 package com.example.bulletinboard.controller;
 
-import com.example.bulletinboard.model.Post;
-import com.example.bulletinboard.model.User;
-import com.example.bulletinboard.service.CustomUserDetailsService;
-import com.example.bulletinboard.service.PostService;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean; // ★こちらに変更
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.verify;
@@ -24,17 +9,54 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Optional;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import com.example.bulletinboard.model.Post;
+import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.service.CommentService;
+import com.example.bulletinboard.service.CustomUserDetailsService;
+import com.example.bulletinboard.service.LikeService;
+import com.example.bulletinboard.service.PostService;
+
+/*
+ * 【クラス全体の役割】
+ * 投稿管理（PostController）のWebレイヤー（リクエスト制御、データバリデーション、画面遷移など）を検証する
+ * コントローラー層専用の単体テストクラスです。
+ *
+ * 【設計・補足ポイント】
+ * - `@WebMvcTest(PostController.class)` を使用して、テストに必要なWeb周辺のBeanのみを軽量に起動させています。
+ * - フルスタックなSpring Security（SecurityConfig）をそのまま読み込ませると依存関係の連鎖で ApplicationContext の
+ *   起動失敗を招くため、不要なインポートを排除し、MockMvcの自動セキュリティ機能に処理を委ねています。
+ * - `PostController` がコンストラクタ経由で要求する4つのサービスコンポーネント（Post, UserDetails, Comment, Like）を、
+ *   すべて `@MockitoBean` としてテストコンテキスト内に漏れなく定義し、インジェクション不足による起動例外を防止しています。
+ * - ログイン中のコンテキスト状態をシミュレートするため、`@WithMockUser` アノテーションを用いて擬似的な認証情報を付与しています。
+ */
 @WebMvcTest(PostController.class)
 public class PostControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @MockitoBean // ★ @MockBean から変更
+    @MockitoBean
     private PostService postService;
 
-    @MockitoBean // ★ @MockBean から変更
+    @MockitoBean
     private CustomUserDetailsService userDetailsService;
+
+    @MockitoBean
+    private CommentService commentService;
+
+    @MockitoBean
+    private LikeService likeService;
 
     @Test
     @DisplayName("新規投稿時、ログイン中のユーザーが自動的にPostへセットされて保存されること")
