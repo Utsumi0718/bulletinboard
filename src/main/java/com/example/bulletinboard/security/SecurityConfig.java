@@ -30,6 +30,9 @@ public class SecurityConfig {
           // ログイン画面、新規登録画面、静的リソース（CSS/JS等）は未ログインでもアクセス許可（全員OK）
           .requestMatchers("/posts","/login", "/register","/reset-password", "/css/**", "/js/**","/error").permitAll()
           // 上記以外のすべてのURL（投稿一覧、作成、詳細、削除など）はログイン状態（認証済み）を必須とする
+
+          //追記：管理者専用パス（）（/admin/**）は ADMIN ロールを持つユーザーのみアクセス許可
+          .requestMatchers("/admin/**").hasRole("ADMIN")
           .anyRequest().authenticated()
         )
         // 2. フォーム認証（ログイン画面）に関する動作を設定
