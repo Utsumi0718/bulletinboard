@@ -17,6 +17,7 @@ import com.example.bulletinboard.repository.UserRepository;
 
 
 
+
 /**
  * 【クラスの役割】
  * システム管理専用の画面表示および操作処理を担当するControllerクラス。
@@ -110,7 +111,18 @@ public class AdminController {
             return "redirect:/admin/users";
     }
 
+   /**
+    * 【ユーザーの活動履歴（投稿・コメント）の可視化画面】
+    */
+   @GetMapping("/users/{id}/activities")
+   public String showUserActivities(@PathVariable Long id, Model model) {
+       User targetUser = userRepository.findById(id)
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid user Id:" + id));
+       model.addAttribute("targetUser",targetUser);
+       model.addAttribute("posts",targetUser.getPosts());
+       model.addAttribute("comments",targetUser.getComments());
 
+      return "admin/user_activities"; //templates/admin/user_activities.html
 
-
-}
+   }
+   }
