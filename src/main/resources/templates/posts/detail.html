@@ -34,15 +34,15 @@
  <div class="d-flex gap-2">
             <a th:href="@{/posts}" class="btn btn-secondary">一覧に戻る</a>
             <!-- 変更後：未ログイン（#authenticationがnull等）の考慮や安全性を高める -->
-            <th:block th:if="${post.user != null and #authentication.principal != 'anonymousUser' and #authentication.name == post.user.username}">
-            <!-- 編集ボタンを有効化 -->
-           <a th:href="@{/posts/{id}/edit(id=${post.id})}" class="btn btn-primary">編集</a>
+            <!-- 編集ボタン投稿者本人のみ表示 -->
+           <a th:if="${post.user != null and #authentication.name == post.user.username}"
+              th:href="@{/posts/{id}/edit(id=${post.id})}" class="btn btn-primary">編集</a>
            <!-- 削除ボタンを有効化 -->
-           <form th:action="@{/posts/{id}/delete(id=${post.id})}"method="post" style="display: inline;">
+           <form th:if="${post.user != null and (#authentication.name == post.user.username or #authorization.expression('hasRole(''ROLE_ADMIN'')'))}"
+                 th:action="@{/posts/{id}/delete(id=${post.id})}"method="post" style="display: inline;">
             <button type="submit" class="btn btn-danger" onclick="return confirm('本当に削除しますか？')">削除</button>
            </form>
-           </th:block>
-    </div>
+            </div>
 
     <!-- 👇 ここから追記：コメント一覧 -->
     <hr class="my-5">
@@ -62,7 +62,7 @@
                 </small>
 
                 <!-- 認可制御：自分のコメントのみ削除ボタンを表示 -->
-                <form th:if="${comment.user != null and #authentication.name == comment.user.username}"
+                <form th:if="${comment.user != null and #authentication.name == comment.user.username or #authorization.expression('hasRole(''ROLE_ADMIN'')')}"
                       th:action="@{/comments/{id}/delete(id=${comment.id})}" method="post" style="display: inline;">
                     <!-- 削除後に詳細画面に戻るための投稿ID -->
                     <input type="hidden" name="postId" th:value="${post.id}">
