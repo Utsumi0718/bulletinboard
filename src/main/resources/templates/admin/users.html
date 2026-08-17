@@ -10,6 +10,15 @@
 <body>
   <div layout:fragment="content">
 
+    <!-- 追記；お問い合わせ一覧ページ遷移 -->
+     <!-- お問い合わせ画面への遷移ボタン -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>ユーザー管理一覧</h3>
+    <a th:href="@{/admin/contacts}" class="btn btn-primary">
+        お問い合わせ一覧を見る
+    </a>
+</div>
+
     <!-- ユーザー一覧を表示 -->
     <table border="1" style="width: 100%; border-collapse: collapse;">
       <thead style="background-color: #f2f2f2;">
