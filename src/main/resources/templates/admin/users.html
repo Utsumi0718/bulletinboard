@@ -17,6 +17,8 @@
           <th>ID</th>
           <th>ユーザー名</th>
           <th>権限</th>
+          <th>投稿数</th>
+          <th>コメント数</th>
           <th>ログイン失敗回数</th>
           <th>アカウント状況</th>
           <th>操作</th>
@@ -28,6 +30,9 @@
             <td th:text="${u.username}">user01</td>
             <td th:text="${u.role}">ROLE_USER</td>
             <td th:text="${u.failedAttempt}">0</td>
+            <!-- 追加：投稿数とコメント数の表示 -->
+            <td th:text="${u.posts.size()}">0</td>
+            <td th:text="${u.comments.size()}">0</td>
             <td>
                 <span th:if="${u.accountNonLocked}" style="color: blue; font-weight: bold">通常</span>
                 <span th:unless="${u.accountNonLocked}" style="color: red; font-weight: bold">凍結中</span>

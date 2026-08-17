@@ -63,6 +63,10 @@ public class User {
     @Column(nullable = false)
     private boolean accountNonLocked = true;
 
+    // 👇 追加：1人のユーザーは複数の投稿を持つ（1対多）
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Post> posts = new ArrayList<>(); // Null回避のため初期化
+
      // 👇 追加：1人のユーザーは複数のコメントを持つ（1対多）
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>(); // Null回避のため初期化 [3]
@@ -70,5 +74,6 @@ public class User {
     // ユーザー削除時に、その人が押したいいねデータも自動で消去されます
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Like> likes = new ArrayList<>();
+
 
 }
