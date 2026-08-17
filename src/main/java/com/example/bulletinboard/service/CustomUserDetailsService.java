@@ -63,7 +63,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
   /*
-   * 【新規ユーザー登録メソッド】q
+   * 【新規ユーザー登録メソッド】
    * 生のパスワードをハッシュ化し、安全な状態でDBへ保存します。
    */
   public void registerUser(User user){
@@ -107,12 +107,16 @@ public class CustomUserDetailsService implements UserDetailsService {
     User user = userOptional.get();
     user.setPassword(passwordEncoder.encode(rawNewPassword));
 
-    //パスワードを再設定したらアカウントロックを解除して、失敗回数もリセット
-    user.setAccountNonLocked(true);
-    user.setFailedAttempt(0);
+    //追記：自動ロック（例: 失敗回数3回以上）の場合のみ、ロックを解除する
 
-    //DBに保存（更新）
-    userRepository.save(user);
+    if(user.getFailedAttempt() >= MAX_FAILED_ATTEMPTS){
+      //パスワードの間違いによるロックだった場合は解除する
+      user.setAccountNonLocked(true);
+      user.setFailedAttempt(0);
+
+    }
+    // //DBに保存（更新）
+     userRepository.save(user);
     return true;
   }
 
