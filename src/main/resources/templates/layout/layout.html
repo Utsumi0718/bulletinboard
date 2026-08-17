@@ -19,18 +19,19 @@
 </head>
 
 <body>
-    <!-- ヘッダー（ナビゲーションバー） -->
-    <nav class="navbar navbar-dark bg-dark mb-4">
-    <!-- Bootstrapのナビゲーションバー（黒背景、下に余白） -->
-
-        <div class="container">
-        <!-- コンテンツ幅を中央揃えに収めるコンテナ -->
-
+    <!-- 追記：ナビゲーションバーへの管理画面リンク配置 -->
+    <header class="header">
+        <nav class="navbar navbar-dark bg-dark mb-4">
+            <div class="container">
             <a class="navbar-brand" th:href="@{/posts}">掲示板アプリ</a>
-            <!-- th:href="@{/posts}": ブランドロゴをクリックした際の遷移先URLを「/posts」に動的生成 -->
+            <!--  -->
+            <li class="nav-item" sec:authorize="hasRole('ROLE_ADMIN')">
+              <a class="nav-link text-danger fw-bold" th:href="@{/admin/users}">管理画面へ</a>
+            </li>
         </div>
     </nav>
 
+    </header>
     <!-- 追記：アラート（フラッシュメッセージ）領域を追加します -->
 
     <div class="container mt-3">
