@@ -2,6 +2,8 @@ package com.example.bulletinboard.controller;
 
 import java.util.List;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -64,26 +66,50 @@ public class AdminController {
      * 【アカウント凍結・解除切り替え処理】
      * 指定された ID のユーザーのアカウントロック状態（accountNonLocked）を反転。
      * ロック解除時にはログイン失敗回数（failedAttempt）もリセット。
+     * 【追記】安全装置：管理者自身および他管理者アカウントの凍結・解除を禁止。
      */
     @PostMapping("/users/{id}/toggle-lock")
-    public String toggleAccountLock(@PathVariable Long id, RedirectAttributes redirectAttributes) {
-        userRepository.findById(id).ifPresent(user -> {
-          boolean currentStatus = user.isAccountNonLocked();//現在のアカウントの状態を取得
-          user.setAccountNonLocked(!currentStatus);//アカウントの状態を反転
+    public String toggleAccountLock(@PathVariable Long id,
+                                    @AuthenticationPrincipal UserDetails userDetails,
+                                    RedirectAttributes redirectAttributes) {
 
-          //凍結解除時は失敗回数をリセット
-          if(!currentStatus){
-            user.setFailedAttempt(0);
-          }
-          userRepository.save(user);
-
-         //フラッシュメッセージ
-         String statusMessage = !currentStatus ? "アカウントのロックを解除しました" : "アカウントを凍結しました";
-         redirectAttributes.addFlashAttribute("successMessage", user.getUsername() + " の" + statusMessage);
-
-        });
-        return "redirect:/admin/users";
+    //操作対象のユーザーを取得（一致しない場合は一覧画面へ戻る）
+    User targetUser = userRepository.findById(id).orElse(null);
+    if(targetUser == null){
+      redirectAttributes.addFlashAttribute("errorMessage","該当するユーザーは見つかりません");
+      return "redirect:/admin/users";
     }
+
+   //現在ログインしている管理者を取得
+    User currentUser = userRepository.findByUsername(userDetails.getUsername()).orElse(null);
+
+   //安全チェック
+    boolean isSelf = currentUser != null && targetUser.getId().equals(currentUser.getId());
+        boolean isTargetAdmin = "ROLE_ADMIN".equals(targetUser.getRole());
+
+        if (isSelf || isTargetAdmin) {
+            redirectAttributes.addFlashAttribute("errorMessage", "管理者アカウントの状態を変更することはできません。");
+            return "redirect:/admin/users";
+        }
+
+        // アカウント状態の切り替え処理
+            boolean currentStatus = targetUser.isAccountNonLocked(); // 現在のアカウントの状態を取得
+            targetUser.setAccountNonLocked(!currentStatus);          // アカウントの状態を反転
+
+            // 凍結解除時は失敗回数をリセット
+            if (!currentStatus) {
+                targetUser.setFailedAttempt(0);
+            }
+
+            userRepository.save(targetUser);
+
+        //フラッシュメッセージの設定
+            String statusMessage = !currentStatus ? "アカウントのロックを解除しました" : "アカウントを凍結しました";
+            redirectAttributes.addFlashAttribute("successMessage", targetUser.getUsername() + " の" + statusMessage);
+
+            return "redirect:/admin/users";
+    }
+
 
 
 
