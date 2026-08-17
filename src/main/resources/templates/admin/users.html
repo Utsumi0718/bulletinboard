@@ -29,6 +29,7 @@
             <td th:text="${u.id}">1</td>
             <td th:text="${u.username}">user01</td>
             <td th:text="${u.role}">ROLE_USER</td>
+
             <!-- 投稿数：0より大きければリンク表示 -->
             <td>
               <a th:if="${u.posts.size() > 0}"
