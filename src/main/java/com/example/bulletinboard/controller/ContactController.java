@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.example.bulletinboard.form.ContactForm;
+import com.example.bulletinboard.model.Contact;
+import com.example.bulletinboard.repository.ContactRepository;
 
 
 
@@ -28,14 +30,18 @@ import com.example.bulletinboard.form.ContactForm;
 public class ContactController{
 
     private final JavaMailSender mailSender;
+    private final ContactRepository
+     contactRepository; // 追記
 
     //application.propertiesから送信元（お問い合わせ用メールアドレス）を取得
     @Value( "${spring.mail.username}")
     private String mailForm;
 
 
-    public ContactController(JavaMailSender mailSender){
+    // コンストラクタ注入に contactRepository を追加
+    public ContactController(JavaMailSender mailSender, ContactRepository contactRepository) {
         this.mailSender = mailSender;
+        this.contactRepository = contactRepository;
     }
 
 
@@ -73,6 +79,14 @@ public class ContactController{
     if (result.hasErrors()) {
      return "contact/index";
     }
+
+    //追記:DBにお問い合わせ情報を保存する処理を追加
+    Contact contact = new Contact();
+        contact.setName(form.getName());
+        contact.setEmail(form.getEmail());
+        contact.setSubject(form.getSubject());
+        contact.setMessage(form.getMessage());
+        contactRepository.save(contact);
 
      //メールオブジェクトの作成
      SimpleMailMessage message = new SimpleMailMessage();
