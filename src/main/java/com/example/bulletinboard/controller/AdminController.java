@@ -156,4 +156,18 @@ public class AdminController {
         }
         return "redirect:/admin/contacts";
     }
+
+    /*
+     * 【追記：お問い合わせ削除処理】
+     */
+    @PostMapping("/contacts/{id}/delete")
+    public String deleteContact(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        if (contactRepository.existsById(id)) {
+            contactRepository.deleteById(id);
+            redirectAttributes.addFlashAttribute("successMessage", "お問い合わせを削除しました。");
+        } else {
+            redirectAttributes.addFlashAttribute("errorMessage", "指定されたお問い合わせが見つかりませんでした。");
+        }
+        return "redirect:/admin/contacts";
+    }
    }
