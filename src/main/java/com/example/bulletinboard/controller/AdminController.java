@@ -10,9 +10,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.repository.ContactRepository;
 import com.example.bulletinboard.repository.UserRepository;
 
 
@@ -34,10 +37,12 @@ import com.example.bulletinboard.repository.UserRepository;
 public class AdminController {
 
     private UserRepository userRepository;
+    private final ContactRepository contactRepository; // 追記
 
-    //インジェクション
-    public AdminController(UserRepository userRepository){
-      this.userRepository = userRepository;
+    // コンストラクタに ContactRepository を追加
+    public AdminController(UserRepository userRepository, ContactRepository contactRepository) {
+        this.userRepository = userRepository;
+        this.contactRepository = contactRepository;
     }
 
 
@@ -125,4 +130,30 @@ public class AdminController {
       return "admin/user_activities"; //templates/admin/user_activities.html
 
    }
+
+   /*
+     * 【追記：お問い合わせ一覧画面表示処理】
+     */
+    @GetMapping("/contacts")
+    public String listContacts(Model model) {
+        List<Contact> contacts = contactRepository.findAll();
+        model.addAttribute("contacts", contacts);
+        return "admin/contacts";
+    }
+
+    /*
+     * 【追記：お問い合わせステータス更新処理】
+     */
+    @PostMapping("/contacts/{id}/status")
+    public String updateContactStatus(@PathVariable Long id,
+                                      @RequestParam String status,
+                                      RedirectAttributes redirectAttributes) {
+        Contact contact = contactRepository.findById(id).orElse(null);
+        if (contact != null) {
+            contact.setStatus(status);
+            contactRepository.save(contact);
+            redirectAttributes.addFlashAttribute("successMessage", "ステータスを更新しました。");
+        }
+        return "redirect:/admin/contacts";
+    }
    }
