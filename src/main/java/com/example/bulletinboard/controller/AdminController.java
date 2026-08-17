@@ -52,7 +52,7 @@ public class AdminController {
      * 【ユーザー一覧画面表示処理】
      * DBに登録されている全ユーザー情報を取得し、モデルに格納して `admin/users.html` をレンダリング。
      */
-    @GetMapping({"","/", "/dashboard"})
+    @GetMapping("/users")
     public String listUsers(Model model) {
       List<User> users = userRepository.findAll();
       model.addAttribute("users",users);
