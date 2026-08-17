@@ -29,10 +29,23 @@
             <td th:text="${u.id}">1</td>
             <td th:text="${u.username}">user01</td>
             <td th:text="${u.role}">ROLE_USER</td>
+            <!-- 投稿数：0より大きければリンク表示 -->
+            <td>
+              <a th:if="${u.posts.size() > 0}"
+                 th:href="@{/admin/users/{id}/activities(id=${u.id})}"
+                 th:text="${u.posts.size()}">1</a>
+              <span th:if="${u.posts.size() == 0}">0</span>
+            </td>
+
+           <!-- コメント数：0より大きければリンク表示 -->
+         <td>
+           <a th:if="${u.comments.size() > 0}"
+              th:href="@{/admin/users/{id}/activities(id=${u.id})}"
+              th:text="${u.comments.size()}">1</a>
+          <span th:if="${u.comments.size() == 0}">0</span>
+        </td>
+
             <td th:text="${u.failedAttempt}">0</td>
-            <!-- 追加：投稿数とコメント数の表示 -->
-            <td th:text="${u.posts.size()}">0</td>
-            <td th:text="${u.comments.size()}">0</td>
             <td>
                 <span th:if="${u.accountNonLocked}" style="color: blue; font-weight: bold">通常</span>
                 <span th:unless="${u.accountNonLocked}" style="color: red; font-weight: bold">凍結中</span>
