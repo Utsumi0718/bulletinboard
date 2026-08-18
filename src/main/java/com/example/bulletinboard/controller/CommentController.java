@@ -1,16 +1,20 @@
 package com.example.bulletinboard.controller;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;//追加
+
 import com.example.bulletinboard.model.Comment;
 import com.example.bulletinboard.model.Post;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.service.CommentService;
-import com.example.bulletinboard.service.PostService;
 import com.example.bulletinboard.service.CustomUserDetailsService;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;//追加
+import com.example.bulletinboard.service.PostService;
 
 /*
 * 【クラスの役割】
@@ -76,10 +80,15 @@ public class CommentController {
             Comment comment = commentService.getCommentById(id)
                     .orElseThrow(() -> new IllegalArgumentException("コメントが見つかりません"));
 
-         //認可制御：自分が書いたコメントかチェック
-         if(comment.getUser() != null && comment.getUser().getUsername().equals(userDetails.getUsername())){
+          //追記：本人および管理者チェック
+          boolean isLoginUser = comment.getUser() != null && comment.getUser().getUsername().equals(userDetails.getUsername());
+          boolean isAdmin = userDetails.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+
+         //認可制御：自分か管理者かチェック
+         if(isLoginUser || isAdmin){
              commentService.deleteComment(id);
-           // 成功時のみ if の中で成功メッセージをセット
             redirectAttributes.addFlashAttribute("successMessage", userDetails.getUsername() + "さんのコメントが削除されました！");
           } else {
             // 💡 本人でない場合はエラーメッセージをセット
