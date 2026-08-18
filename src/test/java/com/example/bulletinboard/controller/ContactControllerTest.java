@@ -1,6 +1,7 @@
 package com.example.bulletinboard.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -20,10 +21,12 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.example.bulletinboard.repository.ContactRepository;
+
 /*
  * 【クラスの役割】
  * ContactController における画面遷移（入力・確認・完了）、入力バリデーション、
- * およびメール送信処理（JavaMailSender）の呼び出しを自動検証する単体テストクラスです。
+ * DBへの保存処理（ContactRepository）、およびメール送信処理（JavaMailSender）の呼び出しを自動検証する単体テストクラスです。
  */
 @WebMvcTest(ContactController.class)
 @TestPropertySource(properties = "spring.mail.username=test@example.com")
@@ -34,6 +37,10 @@ class ContactControllerTest {
 
     @MockitoBean
     private JavaMailSender mailSender;
+
+    // 【追記】お問い合わせ情報のDB保存を検証・モック化するためのリポジトリ
+    @MockitoBean
+    private ContactRepository contactRepository;
 
     @Test
     @WithMockUser
@@ -78,7 +85,7 @@ class ContactControllerTest {
 
     @Test
     @WithMockUser
-    @DisplayName("POST /contact/send : 送信処理が正常に呼び出され、完了画面が表示されること")
+    @DisplayName("POST /contact/send : 送信処理が正常に呼び出され、DB保存およびメール送信が行われて完了画面が表示されること")
     void send_success() throws Exception {
         mockMvc.perform(post("/contact/send")
                         .with(csrf())
@@ -89,7 +96,29 @@ class ContactControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("contact/complete"));
 
+        // 【追記】DB保存メソッド（save）が1回呼び出されたことを検証
+        verify(contactRepository).save(any());
+
         // メール送信メソッド（send）が1回呼び出されたことを検証
         verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("POST /contact/send : 入力値エラーの場合、DB保存やメール送信は実行されず入力画面に戻ること")
+    void send_validationError() throws Exception {
+        mockMvc.perform(post("/contact/send")
+                        .with(csrf())
+                        .param("name", "") // 未入力エラー
+                        .param("email", "invalid-email") // メールフォーマットエラー
+                        .param("subject", "")
+                        .param("message", ""))
+                .andExpect(status().isOk())
+                .andExpect(view().name("contact/index"))
+                .andExpect(model().hasErrors());
+
+        // 【追記】バリデーションエラー時はDB保存およびメール送信が「一度も呼び出されないこと（never）」を検証
+        verify(contactRepository, never()).save(any());
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
     }
 }
