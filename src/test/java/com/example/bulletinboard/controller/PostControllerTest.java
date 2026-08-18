@@ -2,6 +2,7 @@ package com.example.bulletinboard.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -31,14 +32,6 @@ import com.example.bulletinboard.service.PostService;
  * 【クラス全体の役割】
  * 投稿管理（PostController）のWebレイヤー（リクエスト制御、データバリデーション、画面遷移など）を検証する
  * コントローラー層専用の単体テストクラスです。
- *
- * 【設計・補足ポイント】
- * - `@WebMvcTest(PostController.class)` を使用して、テストに必要なWeb周辺のBeanのみを軽量に起動させています。
- * - フルスタックなSpring Security（SecurityConfig）をそのまま読み込ませると依存関係の連鎖で ApplicationContext の
- *   起動失敗を招くため、不要なインポートを排除し、MockMvcの自動セキュリティ機能に処理を委ねています。
- * - `PostController` がコンストラクタ経由で要求する4つのサービスコンポーネント（Post, UserDetails, Comment, Like）を、
- *   すべて `@MockitoBean` としてテストコンテキスト内に漏れなく定義し、インジェクション不足による起動例外を防止しています。
- * - ログイン中のコンテキスト状態をシミュレートするため、`@WithMockUser` アノテーションを用いて擬似的な認証情報を付与しています。
  */
 @WebMvcTest(PostController.class)
 public class PostControllerTest {
@@ -82,5 +75,33 @@ public class PostControllerTest {
         Post savedPost = postCaptor.getValue();
         assertNotNull(savedPost.getUser(), "PostにUserがセットされていること");
         assertEquals("testuser01", savedPost.getUser().getUsername(), "セットされたUser名が一致すること");
+    }
+
+    /**
+     * 【追加】投稿削除処理のテスト
+     * 投稿主または管理者が投稿削除リクエストを送った際、削除処理が実行されて投稿一覧画面へリダイレクトされることを検証します。
+     */
+    @Test
+    @DisplayName("投稿削除時、削除処理が行われ投稿一覧画面にリダイレクトされること")
+    @WithMockUser(username = "testuser01")
+    void deletePost_success() throws Exception {
+        // 1. [準備] 削除対象の投稿とユーザーデータの設定
+        User postUser = new User();
+        postUser.setUsername("testuser01");
+
+        Post mockPost = new Post();
+        mockPost.setId(1L);
+        mockPost.setUser(postUser);
+
+        when(postService.findById(1L)).thenReturn(Optional.of(mockPost));
+
+        // 2. [実行 & 3. 検証] 投稿削除用URL（※実際のControllerのURL構造に合わせて調整してください）へPOSTリクエスト
+        mockMvc.perform(post("/posts/1/delete")
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/posts"));
+
+        // サービス層の削除処理（deletePostまたはdeleteById）が1回呼び出されたことを検証
+        verify(postService, times(1)).deleteById(1L);
     }
 }
