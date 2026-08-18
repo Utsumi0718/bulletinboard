@@ -3,7 +3,14 @@ package com.example.bulletinboard.model;
 import java.util.ArrayList;
 import java.util.List;
 
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
@@ -19,6 +26,9 @@ import lombok.Setter;
  * - Lombok（@Data）を利用することで、定型コードを自動生成し記述を簡略化しています。
  * - 【重要】他エンティティとの双方向リレーションを設定する場合は、無限ループ（スタックオーバーフロー）を
  *   防止するため、@Data から @Getter / @Setter への切り替えを推奨します。
+ * [追記]
+ * ユーザー権限を保持するroleフィールドを追加。
+ * 初期値は一般ユーザーを意味する'ROLE_USER'に設定
 
  */
 @Entity // このクラスがJPAのエンティティ（DBのテーブルとマッピングされるオブジェクト）であることを宣言
@@ -30,6 +40,10 @@ public class User {
     @Id // このフィールド（id）がテーブルの主キー（Primary Key）であることを指定
     @GeneratedValue(strategy = GenerationType.IDENTITY) // 主キーの値をデータベース側（MySQLのAUTO_INCREMENTなど）で自動割り振りする設定
     private Long id; // ユーザーを一意に識別するためのID
+
+    //追記：ユーザーの権限（初期値ROLE_USER）
+    @Column(nullable = false)
+    private String role = "ROLE_USER";
 
     //ユーザー名（username）のバリデーション・DB定義
     @NotNull //必須チェック（null不可）
@@ -49,6 +63,10 @@ public class User {
     @Column(nullable = false)
     private boolean accountNonLocked = true;
 
+    // 👇 追加：1人のユーザーは複数の投稿を持つ（1対多）
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Post> posts = new ArrayList<>(); // Null回避のため初期化
+
      // 👇 追加：1人のユーザーは複数のコメントを持つ（1対多）
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>(); // Null回避のため初期化 [3]
@@ -56,5 +74,6 @@ public class User {
     // ユーザー削除時に、その人が押したいいねデータも自動で消去されます
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Like> likes = new ArrayList<>();
+
 
 }

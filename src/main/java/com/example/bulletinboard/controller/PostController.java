@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;//追加
 
-
 import com.example.bulletinboard.model.Post;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.service.CommentService;
@@ -224,9 +223,18 @@ public class PostController {
         Post post = postService.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid post Id:" + id));
 
-        // 本人チェック
-        if (post.getUser() == null || !post.getUser().getUsername().equals(userDetails.getUsername())) {
-            redirectAttributes.addFlashAttribute("errorMessage", "投稿の削除に失敗しました。");
+
+        //追記：ログインユーザーの本人のチェック
+        boolean isLoginUser = post.getUser() != null && post.getUser().getUsername().equals(userDetails.getUsername());
+
+        //追記：ログインユーザーが管理者（ROLE＿ADMIN）の権限を持っているかチェック
+        boolean isAdmin = userDetails.getAuthorities().stream()
+                          .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+
+        //追記： 本人チェック
+        if (!isLoginUser && !isAdmin) {
+            redirectAttributes.addFlashAttribute("errorMessage", "投稿の削除権限がありません。");
             return "redirect:/posts";
         }
 

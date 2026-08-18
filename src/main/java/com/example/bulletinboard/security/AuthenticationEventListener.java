@@ -1,14 +1,15 @@
 package com.example.bulletinboard.security;
 
-import com.example.bulletinboard.model.User;
-import com.example.bulletinboard.repository.UserRepository;
-import com.example.bulletinboard.service.CustomUserDetailsService;
+import java.util.Optional;
+
 import org.springframework.context.event.EventListener;
 import org.springframework.security.authentication.event.AuthenticationFailureBadCredentialsEvent;
 import org.springframework.security.authentication.event.AuthenticationSuccessEvent;
 import org.springframework.stereotype.Component;
 
-import java.util.Optional;
+import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.repository.UserRepository;
+import com.example.bulletinboard.service.CustomUserDetailsService;
 
 /**
  * ログインの成功・失敗イベントを監視し、失敗カウントのリセットを行うクラス

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+    <title layout:fragment="title">管理画面 - お問い合わせ一覧</title>
+</head>
+
+<body>
+  <div layout:fragment="content" class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>お問い合わせ管理一覧</h2>
+        <a th:href="@{/admin/users}" class="btn btn-outline-secondary">ユーザー管理へ</a>
+    </div>
+
+    <!-- メッセージ表示 -->
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
+
+    <div th:if="${#lists.isEmpty(contacts)}" class="alert alert-info">
+        現在届いているお問い合わせはありません。
+    </div>
+
+    <table th:unless="${#lists.isEmpty(contacts)}" border="1" style="width: 100%; border-collapse: collapse;">
+        <thead style="background-color: #f2f2f2;">
+            <tr>
+                <th>ID</th>
+                <th>送信日時</th>
+                <th>お名前</th>
+                <th>メールアドレス</th>
+                <th>件名</th>
+                <th>内容</th>
+                <th>ステータス</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="contact : ${contacts}">
+                <td th:text="${contact.id}">1</td>
+                <td th:text="${#temporals.format(contact.createdAt, 'yyyy/MM/dd HH:mm')}">2026/08/17 12:00</td>
+                <td th:text="${contact.name}">山田太郎</td>
+                <td th:text="${contact.email}">test@example.com</td>
+                <td th:text="${contact.subject}">不具合について</td>
+                <td style="white-space: pre-wrap;" th:text="${contact.message}">問い合わせ本文...</td>
+                <td>
+                    <span th:if="${contact.status == 'UNANSWERED'}" class="badge bg-danger">未対応</span>
+                    <span th:if="${contact.status == 'IN_PROGRESS'}" class="badge bg-warning text-dark">対応中</span>
+                    <span th:if="${contact.status == 'RESOLVED'}" class="badge bg-success">完了</span>
+                </td>
+                <td>
+                    <!-- ステータス変更フォーム -->
+                    <form th:action="@{/admin/contacts/{id}/status(id=${contact.id})}" method="post" style="display: inline;">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <select name="status" onchange="this.form.submit()">
+                            <option value="UNANSWERED" th:selected="${contact.status == 'UNANSWERED'}">未対応</option>
+                            <option value="IN_PROGRESS" th:selected="${contact.status == 'IN_PROGRESS'}">対応中</option>
+                            <option value="RESOLVED" th:selected="${contact.status == 'RESOLVED'}">完了</option>
+                        </select>
+                    </form>
+
+                    <!-- 追記：削除フォーム -->
+                    <form th:action="@{/admin/contacts/{id}/delete(id=${contact.id})}" method="post" style="display: inline; margin-left: 5px;">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <button type="submit" style="color: red;" onclick="return confirm('このお問い合わせを削除しますか？');">
+                            削除
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+  </div>
+</body>
+</html>

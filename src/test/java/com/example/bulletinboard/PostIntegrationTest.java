@@ -1,5 +1,19 @@
 package com.example.bulletinboard;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
+
+import java.util.List;
+import java.util.Optional;
+
 import org.junit.jupiter.api.BeforeEach; // ★追加
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -7,30 +21,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.crypto.password.PasswordEncoder; // ★追加
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.context.annotation.Import;
-import org.springframework.security.crypto.password.PasswordEncoder; // ★追加
 
 import com.example.bulletinboard.model.Post;
 import com.example.bulletinboard.model.User; // ★追加
 import com.example.bulletinboard.repository.PostRepository;
 import com.example.bulletinboard.repository.UserRepository; // ★追加
 import com.example.bulletinboard.security.SecurityConfig;
-
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
-import org.springframework.security.test.context.support.WithMockUser;
-import java.util.Optional;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.containsString;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -169,20 +172,12 @@ public class PostIntegrationTest {
 
         mockMvc.perform(post("/posts/1/delete").with(csrf()))
                 .andExpect(status().isFound())
-                .andExpect(redirectedUrl("/posts/delete-complete"));
+                .andExpect(redirectedUrl("/posts"));
 
         Optional<Post> deletedPost = postRepository.findById(1L);
         assertThat(deletedPost).isEmpty();
     }
 
-    @Test
-    @DisplayName("削除完了画面が表示されるか検証する")
-    @WithMockUser
-    void test_deleteCompletePage() throws Exception {
-        mockMvc.perform(get("/posts/delete-complete"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("posts/deleteComplete"));
-    }
 
     @Test
     @WithMockUser

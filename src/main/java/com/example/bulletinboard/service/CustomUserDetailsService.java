@@ -1,17 +1,5 @@
 package com.example.bulletinboard.service;
 
-import com.example.bulletinboard.model.User;
-import com.example.bulletinboard.repository.UserRepository;
-
-import jakarta.transaction.Transactional;
-
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
 import java.util.Optional;
 /*
  * 【クラス全体の役割】
@@ -25,7 +13,20 @@ import java.util.Optional;
  * * @param username 対象のユーザー名
  * * @return ユーザーが存在し、更新に成功した場合は true、存在しない場合は false
  * * ログインの成功時・失敗時のカウント操作用メソッドと、Spring Security がアカウントのロック状態（accountNonLocked）を判定できるようにする修正を行います。
+ * 【追記】
+ * ログイン時にDBから取得したuser.getRole()をSpringSecurityの認証情報へ設定するようにloadUserByUsername メソッドを更新
 */
+
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.repository.UserRepository;
+
+import jakarta.transaction.Transactional;
 
 @Service // Springのサービス層コンポーネントとしてコンテナに登録（@Autowired可能にする）
 public class CustomUserDetailsService implements UserDetailsService {
@@ -44,6 +45,7 @@ public class CustomUserDetailsService implements UserDetailsService {
   /*
    * 【ログイン認証時に自動呼び出しされるメソッド】
    * ユーザー名をもとにDBからユーザー情報を検索し、Spring Security専用のUserDetails型に変換して返します。
+   *
    */
   @Override
   public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -56,7 +58,7 @@ public class CustomUserDetailsService implements UserDetailsService {
            .username(user.getUsername())
            .password(user.getPassword())
            .accountLocked(!user.isAccountNonLocked())//ロック状態を反映
-           .roles("USER")
+           .authorities(user.getRole())//追記：DBに保持されているロール（ROLE_USER / ROLE_ADMIN）を設定
            .build();
     }
 
@@ -105,12 +107,16 @@ public class CustomUserDetailsService implements UserDetailsService {
     User user = userOptional.get();
     user.setPassword(passwordEncoder.encode(rawNewPassword));
 
-    //パスワードを再設定したらアカウントロックを解除して、失敗回数もリセット
-    user.setAccountNonLocked(true);
-    user.setFailedAttempt(0);
+    //追記：自動ロック（例: 失敗回数3回以上）の場合のみ、ロックを解除する
 
-    //DBに保存（更新）
-    userRepository.save(user);
+    if(user.getFailedAttempt() >= MAX_FAILED_ATTEMPTS){
+      //パスワードの間違いによるロックだった場合は解除する
+      user.setAccountNonLocked(true);
+      user.setFailedAttempt(0);
+
+    }
+    // //DBに保存（更新）
+     userRepository.save(user);
     return true;
   }
 
