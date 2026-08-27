@@ -84,7 +84,7 @@
         <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
 
-     <!-- 👇 共通レイアウト機能を有効化するために、これを追加します -->
+        <!-- 👇 共通レイアウト機能を有効化するために、これを追加します -->
         <dependency>
             <groupId>nz.net.ultraq.thymeleaf</groupId>
             <artifactId>thymeleaf-layout-dialect</artifactId>
@@ -105,7 +105,7 @@
        <scope>test</scope>
     </dependency>
 
-           <!-- バリデーション（@NotBlankなど）を使用するための設定 -->
+     <!-- バリデーション（@NotBlankなど）を使用するための設定 -->
        <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-validation</artifactId>
@@ -119,14 +119,25 @@
         <scope>test</scope>
        </dependency>
 
+    <!-- Flyway本体 -->
+    <dependency>
+       <groupId>org.flywaydb</groupId>
+       <artifactId>flyway-core</artifactId>
+    </dependency>
 
-                <!-- Lombok本体（インポートを有効にするための設定） -->
+    <!-- FlywayのMySQL対応 -->
+    <dependency>
+       <groupId>org.flywaydb</groupId>
+       <artifactId>flyway-mysql</artifactId>
+    </dependency>
+
+
+      <!-- Lombok本体（インポートを有効にするための設定） -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
-
 
         <!--  データベース操作を簡単にする(SQLを自動作成) -->
         <dependency>
@@ -141,25 +152,22 @@
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
+
         <!-- テスト用の軽量データベース（H2） -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
+
        <!-- アプリにログイン機能やセキュリティ機能を書ける設定 -->
         <dependency>
          <groupId>org.springframework.boot</groupId>
          <artifactId>spring-boot-starter-security</artifactId>
       </dependency>
 
-      <!-- ログイン状態を画面と連携させる設定 -->
-     <dependency>
-       <groupId>org.thymeleaf.extras</groupId>
-       <artifactId>thymeleaf-extras-springsecurity6</artifactId>
-     </dependency>
 
-     <!-- 追記：Spring Boot のメール機能を利用 -->
+   <!-- 追記：Spring Boot のメール機能を利用 -->
      <dependency>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-mail</artifactId>
