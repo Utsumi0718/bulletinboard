@@ -1,153 +1,241 @@
 package com.example.bulletinboard.service;
 
 import java.util.Optional;
-/*
- * 【クラス全体の役割】
- * Spring Securityのログイン認証処理および新規ユーザー登録（アカウント作成）を担当するサービス層（ビジネスロジック）クラスです。
- *
- * 【追記・補足ポイント】
- * - `UserDetailsService` インターフェースを実装することで、Spring Security がログイン時に自動的にこのクラスの `loadUserByUsername` メソッドを呼び出せるようにしています。
- * - 独自の `User` エンティティ（DBのデータ構造）を、Spring Security が理解できる認証用オブジェクト（`UserDetails`）へ変換する「仲介役」を果たします。
- * - パスワード暗号化（`PasswordEncoder`）と DB 保存（`UserRepository`）を組み合わせたユーザー登録処理（`registerUser`）も提供します。
- * - 指定されたユーザーのパスワードを新しいパスワード（暗号化済み）で更新します。
- * * @param username 対象のユーザー名
- * * @return ユーザーが存在し、更新に成功した場合は true、存在しない場合は false
- * * ログインの成功時・失敗時のカウント操作用メソッドと、Spring Security がアカウントのロック状態（accountNonLocked）を判定できるようにする修正を行います。
- * 【追記】
- * ログイン時にDBから取得したuser.getRole()をSpringSecurityの認証情報へ設定するようにloadUserByUsername メソッドを更新
-*/
 
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.UserRepository;
 
-import jakarta.transaction.Transactional;
-
-@Service // Springのサービス層コンポーネントとしてコンテナに登録（@Autowired可能にする）
+/*
+ * 【クラス全体の役割】
+ * Spring Securityのログイン認証処理と、
+ * ユーザー登録・パスワード更新・ログイン失敗回数管理などを担当する
+ * Serviceクラスです。
+ *
+ * UserDetailsServiceを実装することで、
+ * Spring Securityからログイン認証時に
+ * loadUserByUsername()が呼び出されます。
+ *
+ * 【主な役割】
+ * - emailによるログインユーザー検索
+ * - UserからSpring Security用UserDetailsへの変換
+ * - 新規ユーザー登録
+ * - パスワードのハッシュ化
+ * - ユーザー名・メールアドレスの重複確認
+ * - パスワード更新
+ * - ログイン失敗回数の管理
+ * - ログイン失敗によるアカウントロック管理
+ *
+ * 【設計上のポイント】
+ * - 新しい認証仕様ではusernameではなくemailをログインIDとして使用します。
+ * - loadUserByUsernameというメソッド名はSpring Securityの仕様上変更できませんが、
+ *   引数にはemailが渡される設計とします。
+ * - usernameは公開用のユーザー名として引き続き使用します。
+ * - accountNonLockedはパスワード入力失敗によるロック状態を管理します。
+ * - ACTIVE / FROZEN / WITHDRAWNによるアカウント状態の認証制御は、
+ *   feature/auth-account-refactorで実装します。
+ */
+@Service
 public class CustomUserDetailsService implements UserDetailsService {
 
-  private final UserRepository userRepository; // DB操作を行うリポジトリ
-  private final PasswordEncoder passwordEncoder; // パスワードのハッシュ化（暗号化）を行うコンポーネント
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-  public static final int MAX_FAILED_ATTEMPTS = 3; // 最大許容失敗回数
+    /*
+     * ログイン失敗を許容する最大回数。
+     */
+    public static final int MAX_FAILED_ATTEMPTS = 3;
 
-  // コンストラクタインジェクション（Springが自動的に必要な依存関係を注入する）
-  public CustomUserDetailsService(UserRepository userRepository, PasswordEncoder passwordEncoder){
-    this.userRepository = userRepository;
-    this.passwordEncoder = passwordEncoder;
-  }
+    /*
+     * 必要なRepositoryとPasswordEncoderを
+     * コンストラクタインジェクションします。
+     */
+    public CustomUserDetailsService(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder) {
 
-  /*
-   * 【ログイン認証時に自動呼び出しされるメソッド】
-   * ユーザー名をもとにDBからユーザー情報を検索し、Spring Security専用のUserDetails型に変換して返します。
-   *
-   */
-  @Override
-  public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-    // ユーザー名でDBを検索（見つからない場合は UsernameNotFoundException 例外をスロー）
-    User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("ユーザーが見つかりません" + username));
-
-    // Spring Security 向けのUserDetailsを生成
-    return org.springframework.security.core.userdetails.User.builder()
-           .username(user.getUsername())
-           .password(user.getPassword())
-           .accountLocked(!user.isAccountNonLocked())//ロック状態を反映
-           .authorities(user.getRole())//追記：DBに保持されているロール（ROLE_USER / ROLE_ADMIN）を設定
-           .build();
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
-  /*
-   * 【新規ユーザー登録メソッド】
-   * 生のパスワードをハッシュ化し、安全な状態でDBへ保存します。
-   */
-  public void registerUser(User user){
-    //  入力された生のパスワードをハッシュ化（BCrypt等）してセットし直す
-    user.setPassword(passwordEncoder.encode(user.getPassword()));
+    /*
+     * Spring Securityによるログイン認証時に呼び出されます。
+     *
+     * メソッド名はloadUserByUsernameですが、
+     * 新しい仕様では引数をemailとして扱います。
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public UserDetails loadUserByUsername(String email)
+            throws UsernameNotFoundException {
 
-    // ★追記: 新規登録時は初期値として「ロックなし(true)」「失敗回数(0)」を明示的にセットする
-    user.setAccountNonLocked(true);
-    user.setFailedAttempt(0);
+        User user = userRepository
+            .findByEmail(email)
+            .orElseThrow(
+                () -> new UsernameNotFoundException(
+                    "ユーザーが見つかりません。"
+                )
+            );
 
-    //  パスワードが安全になった User オブジェクトを DB に保存する
-    userRepository.save(user);
-  }
-
-  /*
-   *ユーザー名が既に登録されているか確認する
-  */
-
-   public boolean existsByUsername(String username){
-    return userRepository.existsByUsername(username);
-   }
-
-
-
-  /*
-   * パスワードの再設定メソッド
-   * パスワード再設定成功時にアカウントロックも解除するように既存の updatePassword を拡張
-   */
-
-  @Transactional
-  public boolean updatePassword(String username, String rawNewPassword){
-    //データベースから該当のユーザーを検索
-    Optional<User> userOptional = userRepository.findByUsername(username);
-
-    //ユーザー存在しない場合はfalseを返す
-    if(userOptional.isEmpty()){
-       return false;
+        /*
+         * DBのUserをSpring Security用の
+         * UserDetailsへ変換します。
+         *
+         * 新しいログインIDはemailなので、
+         * Security側のusernameにもemailを設定します。
+         */
+        return org.springframework.security.core.userdetails.User
+            .builder()
+            .username(user.getEmail())
+            .password(user.getPassword())
+            .accountLocked(!user.isAccountNonLocked())
+            .authorities(user.getRole())
+            .build();
     }
 
-    //ユーザーが存在する場合はパスワードを暗号化してセット
-    User user = userOptional.get();
-    user.setPassword(passwordEncoder.encode(rawNewPassword));
+    /*
+     * 新規ユーザーを登録します。
+     *
+     * 生のパスワードをPasswordEncoderでハッシュ化してから
+     * DBへ保存します。
+     */
+    @Transactional
+    public void registerUser(User user) {
 
-    //追記：自動ロック（例: 失敗回数3回以上）の場合のみ、ロックを解除する
+        user.setPassword(
+            passwordEncoder.encode(user.getPassword())
+        );
 
-    if(user.getFailedAttempt() >= MAX_FAILED_ATTEMPTS){
-      //パスワードの間違いによるロックだった場合は解除する
-      user.setAccountNonLocked(true);
-      user.setFailedAttempt(0);
+        /*
+         * 新規登録時のセキュリティロック初期状態。
+         */
+        user.setAccountNonLocked(true);
+        user.setFailedAttempt(0);
 
+        userRepository.save(user);
     }
-    // //DBに保存（更新）
-     userRepository.save(user);
-    return true;
-  }
 
-  /**
-   * ログイン失敗時の処理（失敗回数＋1し、3回に達したらロック）
-  */
- @Transactional
- public void increaseFailedAttempts(User user){
-  int newFailAttempts = user.getFailedAttempt() + 1;
-  userRepository.updateFailedAttempts(user.getUsername());
+    /*
+     * 指定したユーザー名が
+     * すでに登録されているか確認します。
+     */
+    @Transactional(readOnly = true)
+    public boolean existsByUsername(String username) {
+        return userRepository.existsByUsername(username);
+    }
 
-  //3回パスワード入力が失敗したら、アカウントロック
-  if(newFailAttempts >= MAX_FAILED_ATTEMPTS){
-    userRepository.updateAccountNonLocked(user.getUsername(), false);
-  }
- }
+    /*
+     * 指定したメールアドレスが
+     * すでに登録されているか確認します。
+     */
+    @Transactional(readOnly = true)
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
 
- /**
-  * ログイン成功時の処理（失敗回数をリセット）
-  */
- public void resetFailedAttempts(String username){
-   userRepository.resetFailedAttempts(username);
- }
+    /*
+     * パスワードを更新します。
+     *
+     * 新しい認証仕様ではemailを基準に
+     * 対象ユーザーを検索します。
+     *
+     * パスワード入力失敗によってロックされている場合は、
+     * パスワード更新と同時にロックを解除します。
+     */
+    @Transactional
+    public boolean updatePassword(
+            String email,
+            String rawNewPassword) {
 
-/**
-   * ユーザー名でユーザー情報を検索する
-   */
-  public Optional<User> findByUsername(String username) {
-      return userRepository.findByUsername(username);
-  }
+        Optional<User> userOptional =
+            userRepository.findByEmail(email);
 
+        if (userOptional.isEmpty()) {
+            return false;
+        }
 
+        User user = userOptional.get();
 
+        user.setPassword(
+            passwordEncoder.encode(rawNewPassword)
+        );
+
+        /*
+         * パスワード入力失敗による自動ロックの場合は解除します。
+         */
+        if (user.getFailedAttempt() >= MAX_FAILED_ATTEMPTS) {
+
+            user.setAccountNonLocked(true);
+            user.setFailedAttempt(0);
+        }
+
+        userRepository.save(user);
+
+        return true;
+    }
+
+    /*
+     * ログイン失敗時に、
+     * failedAttemptを1増加させます。
+     *
+     * 最大失敗回数に達した場合は
+     * accountNonLockedをfalseにしてロックします。
+     */
+    @Transactional
+    public void increaseFailedAttempts(User user) {
+
+        int newFailedAttempts =
+            user.getFailedAttempt() + 1;
+
+        userRepository.updateFailedAttempts(
+            user.getEmail()
+        );
+
+        if (newFailedAttempts >= MAX_FAILED_ATTEMPTS) {
+
+            userRepository.updateAccountNonLocked(
+                user.getEmail(),
+                false
+            );
+        }
+    }
+
+    /*
+     * ログイン成功時に、
+     * ログイン失敗回数を0へ戻します。
+     */
+    @Transactional
+    public void resetFailedAttempts(String email) {
+
+        userRepository.resetFailedAttempts(email);
+    }
+
+    /*
+     * メールアドレスからUserを取得します。
+     *
+     * 主に認証関連処理で使用します。
+     */
+    @Transactional(readOnly = true)
+    public Optional<User> findByEmail(String email) {
+
+        return userRepository.findByEmail(email);
+    }
+
+    /*
+     * ユーザー名からUserを取得します。
+     *
+     * usernameは公開ユーザー名として使用するため、
+     * 認証以外の機能で利用することを想定しています。
+     */
+    @Transactional(readOnly = true)
+    public Optional<User> findByUsername(String username) {
+
+        return userRepository.findByUsername(username);
+    }
 }
