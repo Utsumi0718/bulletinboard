@@ -37,6 +37,9 @@ public class TopicRepositoryTest {
     private TopicRepository topicRepository;
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     /*
@@ -98,36 +101,67 @@ public class TopicRepositoryTest {
     }
 
     /*
-     * Topicを保存した後、
-     * JdbcTemplateを利用してDBの値を直接確認します。
+ * Topicを保存した後、
+ * JdbcTemplateを利用してDBの値を直接確認します。
+ */
+@Test
+@DisplayName("お題を保存しDBへ正しく登録されること")
+@Sql("TopicRepositoryTest.sql")
+void save_ShouldPersistTopic() {
+
+    /*
+     * SQLで事前登録したテストユーザーを取得します。
+     *
+     * Topic.userはUser Entityを参照するため、
+     * UserRepositoryからEntityとして取得します。
      */
-    @Test
-    @DisplayName("お題を保存しDBへ正しく登録されること")
-    @Sql("TopicRepositoryTest.sql")
-    void save_ShouldPersistTopic() {
+    var user = userRepository
+        .findById(1L)
+        .orElseThrow();
 
-        Topic topic = new Topic();
+    /*
+     * 保存対象のTopicを作成します。
+     */
+    Topic topic = new Topic();
 
-        /*
-         * SQLで作成したテストユーザーを取得します。
-         */
-        var userId = 1L;
+    topic.setUser(user);
+    topic.setTitle("JDBC検証");
+    topic.setImage("test-image.webp");
+    topic.setQuestion("この写真で一言お願いします");
 
-        var userRepository =
-            jdbcTemplate.queryForMap(
-                "SELECT id FROM users WHERE id = ?",
-                userId
-            );
+    /*
+     * Topicを保存します。
+     *
+     * saveAndFlush()を使用することで、
+     * Hibernateが保持しているINSERTをDBへ反映してから
+     * JdbcTemplateによる直接確認を行います。
+     */
+    Topic saved =
+        topicRepository.saveAndFlush(topic);
 
-        assertThat(userRepository).isNotEmpty();
+    /*
+     * JPAを経由せずJdbcTemplateでtopicsテーブルを直接取得します。
+     */
+    var result =
+        jdbcTemplate.queryForMap(
+            "SELECT * FROM topics WHERE id = ?",
+            saved.getId()
+        );
 
-        /*
-         * Topic.userにはEntityが必要なので、
-         * RepositoryからUserを取得する方法の方が
-         * 本来は扱いやすいです。
-         *
-         * この保存テストについては次の修正版で
-         * UserRepositoryを注入して使用します。
-         */
-    }
+    /*
+     * 実際にDBへ保存された値を確認します。
+     */
+    assertThat(result.get("title"))
+        .isEqualTo("JDBC検証");
+
+    assertThat(result.get("image"))
+        .isEqualTo("test-image.webp");
+
+    assertThat(result.get("question"))
+        .isEqualTo("この写真で一言お願いします");
+
+    assertThat(
+        ((Number) result.get("user_id")).longValue()
+    ).isEqualTo(user.getId());
+}
 }
