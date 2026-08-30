@@ -1,93 +1,114 @@
 package com.example.bulletinboard.controller;
 
-import com.example.bulletinboard.model.Comment;
-import com.example.bulletinboard.model.Post;
-import com.example.bulletinboard.model.User;
-import com.example.bulletinboard.service.CommentService;
-import com.example.bulletinboard.service.CustomUserDetailsService;
-import com.example.bulletinboard.service.LikeService;
-import com.example.bulletinboard.service.PostService;
+import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.Optional;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.Optional;
-
-import static org.mockito.BDDMockito.given;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import com.example.bulletinboard.model.Answer;
+import com.example.bulletinboard.model.Topic;
+import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.service.AnswerService;
+import com.example.bulletinboard.service.CustomUserDetailsService;
+import com.example.bulletinboard.service.TopicService;
 
 /*
  * 【クラスの役割】
- * コントローラー（PostController, CommentController）におけるフラッシュメッセージ（RedirectAttributes）の動作を検証する単体テストクラスです。
- * 他人の投稿・コメントに対する操作時のエラーメッセージ設定や、自コメント削除時の成功メッセージ設定が、
- * リダイレクト時に正しいフラッシュスコープ（Flash Scope）へ保持されるかを MockMvc を用いて自動検証します。
+ * TopicController / AnswerControllerにおける
+ * フラッシュメッセージ（RedirectAttributes）の動作を検証するWebレイヤーテストです。
+ *
+ * 他人のTopicに対する更新操作時のエラーメッセージや、
+ * 自分のAnswer削除時の成功メッセージが、
+ * リダイレクト時に正しいFlash Scopeへ保持されることを検証します。
+ *
+ * 旧Post / Comment仕様のテストを、
+ * Topic / Answer仕様へ移行しています。
  */
-@WebMvcTest({PostController.class, CommentController.class})
+@WebMvcTest({TopicController.class, AnswerController.class})
 class FlashMessageTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
-    private PostService postService;
+    private TopicService topicService;
+
+    @MockitoBean
+    private AnswerService answerService;
+
     @MockitoBean
     private CustomUserDetailsService userDetailsService;
-    @MockitoBean
-    private CommentService commentService;
-    @MockitoBean
-    private LikeService likeService;
 
     @Test
     @WithMockUser(username = "user1")
-    @DisplayName("投稿更新時：他人の投稿の場合はerrorMessageがフラッシュメッセージにセットされてリダイレクトすること")
-    void updatePost_unauthorized_flashMessage() throws Exception {
-        // 投稿者（ownerUser）と ログインユーザー（user1）が異なる状況を作成
+    @DisplayName("お題更新時：他人のお題の場合はerrorMessageがフラッシュメッセージにセットされてリダイレクトすること")
+    void updateTopic_unauthorized_flashMessage() throws Exception {
+
+        // Topic投稿者とログインユーザーが異なる状況を作成
         User owner = new User();
         owner.setUsername("ownerUser");
 
-        Post existingPost = new Post();
-        existingPost.setId(1L);
-        existingPost.setUser(owner);
+        Topic existingTopic = new Topic();
+        existingTopic.setId(1L);
+        existingTopic.setUser(owner);
 
-        given(postService.findById(1L)).willReturn(Optional.of(existingPost));
+        given(topicService.findById(1L))
+                .willReturn(Optional.of(existingTopic));
 
         // POSTリクエストを送信してレスポンス検証
         mockMvc.perform(post("/posts/1")
                         .with(csrf())
                         .param("title", "更新後のタイトル")
-                        .param("content", "更新後の本文"))
+                        .param("question", "更新後のお題"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/posts"))
-                .andExpect(flash().attribute("errorMessage", "投稿の更新に失敗しました。"));
+                .andExpect(
+                        flash().attribute(
+                                "errorMessage",
+                                "投稿の更新に失敗しました。"
+                        )
+                );
     }
 
     @Test
     @WithMockUser(username = "user1")
-    @DisplayName("コメント削除時：自分のコメントの場合はsuccessMessageがフラッシュメッセージにセットされてリダイレクトすること")
-    void deleteComment_success_flashMessage() throws Exception {
-        // ログインユーザーとコメント投稿者が一致する状況を作成
+    @DisplayName("回答削除時：自分の回答の場合はsuccessMessageがフラッシュメッセージにセットされてリダイレクトすること")
+    void deleteAnswer_success_flashMessage() throws Exception {
+
+        // ログインユーザーと回答者が一致する状況を作成
         User user = new User();
         user.setUsername("user1");
 
-        Comment comment = new Comment();
-        comment.setId(10L);
-        comment.setUser(user);
+        Answer answer = new Answer();
+        answer.setId(10L);
+        answer.setUser(user);
 
-        given(commentService.getCommentById(10L)).willReturn(Optional.of(comment));
+        given(answerService.getAnswerById(10L))
+                .willReturn(Optional.of(answer));
 
         // POSTリクエストを送信してレスポンス検証
         mockMvc.perform(post("/comments/10/delete")
                         .with(csrf())
-                        .param("postId", "1"))
+                        .param("topicId", "1"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/posts/1"))
-                .andExpect(flash().attribute("successMessage", "user1さんのコメントが削除されました！"));
+                .andExpect(
+                        flash().attribute(
+                                "successMessage",
+                                "user1さんの回答が削除されました！"
+                        )
+                );
     }
 }
