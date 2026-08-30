@@ -117,20 +117,27 @@ public class AdminController {
     }
 
    /**
-    * 【ユーザーの活動履歴（投稿・コメント）の可視化画面】
-    */
-   @GetMapping("/users/{id}/activities")
-   public String showUserActivities(@PathVariable Long id, Model model) {
-       User targetUser = userRepository.findById(id)
-                        .orElseThrow(() -> new IllegalArgumentException("Invalid user Id:" + id));
-       model.addAttribute("targetUser",targetUser);
-       model.addAttribute("posts",targetUser.getPosts());
-       model.addAttribute("comments",targetUser.getComments());
+ * 【ユーザー活動履歴画面】
+ *
+ * 旧Post / Comment依存を除去するため、
+ * 現段階では対象ユーザー情報のみ画面へ渡します。
+ *
+ * Topic / Answerを利用した活動履歴の再実装は、
+ * 後続の機能フェーズで対応します。
+ */
+@GetMapping("/users/{id}/activities")
+public String showUserActivities(
+        @PathVariable Long id,
+        Model model) {
 
-      return "admin/user_activities"; //templates/admin/user_activities.html
+    User targetUser = userRepository.findById(id)
+            .orElseThrow(() ->
+                    new IllegalArgumentException("Invalid user Id:" + id));
 
-   }
+    model.addAttribute("targetUser", targetUser);
 
+    return "admin/user_activities";
+}
    /*
      * 【追記：お問い合わせ一覧画面表示処理】
      */
