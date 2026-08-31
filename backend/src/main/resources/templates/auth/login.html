@@ -33,6 +33,20 @@
         を行ってください。
     </div>
 
+    <!-- 管理者によるアカウント凍結 -->
+    <div th:if="${param.error != null and param.error[0] == 'frozen'}"
+         style="color: red;">
+        このアカウントは管理者により凍結されています。<br>
+        アカウントの状態について確認が必要な場合は、
+        お問い合わせをご利用ください。
+    </div>
+
+    <!-- 退会済みアカウント -->
+    <div th:if="${param.error != null and param.error[0] == 'withdrawn'}"
+         style="color: red;">
+        このアカウントは退会済みのため、ログインできません。
+    </div>
+
     <form th:action="@{/login}" method="post">
 
         <div>
