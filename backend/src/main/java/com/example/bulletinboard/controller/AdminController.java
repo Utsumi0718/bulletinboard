@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.example.bulletinboard.model.AccountStatus;
 import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.ContactRepository;
@@ -86,8 +87,8 @@ public class AdminController {
       return "redirect:/admin/users";
     }
 
-   //現在ログインしている管理者を取得
-    User currentUser = userRepository.findByUsername(userDetails.getUsername()).orElse(null);
+   //現在ログインしている管理者をemailから取得
+    User currentUser = userRepository.findByEmail(userDetails.getUsername()).orElse(null);
 
    //安全チェック
     boolean isSelf = currentUser != null && targetUser.getId().equals(currentUser.getId());
@@ -98,22 +99,39 @@ public class AdminController {
             return "redirect:/admin/users";
         }
 
-        // アカウント状態の切り替え処理
-            boolean currentStatus = targetUser.isAccountNonLocked(); // 現在のアカウントの状態を取得
-            targetUser.setAccountNonLocked(!currentStatus);          // アカウントの状態を反転
+        //退会済みユーザーは凍結・解除の対象外
+        if(targetUser.getAccountStatus() == AccountStatus.WITHDRAWN){
+          redirectAttributes.addFlashAttribute(
+              "errorMessage",
+             "退会済みユーザーのアカウント状態は変更できません"
+          );
+        return "redirect:/admin/users";
+        }
 
-            // 凍結解除時は失敗回数をリセット
-            if (!currentStatus) {
-                targetUser.setFailedAttempt(0);
-            }
+         // ACTIVE ⇄ FROZEN を切り替える
+    if (targetUser.getAccountStatus() == AccountStatus.ACTIVE) {
 
-            userRepository.save(targetUser);
+        targetUser.setAccountStatus(AccountStatus.FROZEN);
 
-        //フラッシュメッセージの設定
-            String statusMessage = !currentStatus ? "アカウントのロックを解除しました" : "アカウントを凍結しました";
-            redirectAttributes.addFlashAttribute("successMessage", targetUser.getUsername() + " の" + statusMessage);
+        redirectAttributes.addFlashAttribute(
+                "successMessage",
+                targetUser.getUsername() + " のアカウントを凍結しました"
+        );
 
-            return "redirect:/admin/users";
+    } else if (targetUser.getAccountStatus() == AccountStatus.FROZEN) {
+
+        targetUser.setAccountStatus(AccountStatus.ACTIVE);
+
+        redirectAttributes.addFlashAttribute(
+                "successMessage",
+                targetUser.getUsername() + " のアカウント凍結を解除しました"
+        );
+    }
+
+    userRepository.save(targetUser);
+
+
+        return "redirect:/admin/users";
     }
 
    /**
