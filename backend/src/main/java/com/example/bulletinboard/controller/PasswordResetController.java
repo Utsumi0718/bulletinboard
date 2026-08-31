@@ -1,8 +1,5 @@
 package com.example.bulletinboard.controller;
 
-import com.example.bulletinboard.dto.ResetPasswordForm;
-import com.example.bulletinboard.service.CustomUserDetailsService;
-import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -10,60 +7,105 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 
+import com.example.bulletinboard.dto.ResetPasswordForm;
+import com.example.bulletinboard.service.CustomUserDetailsService;
 
-/*
-*パスワードを再設定を制御するController
-*/
+import jakarta.validation.Valid;
+
+/**
+ * 【クラス全体の役割】
+ * パスワード再設定画面の表示と、
+ * メールアドレスを基準としたパスワード再設定処理を担当するControllerクラスです。
+ *
+ * 【主な役割】
+ * - パスワード再設定画面を表示する
+ * - ResetPasswordFormの入力値を検証する
+ * - emailを基準に対象ユーザーを特定する
+ * - CustomUserDetailsServiceを呼び出してパスワードを更新する
+ * - 再設定成功後にログイン画面へリダイレクトする
+ */
 @Controller
 @RequestMapping("/reset-password")
+public class PasswordResetController {
 
-public class PasswordResetController{
- private final CustomUserDetailsService userDetailsService;
+    private final CustomUserDetailsService userDetailsService;
 
- //インジェクション
- public PasswordResetController(CustomUserDetailsService userDetailsService){
-    this.userDetailsService = userDetailsService;
- }
+    /**
+     * CustomUserDetailsServiceをコンストラクタインジェクションします。
+     */
+    public PasswordResetController(
+            CustomUserDetailsService userDetailsService) {
 
- /*
- *パスワードを再設定画面を表示
- */
- @GetMapping
- public String showResetPasswordForm(Model model){
-    model.addAttribute("resetPasswordForm", new ResetPasswordForm());
-    return "auth/reset-password";
- }
+        this.userDetailsService = userDetailsService;
+    }
 
- /**
-  * パスワードを再設定処理を実行するメソッド
-  */
- @PostMapping
- public String processResetPassword(@Valid @ModelAttribute("resetPasswordForm") ResetPasswordForm form,
-                                    BindingResult result,
-                                     Model model) {
-     //DTOの中身のチェック（8~20文字英数字の組み合わせ）でエラーがある場合
-     if(result.hasErrors()){
+    /**
+     * パスワード再設定画面を表示します。
+     */
+    @GetMapping
+    public String showResetPasswordForm(Model model) {
+
+        model.addAttribute(
+                "resetPasswordForm",
+                new ResetPasswordForm()
+        );
+
         return "auth/reset-password";
-     }
+    }
 
-     //サービスを呼び出してパスワード更新を実行
-     boolean isUpdated = userDetailsService.updatePassword(form.getUsername(), form.getNewPassword());
+    /**
+     * パスワード再設定処理を実行します。
+     *
+     * emailを基準に対象ユーザーを検索し、
+     * 新しいパスワードへ更新します。
+     */
+    @PostMapping
+    public String processResetPassword(
+            @Valid
+            @ModelAttribute("resetPasswordForm")
+            ResetPasswordForm form,
+            BindingResult result) {
 
-     //該当のユーザーが存在しなかったら
-     if(!isUpdated){
-      //エラーメッセージを個別に設定して画面へ戻す
-      result.rejectValue("username", "error.username","指定されたユーザー名が見つかりません");
-      return "auth/reset-password";
-     }
+        /*
+         * メールアドレスや新しいパスワードの
+         * バリデーションエラーがある場合は、
+         * 再設定画面へ戻します。
+         */
+        if (result.hasErrors()) {
+            return "auth/reset-password";
+        }
 
+        /*
+         * emailを基準に対象ユーザーを特定し、
+         * パスワード更新処理を実行します。
+         */
+        boolean isUpdated =
+                userDetailsService.updatePassword(
+                        form.getEmail(),
+                        form.getNewPassword()
+                );
 
-     //成功したらログイン画面へリダイレクト（成功クエリを付与）
-     return "redirect:/login?reset_success";
- }
+        /*
+         * 指定されたemailに該当するユーザーが
+         * 存在しない場合は、emailフィールドへ
+         * エラーメッセージを設定します。
+         */
+        if (!isUpdated) {
 
+            result.rejectValue(
+                    "email",
+                    "error.email",
+                    "指定されたメールアドレスが見つかりません"
+            );
 
+            return "auth/reset-password";
+        }
 
-
+        /*
+         * パスワード再設定成功後は、
+         * 成功パラメータを付与してログイン画面へ遷移します。
+         */
+        return "redirect:/login?reset_success";
+    }
 }
