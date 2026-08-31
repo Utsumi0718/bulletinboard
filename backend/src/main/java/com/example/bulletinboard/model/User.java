@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -111,19 +113,22 @@ public class User {
     private boolean accountNonLocked = true;
 
     /*
-     * アカウントの利用状態。
-     *
-     * ACTIVE    : 通常利用中
-     * FROZEN    : 管理者によって凍結
-     * WITHDRAWN : 退会済み
-     *
-     * 現段階ではStringとして保持し、
-     * 後ほどEnumとして定義する予定です。
-     */
-    @NotNull
-    @Column(name = "account_status", nullable = false, length = 20)
-    private String accountStatus = "ACTIVE";
-
+ * アカウントの利用状態。
+ *
+ * ACTIVE    : 通常利用中
+ * FROZEN    : 管理者によって凍結
+ * WITHDRAWN : 退会済み
+ *
+ * AccountStatus列挙型として管理し、
+ * DBにはEnumType.STRINGによって文字列で保存します。
+ *
+ * 管理者による凍結やユーザー自身の退会状態を表し、
+ * ログイン失敗によるaccountNonLockedとは別に管理します。
+ */
+@NotNull
+@Enumerated(EnumType.STRING)
+@Column(name = "account_status", nullable = false, length = 20)
+private AccountStatus accountStatus = AccountStatus.ACTIVE;
     /*
      * ユーザーアカウントの作成日時。
      */
