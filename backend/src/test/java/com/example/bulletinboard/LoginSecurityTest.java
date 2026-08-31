@@ -32,9 +32,9 @@ import com.example.bulletinboard.repository.UserRepository;
  * - ログイン失敗3回でaccountNonLocked=falseになること
  * - ロック状態では正しいパスワードでもログインできないこと
  *
- * accountStatusについては、
- * このテストでは通常利用可能なACTIVEを使用します。
- * FROZEN / WITHDRAWNのログイン拒否については別テストで検証します。
+ *  * accountStatusについては、
+ * ACTIVE / FROZEN / WITHDRAWNそれぞれの
+ * ログイン可否を検証します。
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -171,4 +171,62 @@ class LoginSecurityTest {
                     redirectedUrl("/login?error=locked")
                 );
     }
+
+    // 追記
+
+    @Test
+@DisplayName("ACTIVEユーザーは正しいメールアドレスとパスワードでログインできる")
+void login_WhenActive_ShouldSucceed() throws Exception {
+
+    mockMvc.perform(post("/login")
+            .param("email", "testuser@example.com")
+            .param("password", "Password123")
+            .with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(
+                redirectedUrl("/posts")
+            );
+}
+
+@Test
+@DisplayName("FROZENユーザーはログインできず、frozenへリダイレクトされる")
+void login_WhenFrozen_RedirectsToFrozen() throws Exception {
+
+    User user = userRepository
+            .findByEmail("testuser@example.com")
+            .orElseThrow();
+
+    user.setAccountStatus(AccountStatus.FROZEN);
+    userRepository.save(user);
+
+    mockMvc.perform(post("/login")
+            .param("email", "testuser@example.com")
+            .param("password", "Password123")
+            .with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(
+                redirectedUrl("/login?error=frozen")
+            );
+}
+
+@Test
+@DisplayName("WITHDRAWNユーザーはログインできず、withdrawnへリダイレクトされる")
+void login_WhenWithdrawn_RedirectsToWithdrawn() throws Exception {
+
+    User user = userRepository
+            .findByEmail("testuser@example.com")
+            .orElseThrow();
+
+    user.setAccountStatus(AccountStatus.WITHDRAWN);
+    userRepository.save(user);
+
+    mockMvc.perform(post("/login")
+            .param("email", "testuser@example.com")
+            .param("password", "Password123")
+            .with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(
+                redirectedUrl("/login?error=withdrawn")
+            );
+}
 }
