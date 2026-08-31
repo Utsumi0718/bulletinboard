@@ -39,9 +39,9 @@ import com.example.bulletinboard.repository.UserRepository;
  *   引数にはemailが渡される設計とします。
  * - usernameは公開用のユーザー名として引き続き使用します。
  * - accountNonLockedはパスワード入力失敗によるロック状態を管理します。
- * - ACTIVE / FROZEN / WITHDRAWNによるアカウント状態の認証制御は、
- *   feature/auth-account-refactorで実装します。
- */
+ * - ACTIVE / FROZEN / WITHDRAWNによるアカウント状態を
+     Spring Securityのログイン可否に反映します。
+ *  */
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
@@ -84,12 +84,11 @@ public class CustomUserDetailsService implements UserDetailsService {
                 )
             );
 
-         /**
-          * accountStatus をSpring Securityのログイン可否に反映
-          */
-
+        /*
+         * accountStatusをSpring Securityのログイン可否に反映します。
+         * ACTIVEのみログイン可能とします。
+         */
          boolean isActive = user.getAccountStatus() == AccountStatus.ACTIVE;
-
         /*
          * DBのUserをSpring Security用の
          * UserDetailsへ変換します。
@@ -102,7 +101,7 @@ public class CustomUserDetailsService implements UserDetailsService {
             .username(user.getEmail())
             .password(user.getPassword())
             .accountLocked(!user.isAccountNonLocked()) //ログイン失敗3回によるセキュリティロック
-            .disabled(!isActive) //// FROZEN / WITHDRAWN はサービス利用不可
+            .disabled(!isActive) // FROZEN / WITHDRAWN はサービス利用不可
             .authorities(user.getRole())
             .build();
     }
