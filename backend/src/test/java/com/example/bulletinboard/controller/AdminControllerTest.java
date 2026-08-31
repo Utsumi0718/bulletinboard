@@ -2,6 +2,7 @@ package com.example.bulletinboard.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -102,6 +103,11 @@ public class AdminControllerTest {
      * accountNonLockedはログイン失敗による
      * セキュリティロック専用のため、
      * 管理者凍結では使用しません。
+     *
+     * - 管理者がACTIVEユーザーをFROZENへ変更できること
+     * - 管理者がFROZENユーザーをACTIVEへ戻せること
+     * - WITHDRAWNユーザーの状態を変更できないこと
+     * - 管理者自身および他の管理者の状態を変更できないこと
      */
     @Test
     @WithMockUser(
@@ -151,4 +157,172 @@ public class AdminControllerTest {
         // DB保存処理が呼ばれたことを確認
         verify(userRepository).save(any(User.class));
     }
+
+    @Test
+@WithMockUser(
+    username = "admin@example.com",
+    roles = "ADMIN"
+)
+@DisplayName("【凍結解除】管理者がFROZENユーザーの凍結を解除できる")
+void adminCanUnfreezeFrozenUser() throws Exception {
+
+    User targetUser = new User();
+    targetUser.setId(2L);
+    targetUser.setUsername("frozenUser");
+    targetUser.setEmail("frozen@example.com");
+    targetUser.setRole("ROLE_USER");
+    targetUser.setAccountStatus(AccountStatus.FROZEN);
+
+    User adminUser = new User();
+    adminUser.setId(1L);
+    adminUser.setUsername("adminUser");
+    adminUser.setEmail("admin@example.com");
+    adminUser.setRole("ROLE_ADMIN");
+    adminUser.setAccountStatus(AccountStatus.ACTIVE);
+
+    when(userRepository.findById(2L))
+            .thenReturn(Optional.of(targetUser));
+
+    when(userRepository.findByEmail("admin@example.com"))
+            .thenReturn(Optional.of(adminUser));
+
+    mockMvc.perform(
+            post("/admin/users/2/toggle-lock")
+                .with(csrf())
+    )
+    .andExpect(status().is3xxRedirection())
+    .andExpect(redirectedUrl("/admin/users"));
+
+    assertEquals(
+            AccountStatus.ACTIVE,
+            targetUser.getAccountStatus()
+    );
+
+    verify(userRepository).save(any(User.class));
+}
+
+
+@Test
+@WithMockUser(
+    username = "admin@example.com",
+    roles = "ADMIN"
+)
+@DisplayName("【退会済みユーザー】WITHDRAWNユーザーの状態は変更できない")
+void adminCannotChangeWithdrawnUser() throws Exception {
+
+    User targetUser = new User();
+    targetUser.setId(2L);
+    targetUser.setUsername("withdrawnUser");
+    targetUser.setEmail("withdrawn@example.com");
+    targetUser.setRole("ROLE_USER");
+    targetUser.setAccountStatus(AccountStatus.WITHDRAWN);
+
+    User adminUser = new User();
+    adminUser.setId(1L);
+    adminUser.setUsername("adminUser");
+    adminUser.setEmail("admin@example.com");
+    adminUser.setRole("ROLE_ADMIN");
+    adminUser.setAccountStatus(AccountStatus.ACTIVE);
+
+    when(userRepository.findById(2L))
+            .thenReturn(Optional.of(targetUser));
+
+    when(userRepository.findByEmail("admin@example.com"))
+            .thenReturn(Optional.of(adminUser));
+
+    mockMvc.perform(
+            post("/admin/users/2/toggle-lock")
+                .with(csrf())
+    )
+    .andExpect(status().is3xxRedirection())
+    .andExpect(redirectedUrl("/admin/users"));
+
+    assertEquals(
+            AccountStatus.WITHDRAWN,
+            targetUser.getAccountStatus()
+    );
+    verify(userRepository, never()).save(any(User.class));
+}
+
+
+@Test
+@WithMockUser(
+    username = "admin@example.com",
+    roles = "ADMIN"
+)
+@DisplayName("【安全装置】管理者は自分自身のアカウント状態を変更できない")
+void adminCannotChangeOwnAccountStatus() throws Exception {
+
+    User adminUser = new User();
+    adminUser.setId(1L);
+    adminUser.setUsername("adminUser");
+    adminUser.setEmail("admin@example.com");
+    adminUser.setRole("ROLE_ADMIN");
+    adminUser.setAccountStatus(AccountStatus.ACTIVE);
+
+    when(userRepository.findById(1L))
+            .thenReturn(Optional.of(adminUser));
+
+    when(userRepository.findByEmail("admin@example.com"))
+            .thenReturn(Optional.of(adminUser));
+
+    mockMvc.perform(
+            post("/admin/users/1/toggle-lock")
+                .with(csrf())
+    )
+    .andExpect(status().is3xxRedirection())
+    .andExpect(redirectedUrl("/admin/users"));
+
+    assertEquals(
+            AccountStatus.ACTIVE,
+            adminUser.getAccountStatus()
+    );
+
+    verify(userRepository, never()).save(any(User.class));
+}
+
+
+@Test
+@WithMockUser(
+    username = "admin@example.com",
+    roles = "ADMIN"
+)
+@DisplayName("【安全装置】管理者は他の管理者アカウントの状態を変更できない")
+void adminCannotChangeAnotherAdminAccountStatus() throws Exception {
+
+    User targetAdmin = new User();
+    targetAdmin.setId(2L);
+    targetAdmin.setUsername("otherAdmin");
+    targetAdmin.setEmail("otheradmin@example.com");
+    targetAdmin.setRole("ROLE_ADMIN");
+    targetAdmin.setAccountStatus(AccountStatus.ACTIVE);
+
+    User currentAdmin = new User();
+    currentAdmin.setId(1L);
+    currentAdmin.setUsername("adminUser");
+    currentAdmin.setEmail("admin@example.com");
+    currentAdmin.setRole("ROLE_ADMIN");
+        currentAdmin.setAccountStatus(AccountStatus.ACTIVE);
+
+    when(userRepository.findById(2L))
+            .thenReturn(Optional.of(targetAdmin));
+
+    when(userRepository.findByEmail("admin@example.com"))
+            .thenReturn(Optional.of(currentAdmin));
+
+    mockMvc.perform(
+            post("/admin/users/2/toggle-lock")
+                .with(csrf())
+    )
+    .andExpect(status().is3xxRedirection())
+    .andExpect(redirectedUrl("/admin/users"));
+
+    assertEquals(
+            AccountStatus.ACTIVE,
+            targetAdmin.getAccountStatus()
+    );
+
+    verify(userRepository, never()).save(any(User.class));
+
+}
 }
