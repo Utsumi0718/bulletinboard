@@ -30,14 +30,14 @@ import com.example.bulletinboard.repository.UserRepository;
  * 【主な役割】
  * - 管理者ダッシュボードおよびユーザー一覧画面のルーティング（表示処理）
  * - DBからの登録ユーザー一覧データ取得とThymeleafビューへの受け渡し
- * - ユーザーアカウントの凍結（ロック）および凍結解除のステータス更新処理
+ * - accountStatusを利用したユーザーアカウントの凍結・凍結解除処理
  */
 
 @Controller
 @RequestMapping("/admin")
 public class AdminController {
 
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
     private final ContactRepository contactRepository; // 追記
 
     // コンストラクタに ContactRepository を追加
@@ -70,11 +70,25 @@ public class AdminController {
 
 
     /*
-     * 【アカウント凍結・解除切り替え処理】
-     * 指定された ID のユーザーのアカウントロック状態（accountNonLocked）を反転。
-     * ロック解除時にはログイン失敗回数（failedAttempt）もリセット。
-     * 【追記】安全装置：管理者自身および他管理者アカウントの凍結・解除を禁止。
-     */
+ * 【アカウント凍結・凍結解除処理】
+ *
+ * 指定されたユーザーのaccountStatusを使用して、
+ * 管理者によるアカウント凍結・凍結解除を行います。
+ *
+ * ACTIVE
+ *   → FROZENへ変更し、ログインを禁止します。
+ *
+ * FROZEN
+ *   → ACTIVEへ戻し、通常利用可能な状態へ戻します。
+ *
+ * WITHDRAWN
+ *   → 退会済みのため、管理者による凍結・凍結解除の対象外とします。
+ *
+ * 【設計上のポイント】
+ * - accountNonLockedはログイン失敗回数によるセキュリティロック専用です。
+ * - 管理者による凍結処理ではaccountNonLockedやfailedAttemptを変更しません。
+ * - 管理者自身および他のROLE_ADMINアカウントの状態変更は禁止します。
+ */
     @PostMapping("/users/{id}/toggle-lock")
     public String toggleAccountLock(@PathVariable Long id,
                                     @AuthenticationPrincipal UserDetails userDetails,
