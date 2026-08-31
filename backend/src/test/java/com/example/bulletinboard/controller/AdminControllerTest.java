@@ -1,5 +1,6 @@
 package com.example.bulletinboard.controller;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -22,42 +23,53 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.example.bulletinboard.model.AccountStatus;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.ContactRepository;
 import com.example.bulletinboard.repository.UserRepository;
 import com.example.bulletinboard.security.SecurityConfig;
 
 /**
- * 【クラスの役割】
- * 管理者機能（AdminController）に対するWeb層（Controller）の単体テストを実施するクラス。
+ * 【クラス全体の役割】
+ * AdminControllerのWeb層における管理者機能を検証するテストクラスです。
  *
  * 【主な検証内容】
- * 1. ユーザーロール（ADMIN / USER）に応じたアクセス制限・認可制御（403エラーの発生確認）
- * 2. 管理者によるユーザー管理画面の正常表示およびモデルデータの受け渡し
- * 3. 違反ユーザーに対するアカウント凍結（ロック）処理およびDB保存メソッドの呼び出し
+ * - ROLE_ADMINを持つユーザーが管理画面へアクセスできること
+ * - 一般ユーザーが管理画面へアクセスできないこと
+ * - 管理者が一般ユーザーのaccountStatusを
+ *   ACTIVEからFROZENへ変更できること
+ *
+ * 管理者による凍結ではaccountNonLockedを使用せず、
+ * accountStatusを使用します。
+ *
+ * また、ログインIDはemailのため、
+ * 認証済みユーザーのPrincipalにもemailを使用します。
  */
 @WebMvcTest(AdminController.class)
-@Import(SecurityConfig.class) // アプリ全体のセキュリティ設定（権限チェック）をテスト環境に適用
+@Import(SecurityConfig.class)
 public class AdminControllerTest {
 
     @Autowired
-    private MockMvc mockMvc; // 擬似的なHTTPリクエストを送信するためのクライアント
+    private MockMvc mockMvc;
 
     @MockitoBean
-    private UserRepository userRepository; // モック化されたユーザーリポジトリ
+    private UserRepository userRepository;
 
     @MockitoBean
-    private ContactRepository contactRepository; // モック化されたお問い合わせリポジトリ
+    private ContactRepository contactRepository;
 
     /**
-     * 【テスト内容】ADMINロールを保持するユーザーのアクセス制御検証
-     * 【期待結果】HTTPステータス200（OK）が返り、管理者のユーザー一覧画面が表示されること
+     * ADMIN権限を持つユーザーが
+     * 管理画面へアクセスできることを確認します。
      */
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(
+        username = "admin@example.com",
+        roles = "ADMIN"
+    )
     @DisplayName("【管理者ログイン】ADMIN権限を持つユーザーは管理画面にアクセスできる")
     void adminCanAccessAdminPage() throws Exception {
-        // [実行 & 検証] /admin/users へのGETリクエストを試行
+
         mockMvc.perform(get("/admin/users"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("admin/users"))
@@ -65,49 +77,78 @@ public class AdminControllerTest {
     }
 
     /**
-     * 【テスト内容】USERロールのみを保持する一般ユーザーのアクセス制御検証
-     * 【期待結果】SecurityConfigの認可ルールによりアクセスが拒否され、HTTPステータス403（Forbidden）が返ること
+     * 一般ユーザーが管理画面へアクセスした場合、
+     * SecurityConfigの認可によって
+     * 403 Forbiddenとなることを確認します。
      */
     @Test
-    @WithMockUser(roles = "USER")
+    @WithMockUser(
+        username = "user@example.com",
+        roles = "USER"
+    )
     @DisplayName("【アクセス制限】一般ユーザーが管理画面にアクセスすると403エラーになる")
     void userCannotAccessAdminPage() throws Exception {
-        // [実行 & 検証] 一般ユーザー権限で /admin/users へアクセス
+
         mockMvc.perform(get("/admin/users"))
                 .andExpect(status().isForbidden());
     }
 
     /**
-     * 【テスト内容】違反ユーザーに対するアカウント凍結（ロック）実行の検証
-     * 【期待結果】ステータスが反転更新され、一覧画面へリダイレクトされるとともに、saveメソッドが呼び出されること
+     * 管理者が一般ユーザーを凍結できることを確認します。
+     *
+     * accountStatusがACTIVEのユーザーに対して
+     * 凍結処理を実行するとFROZENへ変更されます。
+     *
+     * accountNonLockedはログイン失敗による
+     * セキュリティロック専用のため、
+     * 管理者凍結では使用しません。
      */
     @Test
-    @WithMockUser(username = "adminUser", roles = "ADMIN")
-    @DisplayName("【違反ユーザー対応】管理者が別ユーザーのアカウントを凍結できること")
-    void adminCanToggleAccountLock() throws Exception {
-        // [1. 前提条件の設定 (Given)] 操作対象となる一般ユーザーデータ（ロック前）
+    @WithMockUser(
+        username = "admin@example.com",
+        roles = "ADMIN"
+    )
+    @DisplayName("【違反ユーザー対応】管理者がACTIVEユーザーのアカウントを凍結できる")
+    void adminCanFreezeActiveUser() throws Exception {
+
+        // 凍結対象となる一般ユーザー
         User targetUser = new User();
         targetUser.setId(2L);
         targetUser.setUsername("badUser");
+        targetUser.setEmail("baduser@example.com");
         targetUser.setRole("ROLE_USER");
-        targetUser.setAccountNonLocked(true); // 初期状態: 未ロック
+        targetUser.setAccountStatus(AccountStatus.ACTIVE);
 
-        // 操作を実行する管理者ユーザーデータ
+        // 操作を行う管理者
         User adminUser = new User();
         adminUser.setId(1L);
         adminUser.setUsername("adminUser");
+        adminUser.setEmail("admin@example.com");
         adminUser.setRole("ROLE_ADMIN");
+        adminUser.setAccountStatus(AccountStatus.ACTIVE);
 
-        // リポジトリ検索のモック挙動を設定
-        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
-        when(userRepository.findByUsername("adminUser")).thenReturn(Optional.of(adminUser));
+        when(userRepository.findById(2L))
+                .thenReturn(Optional.of(targetUser));
 
-        // [2. 処理実行 (When) & 3. 結果検証 (Then)] CSRFトークンを付与してロック処理（POST）を試行
-        mockMvc.perform(post("/admin/users/2/toggle-lock").with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/admin/users"));
+        when(userRepository.findByEmail("admin@example.com"))
+                .thenReturn(Optional.of(adminUser));
 
-        // userRepository.save() が確実に実行されたか（振る舞い）を検証
+        mockMvc.perform(
+                post("/admin/users/2/toggle-lock")
+                    .with(csrf())
+        )
+        .andExpect(status().is3xxRedirection())
+        .andExpect(
+                redirectedUrl("/admin/users")
+        );
+
+        // ACTIVE → FROZENへ変更されたことを確認
+        assertEquals(
+                AccountStatus.FROZEN,
+                targetUser.getAccountStatus()
+        );
+
+        // DB保存処理が呼ばれたことを確認
         verify(userRepository).save(any(User.class));
     }
 }
