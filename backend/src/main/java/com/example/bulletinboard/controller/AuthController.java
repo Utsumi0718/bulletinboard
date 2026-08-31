@@ -65,7 +65,7 @@ public class AuthController {
     // Form から User エンティティへ値を移し替える
         User user = new User();
         user.setUsername(form.getUsername());
-        user.setUsername(form.getEmail());
+        user.setEmail(form.getEmail());
         user.setPassword(form.getPassword());
 
     // パスワードのハッシュ化とユーザー登録はService側で行う
