@@ -9,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.bulletinboard.model.AccountStatus;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.UserRepository;
 
@@ -83,6 +84,12 @@ public class CustomUserDetailsService implements UserDetailsService {
                 )
             );
 
+         /**
+          * accountStatus をSpring Securityのログイン可否に反映
+          */
+
+         boolean isActive = user.getAccountStatus() == AccountStatus.ACTIVE;
+
         /*
          * DBのUserをSpring Security用の
          * UserDetailsへ変換します。
@@ -94,7 +101,8 @@ public class CustomUserDetailsService implements UserDetailsService {
             .builder()
             .username(user.getEmail())
             .password(user.getPassword())
-            .accountLocked(!user.isAccountNonLocked())
+            .accountLocked(!user.isAccountNonLocked()) //ログイン失敗3回によるセキュリティロック
+            .disabled(!isActive) //// FROZEN / WITHDRAWN はサービス利用不可
             .authorities(user.getRole())
             .build();
     }
