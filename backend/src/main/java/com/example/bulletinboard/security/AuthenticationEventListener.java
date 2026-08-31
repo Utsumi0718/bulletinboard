@@ -12,16 +12,19 @@ import com.example.bulletinboard.repository.UserRepository;
 import com.example.bulletinboard.service.CustomUserDetailsService;
 
 /**
- * ログインの成功・失敗イベントを監視し、失敗カウントのリセットを行うクラス
-*/
-
+ *【クラスの役割】
+ * ログインの成功・失敗イベントを監視し、
+ * ログイン失敗回数の加算・リセットを行うクラスです。
+ *
+ * ログインIDにはemailを使用します。
+ */
 @Component
 public class AuthenticationEventListener {
 
    private final CustomUserDetailsService userDetailsService;
    private final UserRepository userRepository;
 
-  //CustomUserDetailsService・UserRepositoryをインジェクション
+  // CustomUserDetailsService・UserRepositoryをインジェクション
    public AuthenticationEventListener(CustomUserDetailsService userDetailsService, UserRepository userRepository){
      this.userDetailsService = userDetailsService;
      this.userRepository = userRepository;
@@ -32,9 +35,9 @@ public class AuthenticationEventListener {
     */
    @EventListener
    public void onAuthenticationSuccess(AuthenticationSuccessEvent event){
-     String username = event.getAuthentication().getName();
+     String email = event.getAuthentication().getName();
      //成功した場合は失敗カウントを０にする
-     userDetailsService.resetFailedAttempts(username);
+     userDetailsService.resetFailedAttempts(email);
    }
 
    /**
@@ -43,8 +46,8 @@ public class AuthenticationEventListener {
 
    @EventListener
    public void onAuthenticationFailure(AuthenticationFailureBadCredentialsEvent event) {
-     String username = event.getAuthentication().getName();
-     Optional<User> userOptional = userRepository.findByUsername(username);
+     String email = event.getAuthentication().getName();
+     Optional<User> userOptional = userRepository.findByEmail(email);
 
      //存在するユーザーの場合のみ失敗カウントを加算
      if(userOptional.isPresent()){
