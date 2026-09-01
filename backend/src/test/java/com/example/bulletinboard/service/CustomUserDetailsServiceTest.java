@@ -1,7 +1,11 @@
 package com.example.bulletinboard.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -21,27 +25,22 @@ import com.example.bulletinboard.repository.UserRepository;
 
 /**
  * 【クラス全体の役割】
- * CustomUserDetailsServiceのパスワード再設定処理を検証する
+ * CustomUserDetailsServiceの
+ * パスワード再設定処理および退会処理を検証する
  * Service層の単体テストクラスです。
  *
  * 【主な検証内容】
  * - emailを基準に対象ユーザーを検索すること
- * - 新しいパスワードがPasswordEncoderでハッシュ化されること
- * - ログイン失敗によるセキュリティロック中の場合、
- *   パスワード再設定によってaccountNonLocked=true、
- *   failedAttempt=0へ戻ること
- * - FROZENユーザーがパスワード再設定しても
- *   accountStatus=FROZENのままであること
- * - WITHDRAWNユーザーがパスワード再設定しても
- *   accountStatus=WITHDRAWNのままであること
- *
- * 【設計上のポイント】
- * パスワード再設定で解除するのは、
- * failedAttemptによるセキュリティロックのみです。
- *
- * 管理者によるFROZENや退会済みのWITHDRAWNは、
- * パスワード再設定によってACTIVEへ戻しません。
+ * - パスワード再設定時のハッシュ化とセキュリティロック解除
+ * - FROZEN / WITHDRAWNのaccountStatusが
+ *   パスワード再設定によって変更されないこと
+ * - ACTIVEユーザーの退会時に
+ *   accountStatusがWITHDRAWNへ変更されること
+ * - 退会日時がwithdrawnAtへ記録されること
+ * - 退会処理ではaccountNonLockedとfailedAttemptを変更しないこと
+ * - 対象ユーザーが存在しない場合は保存処理を行わないこと
  */
+
 @ExtendWith(MockitoExtension.class)
 class CustomUserDetailsServiceTest {
 
@@ -155,4 +154,59 @@ class CustomUserDetailsServiceTest {
 
         verify(userRepository).save(user);
     }
+
+
+    @Test
+    @DisplayName("ACTIVEユーザーを退会するとWITHDRAWNになり退会日時が記録される")
+    void withdrawUser_WhenActive_ShouldChangeToWithdrawn() {
+
+    User user = new User();
+    user.setEmail("active@example.com");
+    user.setFailedAttempt(2);
+    user.setAccountNonLocked(true);
+    user.setAccountStatus(AccountStatus.ACTIVE);
+
+    when(userRepository.findByEmail("active@example.com"))
+            .thenReturn(Optional.of(user));
+
+    boolean result =
+            userDetailsService.withdrawUser("active@example.com");
+
+    assertTrue(result);
+
+    assertEquals(
+            AccountStatus.WITHDRAWN,
+            user.getAccountStatus()
+    );
+
+    assertNotNull(user.getWithdrawnAt());
+
+    /*
+     * accountNonLockedとfailedAttemptは
+     * 退会処理によって変更されないことを確認します。
+     */
+    assertEquals(2, user.getFailedAttempt());
+    assertTrue(user.isAccountNonLocked());
+
+    verify(userRepository).save(user);
+}
+
+
+  @Test
+  @DisplayName("存在しないメールアドレスでは退会処理を行わない")
+  void withdrawUser_WhenUserNotFound_ShouldReturnFalse() {
+
+    when(userRepository.findByEmail("unknown@example.com"))
+            .thenReturn(Optional.empty());
+
+    boolean result =
+            userDetailsService.withdrawUser("unknown@example.com");
+
+    assertFalse(result);
+
+    verify(
+        userRepository,
+        never()
+    ).save(any(User.class));
+}
 }
