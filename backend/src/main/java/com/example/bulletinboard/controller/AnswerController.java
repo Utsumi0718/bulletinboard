@@ -58,11 +58,13 @@ public class AnswerController {
             @AuthenticationPrincipal UserDetails userDetails,
             RedirectAttributes redirectAttributes) {
 
-        // ログインユーザーの取得
-        // email認証との正式な整合はauth-account-refactorで対応する
-        User currentUser = userDetailsService.findByUsername(userDetails.getUsername())
-                .orElseThrow(() ->
-                        new IllegalArgumentException("ユーザーが見つかりません"));
+        // PrincipalにはログインIDであるemailが設定されているため、
+        // emailを基準にログインユーザーを取得する
+
+         User currentUser = userDetailsService
+            .findByEmail(userDetails.getUsername())
+            .orElseThrow(() ->
+                new IllegalArgumentException("ユーザーが見つかりません"));
 
         // 変更：回答対象のPostではなくTopicを取得する
         Topic topic = topicService.findById(topicId)
@@ -80,7 +82,7 @@ public class AnswerController {
 
         redirectAttributes.addFlashAttribute(
                 "successMessage",
-                userDetails.getUsername() + "さんの回答が投稿されました！");
+                currentUser.getUsername() + "さんの回答が投稿されました！");
 
         // 旧URL構造は現段階では維持
         return "redirect:/posts/" + topicId;
@@ -98,14 +100,14 @@ public class AnswerController {
                 .orElseThrow(() ->
                         new IllegalArgumentException("回答が見つかりません"));
 
-        // 本人または管理者かチェック
-        // email認証との正式な整合はauth-account-refactorで対応する
-        boolean isLoginUser =
-                answer.getUser() != null
-                        && answer.getUser()
-                                 .getUsername()
-                                 .equals(userDetails.getUsername());
+        // PrincipalにはログインIDであるemailが設定されているため、
+        // Answerの投稿者emailと比較して本人か判定する
 
+        boolean isLoginUser =
+            answer.getUser() != null
+                && answer.getUser()
+                         .getEmail()
+                         .equals(userDetails.getUsername());
         boolean isAdmin = userDetails.getAuthorities()
                 .stream()
                 .anyMatch(a ->
@@ -117,7 +119,7 @@ public class AnswerController {
 
             redirectAttributes.addFlashAttribute(
                     "successMessage",
-                    userDetails.getUsername() + "さんの回答が削除されました！");
+                    answer.getUser().getUsername() + "さんの回答が削除されました！");
         } else {
             redirectAttributes.addFlashAttribute(
                     "errorMessage",
