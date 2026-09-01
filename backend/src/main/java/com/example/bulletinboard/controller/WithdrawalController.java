@@ -4,7 +4,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 
 import com.example.bulletinboard.service.CustomUserDetailsService;
@@ -18,9 +17,9 @@ import jakarta.servlet.http.HttpServletResponse;
  * HTTPリクエストを制御するControllerクラスです。
  *
  * 【主な役割】
- * - 退会確認画面を表示する
  * - 認証中ユーザーのemailを取得する
  * - Service層へ退会処理を依頼する
+ * - 退会成功後に認証情報とHTTPセッションを破棄する
  * - 退会処理の結果に応じて画面遷移を制御する
  *
  * 【設計上のポイント】
@@ -32,7 +31,10 @@ import jakarta.servlet.http.HttpServletResponse;
  * また、ログインIDはusernameではなくemailのため、
  * UserDetails#getUsername()から取得できる値はemailとして扱います。
  *
-    */
+ * 退会確認画面はReact移行時に実装するため、
+ * 現段階ではPOSTによる退会実行処理のみを担当します。
+ */
+
 @Controller
 public class WithdrawalController {
 
@@ -47,14 +49,7 @@ public class WithdrawalController {
         this.userDetailsService = userDetailsService;
     }
 
-    /**
-     * 退会確認画面を表示します。
-     */
-    @GetMapping("/account/withdraw")
-    public String showWithdrawalPage() {
 
-        return "auth/withdraw";
-    }
 
     /**
      * ログイン中ユーザーの退会処理を実行します。
@@ -68,8 +63,8 @@ public class WithdrawalController {
     @PostMapping("/account/withdraw")
     public String withdraw(
             @AuthenticationPrincipal UserDetails userDetails,
-             HttpServletRequest request,
-             HttpServletResponse response) {
+            HttpServletRequest request,
+            HttpServletResponse response) {
 
         String email = userDetails.getUsername();
 
@@ -81,15 +76,15 @@ public class WithdrawalController {
         }
 
 
-       new SecurityContextLogoutHandler()
-            .logout(
-                request,
-                response,
-                org.springframework.security.core.context
-                    .SecurityContextHolder
-                    .getContext()
-                    .getAuthentication()
-            );
+               new SecurityContextLogoutHandler()
+                .logout(
+                    request,
+                    response,
+                    org.springframework.security.core.context
+                        .SecurityContextHolder
+                        .getContext()
+                        .getAuthentication()
+                );
 
         return "redirect:/login?withdraw_success";
     }
