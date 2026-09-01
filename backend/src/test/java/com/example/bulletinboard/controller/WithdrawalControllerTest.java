@@ -33,7 +33,7 @@ import com.example.bulletinboard.service.CustomUserDetailsService;
  * - 認証中ユーザーのemailを基準に退会処理が実行されること
  * - 退会成功時にログイン画面へリダイレクトされること
  * - 退会処理に失敗した場合にエラー付きURLへ遷移すること
- * - 未認証ユーザーが退会処理へアクセスできないこと
+ * - ROLE_ADMINは退会処理を実行できないこと
  *
  * 【テスト方針】
  * CustomUserDetailsServiceはMockitoでモック化し、
@@ -43,6 +43,7 @@ import com.example.bulletinboard.service.CustomUserDetailsService;
  * accountStatusやwithdrawnAtの更新そのものは
  * CustomUserDetailsServiceTestで検証します。
  */
+
 @WebMvcTest(WithdrawalController.class)
 @Import(SecurityConfig.class)
 class WithdrawalControllerTest {
@@ -129,6 +130,27 @@ class WithdrawalControllerTest {
                     .with(csrf())
         )
         .andExpect(status().is3xxRedirection());
+
+        verify(
+                userDetailsService,
+                never()
+        ).withdrawUser(anyString());
+    }
+
+    @Test
+    @WithMockUser(
+        username = "admin@example.com",
+        roles = "ADMIN"
+    )
+    @DisplayName("ROLE_ADMINは退会処理を実行できない")
+    void withdraw_WhenAdmin_ShouldBeForbidden()
+            throws Exception {
+
+        mockMvc.perform(
+                post("/account/withdraw")
+                    .with(csrf())
+        )
+        .andExpect(status().isForbidden());
 
         verify(
                 userDetailsService,
