@@ -1,5 +1,6 @@
 package com.example.bulletinboard.service;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.springframework.security.core.userdetails.UserDetails;
@@ -32,6 +33,7 @@ import com.example.bulletinboard.repository.UserRepository;
  * - パスワード更新
  * - ログイン失敗回数の管理
  * - ログイン失敗によるアカウントロック管理
+ * - ユーザー退会処理
  *
  * 【設計上のポイント】
  * - 新しい認証仕様ではusernameではなくemailをログインIDとして使用します。
@@ -40,8 +42,8 @@ import com.example.bulletinboard.repository.UserRepository;
  * - usernameは公開用のユーザー名として引き続き使用します。
  * - accountNonLockedはパスワード入力失敗によるロック状態を管理します。
  * - ACTIVE / FROZEN / WITHDRAWNによるアカウント状態を
-     Spring Securityのログイン可否に反映します。
- *  */
+ *   Spring Securityのログイン可否に反映します。
+ */
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
@@ -88,7 +90,9 @@ public class CustomUserDetailsService implements UserDetailsService {
          * accountStatusをSpring Securityのログイン可否に反映します。
          * ACTIVEのみログイン可能とします。
          */
-         boolean isActive = user.getAccountStatus() == AccountStatus.ACTIVE;
+        boolean isActive =
+            user.getAccountStatus() == AccountStatus.ACTIVE;
+
         /*
          * DBのUserをSpring Security用の
          * UserDetailsへ変換します。
@@ -100,8 +104,8 @@ public class CustomUserDetailsService implements UserDetailsService {
             .builder()
             .username(user.getEmail())
             .password(user.getPassword())
-            .accountLocked(!user.isAccountNonLocked()) //ログイン失敗3回によるセキュリティロック
-            .disabled(!isActive) // FROZEN / WITHDRAWN はサービス利用不可
+            .accountLocked(!user.isAccountNonLocked())
+            .disabled(!isActive)
             .authorities(user.getRole())
             .build();
     }
@@ -244,5 +248,37 @@ public class CustomUserDetailsService implements UserDetailsService {
     public Optional<User> findByUsername(String username) {
 
         return userRepository.findByUsername(username);
+    }
+
+    /*
+     * ログイン中ユーザーを退会状態へ変更します。
+     *
+     * ログインIDであるemailを基準に対象ユーザーを取得し、
+     * accountStatusをWITHDRAWNへ変更します。
+     *
+     * また、退会日時をwithdrawnAtへ記録します。
+     *
+     * accountNonLockedとfailedAttemptは
+     * ログイン失敗によるセキュリティロック専用のため、
+     * 退会処理では変更しません。
+     */
+    @Transactional
+    public boolean withdrawUser(String email) {
+
+        Optional<User> userOptional =
+            userRepository.findByEmail(email);
+
+        if (userOptional.isEmpty()) {
+            return false;
+        }
+
+        User user = userOptional.get();
+
+        user.setAccountStatus(AccountStatus.WITHDRAWN);
+        user.setWithdrawnAt(LocalDateTime.now());
+
+        userRepository.save(user);
+
+        return true;
     }
 }
