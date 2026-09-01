@@ -31,6 +31,9 @@ import com.example.bulletinboard.service.TopicService;
  * AnswerControllerにおける回答の投稿・削除処理と、
  * 回答者本人または管理者による削除権限を検証するWebレイヤーテストです。
  *
+ * 認証Principalにはemailが設定されるため、
+ * ログインユーザーの取得・本人判定はemail基準で検証します。
+ *
  * 旧Comment / Post仕様のテストを、
  * Answer / Topic仕様へ移行しています。
  */
@@ -51,25 +54,26 @@ public class AnswerControllerTest {
 
     @Test
     @DisplayName("回答投稿時、ログイン中のユーザーと対象TopicがAnswerへセットされて保存される")
-    @WithMockUser(username = "testuser01")
+    @WithMockUser(username = "testuser01@example.com")
     void testAddAnswer() throws Exception {
 
         User mockUser = new User();
         mockUser.setUsername("testuser01");
+        mockUser.setEmail("testuser01@example.com");
 
         Topic mockTopic = new Topic();
         mockTopic.setId(1L);
 
-        when(userDetailsService.findByUsername("testuser01"))
+        when(userDetailsService.findByEmail("testuser01@example.com"))
                 .thenReturn(Optional.of(mockUser));
 
         when(topicService.findById(1L))
                 .thenReturn(Optional.of(mockTopic));
 
         mockMvc.perform(post("/comments/add")
-                .param("topicId", "1")
-                .param("content", "テスト回答です")
-                .with(csrf()))
+                        .param("topicId", "1")
+                        .param("content", "テスト回答です")
+                        .with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/posts/1"));
 
@@ -79,11 +83,12 @@ public class AnswerControllerTest {
 
     @Test
     @DisplayName("回答削除時、自分が投稿した回答であれば削除処理が行われTopic詳細画面へリダイレクトされる")
-    @WithMockUser(username = "testuser01")
+    @WithMockUser(username = "testuser01@example.com")
     void testDeleteAnswer() throws Exception {
 
         User answerUser = new User();
         answerUser.setUsername("testuser01");
+        answerUser.setEmail("testuser01@example.com");
 
         Answer mockAnswer = new Answer();
         mockAnswer.setId(1L);
@@ -93,8 +98,8 @@ public class AnswerControllerTest {
                 .thenReturn(Optional.of(mockAnswer));
 
         mockMvc.perform(post("/comments/1/delete")
-                .param("topicId", "10")
-                .with(csrf()))
+                        .param("topicId", "10")
+                        .with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/posts/10"));
 
@@ -109,11 +114,12 @@ public class AnswerControllerTest {
      */
     @Test
     @DisplayName("回答削除時、ADMIN権限を持つユーザーであれば他人の回答でも削除できること")
-    @WithMockUser(username = "adminUser", roles = "ADMIN")
+    @WithMockUser(username = "admin@example.com", roles = "ADMIN")
     void testDeleteAnswer_ByAdmin() throws Exception {
 
         User otherUser = new User();
         otherUser.setUsername("violatingUser");
+        otherUser.setEmail("violating@example.com");
 
         Answer mockAnswer = new Answer();
         mockAnswer.setId(2L);
@@ -123,8 +129,8 @@ public class AnswerControllerTest {
                 .thenReturn(Optional.of(mockAnswer));
 
         mockMvc.perform(post("/comments/2/delete")
-                .param("topicId", "10")
-                .with(csrf()))
+                        .param("topicId", "10")
+                        .with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/posts/10"));
 
