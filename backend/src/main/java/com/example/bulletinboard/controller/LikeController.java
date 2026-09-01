@@ -57,13 +57,13 @@ public class LikeController {
             @PathVariable Long answerId,
             @AuthenticationPrincipal UserDetails userDetails) {
 
-        // ログインユーザーの取得
-        // email認証との正式な整合はauth-account-refactorで対応する
-        User user = userDetailsService.findByUsername(userDetails.getUsername())
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "ユーザーが見つかりません: " + userDetails.getUsername()
-                        ));
+        // PrincipalにはログインIDであるemailが設定されているため、
+        // emailを基準にログインユーザーを取得する
+        User user = userDetailsService.findByEmail(userDetails.getUsername())
+            .orElseThrow(() ->
+                new IllegalArgumentException(
+                        "ユーザーが見つかりません: " + userDetails.getUsername()
+                ));
 
         // 変更：PostではなくAnswerを取得する
         Answer answer = answerService.getAnswerById(answerId)
