@@ -58,20 +58,21 @@ public class LikeControllerTest {
     private CustomUserDetailsService userDetailsService;
 
     @Test
-    @WithMockUser(username = "testuser")
+    @WithMockUser(username = "testuser@example.com")
     @DisplayName("非同期通信: ログインユーザーが回答へいいねすると、200 OKとJSONデータが返ること")
     void toggleLike_Async_AuthenticatedUser_ShouldReturnJson() throws Exception {
 
         // Given
         User mockUser = new User();
         mockUser.setUsername("testuser");
+        mockUser.setEmail("testuser@example.com");
 
         // 変更：PostではなくAnswerを用意
         Answer mockAnswer = new Answer();
         mockAnswer.setId(1L);
 
-        when(userDetailsService.findByUsername("testuser"))
-                .thenReturn(Optional.of(mockUser));
+       when(userDetailsService.findByEmail("testuser@example.com"))
+        .thenReturn(Optional.of(mockUser));
 
         when(answerService.getAnswerById(1L))
                 .thenReturn(Optional.of(mockAnswer));
@@ -110,7 +111,7 @@ public class LikeControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "testuser")
+    @WithMockUser(username = "testuser@example.com")
     @DisplayName("セキュリティ: CSRFトークンがないPOSTリクエストは403 Forbiddenになること")
     void toggleLike_WithoutCsrf_ShouldReturnForbidden()
             throws Exception {
