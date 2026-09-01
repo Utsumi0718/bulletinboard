@@ -33,6 +33,9 @@ import com.example.bulletinboard.service.TopicService;
  *
  * 旧PostController / Post仕様のテストを、
  * TopicController / Topic仕様へ移行しています。
+ *
+ * 認証Principalにはemailが設定されるため、
+ * ログインユーザーの特定・本人判定もemail基準で検証します。
  */
 @WebMvcTest(TopicController.class)
 public class TopicControllerTest {
@@ -48,19 +51,21 @@ public class TopicControllerTest {
 
     @Test
     @DisplayName("新規お題投稿時、ログイン中のユーザーがTopicへセットされて保存されること")
-    @WithMockUser(username = "testuser01")
+    @WithMockUser(username = "testuser01@example.com")
     void createTopic_ShouldAttachLoggedInUserToTopic() throws Exception {
 
         // 1. モックユーザーの設定
         User mockUser = new User();
         mockUser.setUsername("testuser01");
+        mockUser.setEmail("testuser01@example.com");
 
-        when(userDetailsService.findByUsername("testuser01"))
+        when(userDetailsService.findByEmail("testuser01@example.com"))
                 .thenReturn(Optional.of(mockUser));
 
         // 2. POSTリクエスト
         mockMvc.perform(post("/posts")
                         .param("title", "自動紐づけテスト")
+                        .param("image", "/images/test.jpg")
                         .param("question", "テスト用のお題です")
                         .with(csrf()))
                 .andExpect(status().is3xxRedirection())
@@ -82,16 +87,22 @@ public class TopicControllerTest {
                 "testuser01",
                 savedTopic.getUser().getUsername(),
                 "セットされたUser名が一致すること");
+
+        assertEquals(
+                "testuser01@example.com",
+                savedTopic.getUser().getEmail(),
+                "セットされたUserのemailが一致すること");
     }
 
     @Test
     @DisplayName("お題削除時、削除処理が行われ一覧画面へリダイレクトされること")
-    @WithMockUser(username = "testuser01")
+    @WithMockUser(username = "testuser01@example.com")
     void deleteTopic_success() throws Exception {
 
         // 1. 削除対象Topicと投稿者を準備
         User topicUser = new User();
         topicUser.setUsername("testuser01");
+        topicUser.setEmail("testuser01@example.com");
 
         Topic mockTopic = new Topic();
         mockTopic.setId(1L);
