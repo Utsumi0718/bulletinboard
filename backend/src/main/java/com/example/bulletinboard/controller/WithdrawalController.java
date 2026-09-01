@@ -2,11 +2,15 @@ package com.example.bulletinboard.controller;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 
 import com.example.bulletinboard.service.CustomUserDetailsService;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * 【クラス全体の役割】
@@ -28,9 +32,7 @@ import com.example.bulletinboard.service.CustomUserDetailsService;
  * また、ログインIDはusernameではなくemailのため、
  * UserDetails#getUsername()から取得できる値はemailとして扱います。
  *
- * 退会完了後のログアウト処理は、
- * 次の実装段階で追加します。
- */
+    */
 @Controller
 public class WithdrawalController {
 
@@ -59,10 +61,15 @@ public class WithdrawalController {
      *
      * Spring SecurityのPrincipalからemailを取得し、
      * Service層へ退会処理を依頼します。
+     *
+     * 退会処理成功後は、
+     * Spring Securityの認証情報とHTTPセッションを破棄します。
      */
     @PostMapping("/account/withdraw")
     public String withdraw(
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+             HttpServletRequest request,
+             HttpServletResponse response) {
 
         String email = userDetails.getUsername();
 
@@ -72,6 +79,17 @@ public class WithdrawalController {
         if (!withdrawn) {
             return "redirect:/account/withdraw?error";
         }
+
+
+       new SecurityContextLogoutHandler()
+            .logout(
+                request,
+                response,
+                org.springframework.security.core.context
+                    .SecurityContextHolder
+                    .getContext()
+                    .getAuthentication()
+            );
 
         return "redirect:/login?withdraw_success";
     }
