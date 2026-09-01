@@ -13,6 +13,7 @@ import org.springframework.security.web.authentication.LoginUrlAuthenticationEnt
 
 import com.example.bulletinboard.model.AccountStatus;
 import com.example.bulletinboard.repository.UserRepository;
+
 /**
  * 【クラス全体の役割】
  * アプリケーション全体のアクセス制御・ログイン・ログアウト処理と、
@@ -24,6 +25,7 @@ import com.example.bulletinboard.repository.UserRepository;
  * - ログイン失敗理由に応じてエラー種別を判定する
  * - ログイン失敗回数によるセキュリティロックを判定する
  * - FROZEN / WITHDRAWNなどのアカウント状態によるログイン拒否を判定する
+ * - 一般ユーザーのみ退会処理を実行可能とし、管理者の自己退会を禁止する
  * - 管理者専用URLへのアクセスをROLE_ADMINに限定する
  * - ログアウト時のセッション破棄・Cookie削除を設定する
  * - BCryptを利用したPasswordEncoderをBeanとして登録する
@@ -41,20 +43,23 @@ import com.example.bulletinboard.repository.UserRepository;
 @EnableWebSecurity
 public class SecurityConfig {
 
-   /**
+    /**
      * Webアクセス時の認証・認可ルールを定義します。
      *
      * UserRepositoryは、ログイン拒否時に対象ユーザーの
      * accountStatusを確認するために使用します。
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, UserRepository userRepository) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            UserRepository userRepository) throws Exception {
 
         http
+
             // 1. URLごとのアクセス権限（認可）を設定
             .authorizeHttpRequests(auth -> auth
 
-                 /*
+                /*
                  * お題一覧・ログイン・新規登録・パスワード再設定・
                  * 静的リソースなどは、未ログインユーザーにも公開します。
                  */
@@ -68,23 +73,37 @@ public class SecurityConfig {
                     "/error"
                 ).permitAll()
 
-                  /*
+                /*
+                 * 退会処理は一般ユーザーのみ実行可能とします。
+                 *
+                 * ROLE_ADMINは責任者アカウントとして扱うため、
+                 * 管理者自身による退会処理は許可しません。
+                 *
+                 * hasRole("USER")はSpring Security内部で
+                 * ROLE_USER権限を確認します。
+                 */
+                .requestMatchers("/account/withdraw")
+                .hasRole("USER")
+
+                /*
                  * 管理者専用URLは、
                  * ROLE_ADMINを持つユーザーのみアクセス可能とします。
                  */
-                .requestMatchers("/admin/**").hasRole("ADMIN")
+                .requestMatchers("/admin/**")
+                .hasRole("ADMIN")
 
                 /*
                  * 上記以外のURLは、
                  * ログイン済みユーザーのみアクセス可能とします。
                  */
-                .anyRequest().authenticated()
+                .anyRequest()
+                .authenticated()
             )
 
             // 2. フォームログインの設定
             .formLogin(login -> login
 
-                 /*
+                /*
                  * Spring Security標準のログイン画面ではなく、
                  * アプリケーション独自のログイン画面を使用します。
                  */
@@ -99,7 +118,7 @@ public class SecurityConfig {
                  */
                 .usernameParameter("email")
 
-                 /*
+                /*
                  * ログイン成功後はお題一覧画面へ遷移します。
                  */
                 .defaultSuccessUrl("/posts", true)
@@ -139,19 +158,26 @@ public class SecurityConfig {
                     // 通常の認証失敗はwrongとして扱う
                     String errorType = "wrong";
 
-                    String emailParam = request.getParameter("email");
-                    String passwordParam = request.getParameter("password");
+                    String emailParam =
+                            request.getParameter("email");
 
-                    boolean isEmailEmpty = emailParam == null || emailParam.trim().isEmpty();
-                    boolean isPasswordEmpty = passwordParam == null || passwordParam.trim().isEmpty();
+                    String passwordParam =
+                            request.getParameter("password");
 
+                    boolean isEmailEmpty =
+                            emailParam == null
+                            || emailParam.trim().isEmpty();
+
+                    boolean isPasswordEmpty =
+                            passwordParam == null
+                            || passwordParam.trim().isEmpty();
 
                     /*
                      * ログイン失敗回数によって
                      * accountNonLocked=falseになっている場合。
                      */
-
                     if (exception instanceof LockedException) {
+
                         errorType = "locked";
 
                     /*
@@ -161,46 +187,57 @@ public class SecurityConfig {
                      * FROZENとWITHDRAWNではユーザーへ表示する内容が異なるため、
                      * emailからUserを取得し、accountStatusを確認します。
                      */
-                    } else if(exception instanceof DisabledException){
+                    } else if (exception instanceof DisabledException) {
 
-                        if(!isEmailEmpty){
-                           errorType = userRepository.findByEmail(emailParam)
+                        if (!isEmailEmpty) {
 
-                    .map(user -> {
-                     // 管理者によって凍結されている場合
-                     if (user.getAccountStatus() == AccountStatus.FROZEN) {
-                        return "frozen";
-                     }
-                    // 退会済みの場合
-                     if (user.getAccountStatus() == AccountStatus.WITHDRAWN) {
-                        return "withdrawn";
-                     }
+                            errorType =
+                                userRepository
+                                    .findByEmail(emailParam)
+                                    .map(user -> {
 
-                     /*
-                      * ACTIVEなのにDisabledExceptionとなった場合や、
-                      * 想定外の状態の場合は詳細を公開せず
-                      * 通常の認証失敗として扱います。
-                     */
+                                        // 管理者によって凍結されている場合
+                                        if (user.getAccountStatus()
+                                                == AccountStatus.FROZEN) {
 
-                    return "wrong";
-                })
-                .orElse("wrong");
+                                            return "frozen";
+                                        }
 
-                   }
-                     } else {
+                                        // 退会済みの場合
+                                        if (user.getAccountStatus()
+                                                == AccountStatus.WITHDRAWN) {
+
+                                            return "withdrawn";
+                                        }
+
+                                        /*
+                                         * ACTIVEなのにDisabledExceptionとなった場合や、
+                                         * 想定外の状態の場合は詳細を公開せず、
+                                         * 通常の認証失敗として扱います。
+                                         */
+                                        return "wrong";
+                                    })
+                                    .orElse("wrong");
+                        }
+
+                    } else {
+
                         /*
                          * ロック・凍結・退会以外の認証失敗では、
                          * フォームの未入力状態を確認します。
                          */
                         if (isEmailEmpty && isPasswordEmpty) {
+
                             // email・passwordの両方が未入力
                             errorType = "both_empty";
 
                         } else if (isEmailEmpty) {
+
                             // emailのみ未入力
                             errorType = "email_empty";
 
                         } else if (isPasswordEmpty) {
+
                             // passwordのみ未入力
                             errorType = "password_empty";
                         }
@@ -210,14 +247,19 @@ public class SecurityConfig {
                      * 判定したエラー種別をクエリパラメータとして付与し、
                      * ログイン画面へリダイレクトします。
                      */
-                    response.sendRedirect("/login?error=" + errorType);
+                    response.sendRedirect(
+                        "/login?error=" + errorType
+                    );
                 })
 
                 // ログイン処理自体は未認証ユーザーにも許可
                 .permitAll()
             )
 
-            // 未ログイン状態で認証必須ページへアクセスした場合の処理
+            /*
+             * 未ログイン状態で認証必須ページへ
+             * アクセスした場合の処理。
+             */
             .exceptionHandling(exception -> exception
                 .authenticationEntryPoint(
                     new LoginUrlAuthenticationEntryPoint(
@@ -256,6 +298,7 @@ public class SecurityConfig {
      */
     @Bean
     public PasswordEncoder passwordEncoder() {
+
         return new BCryptPasswordEncoder();
     }
 }
