@@ -107,12 +107,12 @@ public class TopicController {
             model.addAttribute("errorMessage", "投稿に失敗しました。");
             return "posts/new";
         }
-
         // ログインユーザーをTopicに紐付ける
-        // email認証との正式な整合はauth-account-refactorで対応する
+        // PrincipalにはログインIDであるemailが設定されているため、
+        // emailを基準にUserを取得する
         if (userDetails != null) {
             User currentUser = userDetailsService
-                    .findByUsername(userDetails.getUsername())
+                    .findByEmail(userDetails.getUsername())
                     .orElseThrow(() ->
                             new IllegalArgumentException("ユーザーが見つかりません"));
 
@@ -157,11 +157,11 @@ public class TopicController {
                 .orElseThrow(() ->
                         new IllegalArgumentException("Invalid topic Id:" + id));
 
-        // 投稿者本人かチェック
-        // email認証との正式な整合はauth-account-refactorで対応する
+        // PrincipalにはログインIDであるemailが設定されているため、
+        // User.emailと比較して投稿者本人か判定する
         if (topic.getUser() == null
                 || !topic.getUser()
-                         .getUsername()
+                         .getEmail()
                          .equals(userDetails.getUsername())) {
 
             return "redirect:/posts";
@@ -185,11 +185,11 @@ public class TopicController {
                 .orElseThrow(() ->
                         new IllegalArgumentException("Invalid topic Id:" + id));
 
-        // 投稿者本人かチェック
-        // email認証との正式な整合はauth-account-refactorで対応する
+        // PrincipalにはログインIDであるemailが設定されているため、
+        // User.emailと比較して投稿者本人か判定する
         if (existingTopic.getUser() == null
                 || !existingTopic.getUser()
-                                 .getUsername()
+                                 .getEmail()
                                  .equals(userDetails.getUsername())) {
 
             redirectAttributes.addFlashAttribute(
@@ -226,12 +226,13 @@ public class TopicController {
                 .orElseThrow(() ->
                         new IllegalArgumentException("Invalid topic Id:" + id));
 
-        // ログインユーザー本人かチェック
-        // email認証との正式な整合はauth-account-refactorで対応する
-        boolean isLoginUser =
+
+                // PrincipalにはログインIDであるemailが設定されているため、
+                // User.emailと比較して投稿者本人か判定する
+                boolean isLoginUser =
                 topic.getUser() != null
                         && topic.getUser()
-                                .getUsername()
+                                .getEmail()
                                 .equals(userDetails.getUsername());
 
         // 管理者権限を持っているかチェック
