@@ -51,45 +51,47 @@ class FlashMessageTest {
     @MockitoBean
     private CustomUserDetailsService userDetailsService;
 
+@Test
+@WithMockUser(username = "user1@example.com")
+@DisplayName("お題更新時：他人のお題の場合はerrorMessageがフラッシュメッセージにセットされてリダイレクトすること")
+void updateTopic_unauthorized_flashMessage() throws Exception {
+
+    // Topic投稿者とログインユーザーが異なる状況を作成
+    User owner = new User();
+    owner.setUsername("ownerUser");
+    owner.setEmail("owner@example.com");
+
+    Topic existingTopic = new Topic();
+    existingTopic.setId(1L);
+    existingTopic.setUser(owner);
+
+    given(topicService.findById(1L))
+            .willReturn(Optional.of(existingTopic));
+
+    // POSTリクエストを送信してレスポンス検証
+    mockMvc.perform(post("/posts/1")
+                    .with(csrf())
+                    .param("title", "更新後のタイトル")
+                    .param("question", "更新後のお題"))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/posts"))
+            .andExpect(
+                    flash().attribute(
+                            "errorMessage",
+                            "投稿の更新に失敗しました。"
+                    )
+            );
+}
+
     @Test
-    @WithMockUser(username = "user1")
-    @DisplayName("お題更新時：他人のお題の場合はerrorMessageがフラッシュメッセージにセットされてリダイレクトすること")
-    void updateTopic_unauthorized_flashMessage() throws Exception {
-
-        // Topic投稿者とログインユーザーが異なる状況を作成
-        User owner = new User();
-        owner.setUsername("ownerUser");
-
-        Topic existingTopic = new Topic();
-        existingTopic.setId(1L);
-        existingTopic.setUser(owner);
-
-        given(topicService.findById(1L))
-                .willReturn(Optional.of(existingTopic));
-
-        // POSTリクエストを送信してレスポンス検証
-        mockMvc.perform(post("/posts/1")
-                        .with(csrf())
-                        .param("title", "更新後のタイトル")
-                        .param("question", "更新後のお題"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/posts"))
-                .andExpect(
-                        flash().attribute(
-                                "errorMessage",
-                                "投稿の更新に失敗しました。"
-                        )
-                );
-    }
-
-    @Test
-    @WithMockUser(username = "user1")
+    @WithMockUser(username = "user1@example.com")
     @DisplayName("回答削除時：自分の回答の場合はsuccessMessageがフラッシュメッセージにセットされてリダイレクトすること")
     void deleteAnswer_success_flashMessage() throws Exception {
 
         // ログインユーザーと回答者が一致する状況を作成
         User user = new User();
         user.setUsername("user1");
+        user.setEmail("user1@example.com");
 
         Answer answer = new Answer();
         answer.setId(10L);
