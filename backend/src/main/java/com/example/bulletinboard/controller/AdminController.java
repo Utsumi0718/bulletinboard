@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.example.bulletinboard.model.AccountStatus;
 import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.ContactRepository;
@@ -29,14 +30,14 @@ import com.example.bulletinboard.repository.UserRepository;
  * 【主な役割】
  * - 管理者ダッシュボードおよびユーザー一覧画面のルーティング（表示処理）
  * - DBからの登録ユーザー一覧データ取得とThymeleafビューへの受け渡し
- * - ユーザーアカウントの凍結（ロック）および凍結解除のステータス更新処理
+ * - accountStatusを利用したユーザーアカウントの凍結・凍結解除処理
  */
 
 @Controller
 @RequestMapping("/admin")
 public class AdminController {
 
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
     private final ContactRepository contactRepository; // 追記
 
     // コンストラクタに ContactRepository を追加
@@ -69,11 +70,25 @@ public class AdminController {
 
 
     /*
-     * 【アカウント凍結・解除切り替え処理】
-     * 指定された ID のユーザーのアカウントロック状態（accountNonLocked）を反転。
-     * ロック解除時にはログイン失敗回数（failedAttempt）もリセット。
-     * 【追記】安全装置：管理者自身および他管理者アカウントの凍結・解除を禁止。
-     */
+ * 【アカウント凍結・凍結解除処理】
+ *
+ * 指定されたユーザーのaccountStatusを使用して、
+ * 管理者によるアカウント凍結・凍結解除を行います。
+ *
+ * ACTIVE
+ *   → FROZENへ変更し、ログインを禁止します。
+ *
+ * FROZEN
+ *   → ACTIVEへ戻し、通常利用可能な状態へ戻します。
+ *
+ * WITHDRAWN
+ *   → 退会済みのため、管理者による凍結・凍結解除の対象外とします。
+ *
+ * 【設計上のポイント】
+ * - accountNonLockedはログイン失敗回数によるセキュリティロック専用です。
+ * - 管理者による凍結処理ではaccountNonLockedやfailedAttemptを変更しません。
+ * - 管理者自身および他のROLE_ADMINアカウントの状態変更は禁止します。
+ */
     @PostMapping("/users/{id}/toggle-lock")
     public String toggleAccountLock(@PathVariable Long id,
                                     @AuthenticationPrincipal UserDetails userDetails,
@@ -86,8 +101,8 @@ public class AdminController {
       return "redirect:/admin/users";
     }
 
-   //現在ログインしている管理者を取得
-    User currentUser = userRepository.findByUsername(userDetails.getUsername()).orElse(null);
+   //現在ログインしている管理者をemailから取得
+    User currentUser = userRepository.findByEmail(userDetails.getUsername()).orElse(null);
 
    //安全チェック
     boolean isSelf = currentUser != null && targetUser.getId().equals(currentUser.getId());
@@ -98,39 +113,63 @@ public class AdminController {
             return "redirect:/admin/users";
         }
 
-        // アカウント状態の切り替え処理
-            boolean currentStatus = targetUser.isAccountNonLocked(); // 現在のアカウントの状態を取得
-            targetUser.setAccountNonLocked(!currentStatus);          // アカウントの状態を反転
+        //退会済みユーザーは凍結・解除の対象外
+        if(targetUser.getAccountStatus() == AccountStatus.WITHDRAWN){
+          redirectAttributes.addFlashAttribute(
+              "errorMessage",
+             "退会済みユーザーのアカウント状態は変更できません"
+          );
+        return "redirect:/admin/users";
+        }
 
-            // 凍結解除時は失敗回数をリセット
-            if (!currentStatus) {
-                targetUser.setFailedAttempt(0);
-            }
+         // ACTIVE ⇄ FROZEN を切り替える
+    if (targetUser.getAccountStatus() == AccountStatus.ACTIVE) {
 
-            userRepository.save(targetUser);
+        targetUser.setAccountStatus(AccountStatus.FROZEN);
 
-        //フラッシュメッセージの設定
-            String statusMessage = !currentStatus ? "アカウントのロックを解除しました" : "アカウントを凍結しました";
-            redirectAttributes.addFlashAttribute("successMessage", targetUser.getUsername() + " の" + statusMessage);
+        redirectAttributes.addFlashAttribute(
+                "successMessage",
+                targetUser.getUsername() + " のアカウントを凍結しました"
+        );
 
-            return "redirect:/admin/users";
+    } else if (targetUser.getAccountStatus() == AccountStatus.FROZEN) {
+
+        targetUser.setAccountStatus(AccountStatus.ACTIVE);
+
+        redirectAttributes.addFlashAttribute(
+                "successMessage",
+                targetUser.getUsername() + " のアカウント凍結を解除しました"
+        );
+    }
+
+    userRepository.save(targetUser);
+
+
+        return "redirect:/admin/users";
     }
 
    /**
-    * 【ユーザーの活動履歴（投稿・コメント）の可視化画面】
-    */
-   @GetMapping("/users/{id}/activities")
-   public String showUserActivities(@PathVariable Long id, Model model) {
-       User targetUser = userRepository.findById(id)
-                        .orElseThrow(() -> new IllegalArgumentException("Invalid user Id:" + id));
-       model.addAttribute("targetUser",targetUser);
-       model.addAttribute("posts",targetUser.getPosts());
-       model.addAttribute("comments",targetUser.getComments());
+ * 【ユーザー活動履歴画面】
+ *
+ * 旧Post / Comment依存を除去するため、
+ * 現段階では対象ユーザー情報のみ画面へ渡します。
+ *
+ * Topic / Answerを利用した活動履歴の再実装は、
+ * 後続の機能フェーズで対応します。
+ */
+@GetMapping("/users/{id}/activities")
+public String showUserActivities(
+        @PathVariable Long id,
+        Model model) {
 
-      return "admin/user_activities"; //templates/admin/user_activities.html
+    User targetUser = userRepository.findById(id)
+            .orElseThrow(() ->
+                    new IllegalArgumentException("Invalid user Id:" + id));
 
-   }
+    model.addAttribute("targetUser", targetUser);
 
+    return "admin/user_activities";
+}
    /*
      * 【追記：お問い合わせ一覧画面表示処理】
      */

@@ -1,16 +1,17 @@
 package com.example.bulletinboard.controller;
 
-import com.example.bulletinboard.dto.RegisterForm;
-import com.example.bulletinboard.model.User;
-import com.example.bulletinboard.service.CustomUserDetailsService;
-import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+
+import com.example.bulletinboard.dto.RegisterForm;
+import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.service.CustomUserDetailsService;
+
+import jakarta.validation.Valid;
 
 /**
  * 【クラス全体の役割】
@@ -45,11 +46,16 @@ public class AuthController {
   @PostMapping("/register")
   public String register(@Valid @ModelAttribute("registerForm") RegisterForm form, BindingResult result){
 
-    //ユーザー名の重複チェックの条件を追加
+    //公開ユーザー名の重複チェックの
     if(userDetailsService.existsByUsername(form.getUsername())){
      //"username"フィールドに重複エラーメッセージを割り当てる
      result.rejectValue("username","duplicate","すでに登録されてるユーザー名です");
     }
+
+    //追記：ログイン用のメールアドレスの重複チェック
+    if(userDetailsService.existsByEmail(form.getEmail())){
+     result.rejectValue("email","duplicate","すでに登録されてるメールアドレスです");
+     }
 
     //バリテーションエラーがある場合は登録画面に戻る
     if(result.hasErrors()){
@@ -59,7 +65,10 @@ public class AuthController {
     // Form から User エンティティへ値を移し替える
         User user = new User();
         user.setUsername(form.getUsername());
+        user.setEmail(form.getEmail());
         user.setPassword(form.getPassword());
+
+    // パスワードのハッシュ化とユーザー登録はService側で行う
     userDetailsService.registerUser(user);
     return "redirect:/login?register_success"; //登録後はログイン画面へ
   }

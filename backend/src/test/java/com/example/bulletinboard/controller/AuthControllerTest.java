@@ -1,69 +1,124 @@
 package com.example.bulletinboard.controller;
 
-import com.example.bulletinboard.service.CustomUserDetailsService;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import com.example.bulletinboard.service.CustomUserDetailsService;
 
 /**
- * [クラスの役割]
- *  AuthControllerの動作（画面遷移や入力値バリテーション）を検証するためのテストクラス
- * MockMvcを使用して実際のHTTPリクエストを疑似的に送信して、
- *ユーザー新規登録時の重複チェックエラー処理や、正常登録時のリダイレクト処理が正しく機能するかを自動テストします。
- * ‐@MockBeanを利用してCustomUserDetailsService をモック化し、データベース環境に依存せずコントローラー単体の挙動を高速に検証します。
- * -Spring Security が要求する CSRF 対策を通過させるため、リクエスト送信時に `.with(csrf())` を付与しています
+ * 【クラス全体の役割】
+ * AuthControllerの新規ユーザー登録処理を検証するテストクラスです。
+ *
+ * MockMvcを使用してHTTPリクエストを疑似的に送信し、
+ *
+ * ・ユーザー名の重複チェック
+ * ・メールアドレスの重複チェック
+ * ・正常登録時の画面遷移
+ *
+ * が正しく動作することを確認します。
+ *
+ * CustomUserDetailsServiceはMockitoでモック化し、
+ * Controllerの処理に焦点を当てて検証します。
+ *
+ * Spring SecurityのCSRF対策を通過させるため、
+ * POSTリクエストには.with(csrf())を付与します。
  */
-
 @SpringBootTest
 @AutoConfigureMockMvc
 public class AuthControllerTest {
 
     @Autowired
-    private MockMvc mockMvc; //HTTPを疑似的に送信するためのもの
+    private MockMvc mockMvc;
 
     @MockitoBean
-    private CustomUserDetailsService userDetailsService;//サービス層をモック化
+    private CustomUserDetailsService userDetailsService;
 
     @Test
-    @DisplayName("登録済みのユーザー名で新規登録を試みた結果、登録重複エラーが発生して登録画面に戻る")
-    void test_register_DuplicateUsername_ShouldReturnRegisterViewWithErrors() throws Exception {
-        //初期値の設定（"tsubasa01"は登録ユーザーとして存在する）
-        when(userDetailsService.existsByUsername("tsubasa01")).thenReturn(true);
+    @DisplayName("登録済みのユーザー名で新規登録すると、username重複エラーで登録画面に戻る")
+    void register_DuplicateUsername_ShouldReturnRegisterViewWithErrors()
+            throws Exception {
 
-        //テストの処理と検証
+        when(userDetailsService.existsByUsername("tsubasa01"))
+                .thenReturn(true);
+
+        when(userDetailsService.existsByEmail("tsubasa01@example.com"))
+                .thenReturn(false);
+
         mockMvc.perform(post("/register")
-               .param("username","tsubasa01")
-               .param("password","password123")
-               .with(csrf()))//セキュリティ制御をパスするためCSRFトークンを模擬付与
-               .andExpect(status().isOk())//HTTP 200 OK（画面再表示）であること
-               .andExpect(view().name("auth/register"))//登録画面が表示されること
-               .andExpect(model().attributeHasFieldErrorCode("registerForm", "username", "duplicate")); // 重複エラーコードが検出されること
+                .param("username", "tsubasa01")
+                .param("email", "tsubasa01@example.com")
+                .param("password", "password123")
+                .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(view().name("auth/register"))
+                .andExpect(
+                    model().attributeHasFieldErrorCode(
+                        "registerForm",
+                        "username",
+                        "duplicate"
+                    )
+                );
     }
 
     @Test
-    @DisplayName("新規ユーザーで登録した場合、ログイン画面にリダイレクトされる")
-    void register_NewUsername_ShouldRedirectToLogin() throws Exception {
-        //初期設定（newuserは未登録のユーザーとして定義）
-        when(userDetailsService.existsByUsername("newuser01")).thenReturn(false);
+    @DisplayName("登録済みのメールアドレスで新規登録すると、email重複エラーで登録画面に戻る")
+    void register_DuplicateEmail_ShouldReturnRegisterViewWithErrors()
+            throws Exception {
 
-        //テストの処理と検証
-         mockMvc.perform(post("/register")
-               .param("username","newuser01")
-               .param("password","password123")
-               .with(csrf()))//セキュリティ制御をパスするためCSRFトークンを模擬付与
-               .andExpect(status().is3xxRedirection())//リダイレクトレスポンスであること
-               .andExpect(redirectedUrl("/login?register_success")); //成功パラメーター付きでログイン画面へ遷移すること
+        when(userDetailsService.existsByUsername("newuser01"))
+                .thenReturn(false);
 
+        when(userDetailsService.existsByEmail("registered@example.com"))
+                .thenReturn(true);
+
+        mockMvc.perform(post("/register")
+                .param("username", "newuser01")
+                .param("email", "registered@example.com")
+                .param("password", "password123")
+                .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(view().name("auth/register"))
+                .andExpect(
+                    model().attributeHasFieldErrorCode(
+                        "registerForm",
+                        "email",
+                        "duplicate"
+                    )
+                );
+    }
+
+    @Test
+    @DisplayName("未登録のユーザー名とメールアドレスで登録すると、ログイン画面へリダイレクトされる")
+    void register_NewUser_ShouldRedirectToLogin()
+            throws Exception {
+
+        when(userDetailsService.existsByUsername("newuser01"))
+                .thenReturn(false);
+
+        when(userDetailsService.existsByEmail("newuser01@example.com"))
+                .thenReturn(false);
+
+        mockMvc.perform(post("/register")
+                .param("username", "newuser01")
+                .param("email", "newuser01@example.com")
+                .param("password", "password123")
+                .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(
+                    redirectedUrl("/login?register_success")
+                );
     }
 }

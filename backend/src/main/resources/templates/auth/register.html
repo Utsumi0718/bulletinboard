@@ -9,13 +9,34 @@
   <h1>ユーザー登録</h1>
 <!--  th:actionを使うことで、Spring Securityに必要なCSRFトークンが自動挿入されます -->
   <form th:action="@{/register}" th:object="${registerForm}" method="post">
-    <div>
-        <label for="username">ユーザー名</label>
-        <input type="text" th:field="*{username}" required id="username">
-        <!-- バリテーションエラーメッセージを追加：ユーザー名 -->
-        <div th:if="${#fields.hasErrors('username')}" th:errors="*{username}" style="color: red;"></div>
 
+    <div>
+    <label for="username">ユーザー名</label>
+    <input type="text"
+           th:field="*{username}"
+           required
+           id="username">
+
+    <div th:if="${#fields.hasErrors('username')}"
+         th:errors="*{username}"
+         style="color: red;">
     </div>
+</div>
+
+    <!-- emailの入力欄を追記 -->
+    <div>
+    <label for="email">メールアドレス</label>
+    <input type="email"
+           th:field="*{email}"
+           required
+           id="email">
+
+    <div th:if="${#fields.hasErrors('email')}"
+         th:errors="*{email}"
+         style="color: red;">
+    </div>
+</div>
+
     <div>
         <label for="password">パスワード</label>
         <input type="password" th:field="*{password}" required>
