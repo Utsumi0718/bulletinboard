@@ -38,7 +38,9 @@ public class TopicController {
     private final TopicService topicService;
     private final CustomUserDetailsService userDetailsService;
 
-    // 変更：PostServiceではなくTopicServiceをDIする
+    /*
+     * PostServiceではなくTopicServiceをDIします。
+     */
     public TopicController(
             TopicService topicService,
             CustomUserDetailsService userDetailsService) {
@@ -47,7 +49,9 @@ public class TopicController {
         this.userDetailsService = userDetailsService;
     }
 
-    // 変更：Post一覧ではなくTopic一覧を取得する
+    /*
+     * Post一覧ではなくTopic一覧を取得します。
+     */
     @GetMapping
     public String listTopics(
             @RequestParam(defaultValue = "0") int page,
@@ -58,7 +62,10 @@ public class TopicController {
 
         Page<Topic> topicPage;
 
-        // 変更：検索対象はTopicのタイトル部分一致のみ
+        /*
+         * 検索対象はTopicのタイトルのみとし、
+         * 部分一致検索を行います。
+         */
         if (keyword != null && !keyword.isEmpty()) {
             topicPage = topicService.searchTopics(
                     page,
@@ -72,7 +79,9 @@ public class TopicController {
                     sortOrder);
         }
 
-        // 変更：PostではなくTopicをModelへ渡す
+        /*
+         * PostではなくTopicをModelへ渡します。
+         */
         model.addAttribute("topicPage", topicPage);
         model.addAttribute("topics", topicPage.getContent());
         model.addAttribute("page", page);
@@ -80,21 +89,30 @@ public class TopicController {
         model.addAttribute("sortBy", sortBy);
         model.addAttribute("sortOrder", sortOrder);
 
-        // 旧Thymeleafテンプレートは現段階では維持
+        /*
+         * 旧Thymeleafテンプレートは現段階では維持します。
+         */
         return "posts/list";
     }
 
-    // 変更：新規Postではなく新規TopicをModelへ渡す
+    /*
+     * 新規Postではなく新規TopicをModelへ渡し、
+     * 新規投稿画面を表示します。
+     */
     @GetMapping("/new")
     public String newTopicForm(Model model) {
 
         model.addAttribute("topic", new Topic());
 
-        // 旧Thymeleafテンプレートは現段階では維持
+        /*
+         * 旧Thymeleafテンプレートは現段階では維持します。
+         */
         return "posts/new";
     }
 
-    // 変更：PostではなくTopicを新規作成する
+    /*
+     * PostではなくTopicを新規作成します。
+     */
     @PostMapping
     public String createTopic(
             @Validated @ModelAttribute Topic topic,
@@ -107,9 +125,13 @@ public class TopicController {
             model.addAttribute("errorMessage", "投稿に失敗しました。");
             return "posts/new";
         }
-        // ログインユーザーをTopicに紐付ける
-        // PrincipalにはログインIDであるemailが設定されているため、
-        // emailを基準にUserを取得する
+
+        /*
+         * ログインユーザーをTopicに紐付けます。
+         *
+         * PrincipalにはログインIDであるemailが設定されているため、
+         * emailを基準にUserを取得します。
+         */
         if (userDetails != null) {
             User currentUser = userDetailsService
                     .findByEmail(userDetails.getUsername())
@@ -119,7 +141,9 @@ public class TopicController {
             topic.setUser(currentUser);
         }
 
-        // 変更：PostServiceではなくTopicServiceで保存する
+        /*
+         * PostServiceではなくTopicServiceを利用して保存します。
+         */
         topicService.save(topic);
 
         redirectAttributes.addFlashAttribute(
@@ -129,8 +153,11 @@ public class TopicController {
         return "redirect:/posts";
     }
 
-    // 変更：Post詳細ではなくTopic詳細を取得する
-    // Comment / Like処理は後続フェーズで再実装する
+    /*
+     * Post詳細ではなくTopic詳細を取得します。
+     *
+     * Comment / Like処理は後続フェーズで再実装します。
+     */
     @GetMapping("/{id}")
     public String viewTopic(
             @PathVariable Long id,
@@ -142,11 +169,15 @@ public class TopicController {
 
         model.addAttribute("topic", topic);
 
-        // 旧Thymeleafテンプレートは現段階では維持
+        /*
+         * 旧Thymeleafテンプレートは現段階では維持します。
+         */
         return "posts/detail";
     }
 
-    // 変更：PostではなくTopicの編集画面を表示する
+    /*
+     * PostではなくTopicの編集画面を表示します。
+     */
     @GetMapping("/{id}/edit")
     public String editTopicForm(
             @PathVariable Long id,
@@ -157,8 +188,10 @@ public class TopicController {
                 .orElseThrow(() ->
                         new IllegalArgumentException("Invalid topic Id:" + id));
 
-        // PrincipalにはログインIDであるemailが設定されているため、
-        // User.emailと比較して投稿者本人か判定する
+        /*
+         * PrincipalにはログインIDであるemailが設定されているため、
+         * User.emailと比較して投稿者本人か判定します。
+         */
         if (topic.getUser() == null
                 || !topic.getUser()
                          .getEmail()
@@ -169,11 +202,15 @@ public class TopicController {
 
         model.addAttribute("topic", topic);
 
-        // 旧Thymeleafテンプレートは現段階では維持
+        /*
+         * 旧Thymeleafテンプレートは現段階では維持します。
+         */
         return "posts/edit";
     }
 
-    // 変更：PostではなくTopicを更新する
+    /*
+     * PostではなくTopicを更新します。
+     */
     @PostMapping("/{id}")
     public String updateTopic(
             @PathVariable Long id,
@@ -185,8 +222,10 @@ public class TopicController {
                 .orElseThrow(() ->
                         new IllegalArgumentException("Invalid topic Id:" + id));
 
-        // PrincipalにはログインIDであるemailが設定されているため、
-        // User.emailと比較して投稿者本人か判定する
+        /*
+         * PrincipalにはログインIDであるemailが設定されているため、
+         * User.emailと比較して投稿者本人か判定します。
+         */
         if (existingTopic.getUser() == null
                 || !existingTopic.getUser()
                                  .getEmail()
@@ -199,13 +238,16 @@ public class TopicController {
             return "redirect:/posts";
         }
 
-        // 変更：旧Postのcontentは廃止し、
-        // Topicのtitle / questionを更新する
+        /*
+         * 旧Postのcontentは廃止し、
+         * Topicのtitle / questionを更新します。
+         */
         existingTopic.setTitle(topic.getTitle());
         existingTopic.setQuestion(topic.getQuestion());
 
-        // imageの更新仕様はtopic-answer-apiで対応する
-
+        /*
+         * imageの更新仕様はtopic-answer-apiで対応します。
+         */
         topicService.save(existingTopic);
 
         redirectAttributes.addFlashAttribute(
@@ -215,42 +257,29 @@ public class TopicController {
         return "redirect:/posts";
     }
 
-    // 変更：PostではなくTopicを論理削除する
+    /*
+     * 指定されたTopicを論理削除します。
+     *
+     * Controllerではログインユーザーのemailと
+     * ROLE_ADMIN権限の有無を取得し、
+     * 削除可否の業務ルール判定はTopicServiceへ委譲します。
+     */
     @PostMapping("/{id}/delete")
     public String deleteTopic(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails userDetails,
             RedirectAttributes redirectAttributes) {
 
-        Topic topic = topicService.findById(id)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("Invalid topic Id:" + id));
-
-
-                // PrincipalにはログインIDであるemailが設定されているため、
-                // User.emailと比較して投稿者本人か判定する
-                boolean isLoginUser =
-                topic.getUser() != null
-                        && topic.getUser()
-                                .getEmail()
-                                .equals(userDetails.getUsername());
-
-        // 管理者権限を持っているかチェック
         boolean isAdmin = userDetails.getAuthorities()
                 .stream()
                 .anyMatch(a ->
                         a.getAuthority().equals("ROLE_ADMIN"));
 
-        if (!isLoginUser && !isAdmin) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "お題の削除権限がありません。");
-
-            return "redirect:/posts";
-        }
-
-        // TopicService側でdeletedAtを設定する論理削除
-        topicService.deleteById(id);
+        topicService.deleteById(
+                id,
+                userDetails.getUsername(),
+                isAdmin
+        );
 
         redirectAttributes.addFlashAttribute(
                 "successMessage",
