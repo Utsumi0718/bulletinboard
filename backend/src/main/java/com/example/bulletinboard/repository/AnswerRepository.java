@@ -41,4 +41,12 @@ public interface AnswerRepository extends JpaRepository<Answer, Long> {
      * 指定したIDかつ削除されていない回答を取得します。
      */
     Optional<Answer> findByIdAndDeletedAtIsNull(Long id);
+
+    /*
+     * 指定したTopicにAnswerが一度でも投稿されたことがあるか確認します。
+     *
+     * Topicは一度でもAnswerが投稿された後は編集不可とするため、
+     * 論理削除済みAnswerも含めて存在判定します。
+     */
+    boolean existsByTopicId(Long topicId);
 }
