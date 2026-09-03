@@ -85,37 +85,52 @@ public class AnswerService {
     }
 
     /*
-     * 指定した回答を論理削除します。
+     * 指定されたAnswerを論理削除します。
      *
-     * DBからレコードを削除するのではなく、
+     * 削除できるのは、Answerの投稿者本人またはROLE_ADMINのユーザーです。
+     * その他のユーザーによる削除は許可しません。
+     *
+     * 削除時はDBからレコードそのものを削除せず、
      * deletedAtに現在日時を設定します。
      */
     @Transactional
-    public void deleteAnswer(Long id) {
+     public void deleteAnswer(
+        Long id,
+        String loginEmail,
+        boolean isAdmin) {
 
-        Answer answer = answerRepository
-            .findByIdAndDeletedAtIsNull(id)
-            .orElseThrow(
-                () -> new IllegalArgumentException(
-                    "指定された回答が存在しません。id=" + id
-                )
-            );
+      Answer answer = answerRepository
+        .findByIdAndDeletedAtIsNull(id)
+        .orElseThrow(
+            () -> new IllegalArgumentException(
+                "指定された回答が存在しません。id=" + id
+            )
+        );
 
-        answer.setDeletedAt(LocalDateTime.now());
+    boolean isOwner =
+        answer.getUser().getEmail().equals(loginEmail);
 
-        answerRepository.save(answer);
+    if (!isOwner && !isAdmin) {
+        throw new IllegalStateException(
+            "この回答を削除する権限がありません。"
+        );
     }
 
+    answer.setDeletedAt(LocalDateTime.now());
+
+    answerRepository.save(answer);
+}
+
     /*
- * 指定されたAnswerを編集します。
- *
- * 編集できるのはAnswerの投稿者本人のみです。
- * また、Likeが1件でも付いているAnswerは編集できません。
- *
- * 条件を満たした場合のみcontentを更新します。
- */
+     * 指定されたAnswerを編集します。
+     *
+     * 編集できるのはAnswerの投稿者本人のみです。
+     * また、Likeが1件でも付いているAnswerは編集できません。
+     *
+     * 条件を満たした場合のみcontentを更新します。
+     */
 @Transactional
-public Answer updateAnswer(
+    public Answer updateAnswer(
         Long answerId,
         String loginEmail,
         String content) {
@@ -143,5 +158,5 @@ public Answer updateAnswer(
     answer.setContent(content);
 
     return answerRepository.save(answer);
-}
+  }
 }
