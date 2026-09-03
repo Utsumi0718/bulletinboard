@@ -1,4 +1,4 @@
-package com.example.bulletinboard.form;
+package com.example.bulletinboard.dto.form;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
