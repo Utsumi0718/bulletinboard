@@ -26,6 +26,7 @@ import com.example.bulletinboard.repository.TopicRepository;
  * - お題一覧の取得
  * - お題のIDによる取得
  * - お題の保存
+ * - お題の編集
  * - お題タイトルの部分一致検索
  * - ページネーション
  * - 並び替え
@@ -40,8 +41,9 @@ import com.example.bulletinboard.repository.TopicRepository;
  *   deletedAtに削除日時を設定する論理削除方式を採用します。
  * - 通常の一覧取得・ID取得・検索では、
  *   deletedAtがNULLのTopicのみを対象とします。
- * - 投稿者本人のみ編集可能、回答が付いた後は編集不可などの
- *   業務ルールについては、Topic / Answer主要機能の実装時に追加します。
+ * - Topicの編集は投稿者本人のみ可能です。
+ * - Answerが一度でも投稿されたTopicは編集できません。
+ *   論理削除済みのAnswerも存在判定に含めます。
  */
 @Service
 public class TopicService {
@@ -214,4 +216,50 @@ public class TopicService {
     public boolean hasAnyAnswer(Long topicId) {
     return answerRepository.existsByTopicId(topicId);
    }
+
+   /*
+    * 指定されたTopicを編集します。
+    *
+    * 編集できるのはTopicの投稿者本人のみです。
+    * また、Answerが一度でも投稿されたTopicは編集できません。
+    * 論理削除済みのAnswerも「過去に回答が存在した」として判定します。
+    *
+    * 条件を満たした場合のみ、
+    * title、image、questionを更新します。
+    */
+
+   @Transactional
+public Topic updateTopic(
+        Long topicId,
+        String loginEmail,
+        String title,
+        String image,
+        String question) {
+
+    Topic topic = topicRepository
+        .findByIdAndDeletedAtIsNull(topicId)
+        .orElseThrow(
+            () -> new IllegalArgumentException(
+                "指定されたお題が存在しません。id=" + topicId
+            )
+        );
+
+    if (!topic.getUser().getEmail().equals(loginEmail)) {
+        throw new IllegalStateException(
+            "このお題を編集する権限がありません。"
+        );
+    }
+
+    if (hasAnyAnswer(topicId)) {
+        throw new IllegalStateException(
+            "回答が投稿されたお題は編集できません。"
+        );
+    }
+
+    topic.setTitle(title);
+    topic.setImage(image);
+    topic.setQuestion(question);
+
+    return topicRepository.save(topic);
+}
 }
