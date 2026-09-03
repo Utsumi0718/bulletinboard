@@ -208,54 +208,39 @@ public class TopicController {
         return "posts/edit";
     }
 
-    /*
-     * PostではなくTopicを更新します。
+     /*
+      * 指定されたTopicを更新します。
+      *
+      * Controllerではログインユーザーのemailと、
+      * 入力されたtitle、image、questionをTopicServiceへ渡します。
+      *
+      * 投稿者本人かどうか、
+      * Answerが一度でも投稿されているかなどの
+      * 編集可否に関する業務ルール判定と更新処理は、
+      * TopicServiceへ委譲します。
      */
-    @PostMapping("/{id}")
-    public String updateTopic(
+
+     @PostMapping("/{id}")
+      public String updateTopic(
             @PathVariable Long id,
             @ModelAttribute Topic topic,
             @AuthenticationPrincipal UserDetails userDetails,
             RedirectAttributes redirectAttributes) {
 
-        Topic existingTopic = topicService.findById(id)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("Invalid topic Id:" + id));
+    topicService.updateTopic(
+            id,
+            userDetails.getUsername(),
+            topic.getTitle(),
+            topic.getImage(),
+            topic.getQuestion()
+    );
 
-        /*
-         * PrincipalにはログインIDであるemailが設定されているため、
-         * User.emailと比較して投稿者本人か判定します。
-         */
-        if (existingTopic.getUser() == null
-                || !existingTopic.getUser()
-                                 .getEmail()
-                                 .equals(userDetails.getUsername())) {
+    redirectAttributes.addFlashAttribute(
+            "successMessage",
+            "投稿の更新に成功しました！");
 
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "投稿の更新に失敗しました。");
-
-            return "redirect:/posts";
-        }
-
-        /*
-         * 旧Postのcontentは廃止し、
-         * Topicのtitle / questionを更新します。
-         */
-        existingTopic.setTitle(topic.getTitle());
-        existingTopic.setQuestion(topic.getQuestion());
-
-        /*
-         * imageの更新仕様はtopic-answer-apiで対応します。
-         */
-        topicService.save(existingTopic);
-
-        redirectAttributes.addFlashAttribute(
-                "successMessage",
-                "投稿の更新に成功しました！");
-
-        return "redirect:/posts";
-    }
+    return "redirect:/posts";
+}
 
     /*
      * 指定されたTopicを論理削除します。
