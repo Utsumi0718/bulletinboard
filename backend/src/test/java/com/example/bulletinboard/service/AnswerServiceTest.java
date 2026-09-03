@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.example.bulletinboard.model.Answer;
+import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.AnswerRepository;
 
 /*
@@ -24,7 +25,7 @@ import com.example.bulletinboard.repository.AnswerRepository;
  * AnswerServiceのビジネスロジックを検証する
  * Service層の単体テストクラスです。
  *
- * AnswerRepositoryをMockitoでモック化し、
+ * AnswerRepositoryとLikeServiceをMockitoでモック化し、
  * 実際のDBを使用せずService層の処理を確認します。
  *
  * 【主な検証内容】
@@ -32,12 +33,19 @@ import com.example.bulletinboard.repository.AnswerRepository;
  * - Topicに紐づく回答一覧の取得
  * - IDによる回答取得
  * - Answerの論理削除
+ * - Answer編集時の本人判定
+ * - Like件数による編集可否判定
+ * - Answer削除時の本人 / ROLE_ADMIN判定
  */
+
 @ExtendWith(MockitoExtension.class)
 class AnswerServiceTest {
 
     @Mock
     private AnswerRepository answerRepository;
+
+    @Mock
+    private LikeService likeService;
 
     @InjectMocks
     private AnswerService answerService;
@@ -114,31 +122,39 @@ class AnswerServiceTest {
     }
 
     @Test
-    @DisplayName("回答を論理削除するとdeletedAtが設定されること")
+    @DisplayName("投稿者本人が回答を論理削除するとdeletedAtが設定されること")
     void deleteAnswer_ShouldSetDeletedAt() {
 
-        Answer answer = new Answer();
-        answer.setId(1L);
+    User answerUser = new User();
+    answerUser.setEmail("testuser01@example.com");
 
-        when(
-            answerRepository
-                .findByIdAndDeletedAtIsNull(1L)
-        ).thenReturn(Optional.of(answer));
+    Answer answer = new Answer();
+    answer.setId(1L);
+    answer.setUser(answerUser);
 
-        when(
-            answerRepository.save(any(Answer.class))
-        ).thenAnswer(
-            invocation -> invocation.getArgument(0)
-        );
+    when(
+        answerRepository
+            .findByIdAndDeletedAtIsNull(1L)
+    ).thenReturn(Optional.of(answer));
 
-        answerService.deleteAnswer(1L);
+    when(
+        answerRepository.save(any(Answer.class))
+    ).thenAnswer(
+        invocation -> invocation.getArgument(0)
+    );
 
-        assertThat(answer.getDeletedAt())
-            .isNotNull();
+    answerService.deleteAnswer(
+        1L,
+        "testuser01@example.com",
+        false
+    );
 
-        verify(
-            answerRepository,
-            times(1)
-        ).save(answer);
-    }
+    assertThat(answer.getDeletedAt())
+        .isNotNull();
+
+    verify(
+        answerRepository,
+        times(1)
+     ).save(answer);
+  }
 }
