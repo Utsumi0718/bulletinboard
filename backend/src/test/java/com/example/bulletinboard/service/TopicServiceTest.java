@@ -23,13 +23,15 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import com.example.bulletinboard.model.Topic;
+import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.repository.AnswerRepository;
 import com.example.bulletinboard.repository.TopicRepository;
 
 /*
  * 【クラスの役割】
  * TopicServiceのビジネスロジックを検証する単体テストクラスです。
  *
- * TopicRepositoryをMockitoでモック化し、
+ * TopicRepositoryとAnswerRepositoryをMockitoでモック化し、
  * 実際のデータベースには接続せずにService層だけをテストします。
  *
  * 【主な検証内容】
@@ -38,21 +40,28 @@ import com.example.bulletinboard.repository.TopicRepository;
  * - ソート順
  * - 負のページ番号の補正
  * - 削除されていないTopic一覧の取得
- * - Topicの論理削除
+ * - 投稿者本人によるTopicの論理削除
  *
  * 【設計上のポイント】
  * - 検索対象はお題タイトルのみです。
  * - 検索方式は部分一致のみです。
  * - 前方一致・後方一致のテストは新仕様では不要です。
+ * - Topic編集や削除権限に関する追加ケースは、
+ *   feature/topic-answer-apiのService Test工程で拡充します。
  */
+
+
 @ExtendWith(MockitoExtension.class)
 class TopicServiceTest {
 
-    @Mock
-    private TopicRepository topicRepository;
+   @Mock
+   private TopicRepository topicRepository;
 
-    @InjectMocks
-    private TopicService topicService;
+   @Mock
+   private AnswerRepository answerRepository;
+
+   @InjectMocks
+   private TopicService topicService;
 
     @Test
     @DisplayName("お題タイトルを部分一致検索できること")
@@ -209,31 +218,39 @@ class TopicServiceTest {
     }
 
     @Test
-    @DisplayName("指定したTopicを論理削除できること")
+    @DisplayName("投稿者本人が指定したTopicを論理削除できること")
     void deleteById_ShouldSetDeletedAt() {
 
-        Topic topic = new Topic();
-        topic.setId(1L);
+    User topicUser = new User();
+    topicUser.setEmail("testuser01@example.com");
 
-        when(
-            topicRepository
-                .findByIdAndDeletedAtIsNull(1L)
-        ).thenReturn(Optional.of(topic));
+    Topic topic = new Topic();
+    topic.setId(1L);
+    topic.setUser(topicUser);
 
-        when(
-            topicRepository.save(any(Topic.class))
-        ).thenAnswer(
-            invocation -> invocation.getArgument(0)
-        );
+    when(
+        topicRepository
+            .findByIdAndDeletedAtIsNull(1L)
+    ).thenReturn(Optional.of(topic));
 
-        topicService.deleteById(1L);
+    when(
+        topicRepository.save(any(Topic.class))
+    ).thenAnswer(
+        invocation -> invocation.getArgument(0)
+    );
 
-        assertThat(topic.getDeletedAt())
-            .isNotNull();
+    topicService.deleteById(
+        1L,
+        "testuser01@example.com",
+        false
+    );
 
-        verify(
-            topicRepository,
-            times(1)
-        ).save(topic);
-    }
+    assertThat(topic.getDeletedAt())
+        .isNotNull();
+
+    verify(
+        topicRepository,
+        times(1)
+    ).save(topic);
+}
 }
