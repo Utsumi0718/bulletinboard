@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.bulletinboard.model.Topic;
+import com.example.bulletinboard.repository.AnswerRepository;
 import com.example.bulletinboard.repository.TopicRepository;
 
 /*
@@ -46,6 +47,8 @@ import com.example.bulletinboard.repository.TopicRepository;
 public class TopicService {
 
     private final TopicRepository topicRepository;
+    private final AnswerRepository answerRepository;
+
 
     /*
      * 1ページあたりに表示するお題の件数。
@@ -53,11 +56,15 @@ public class TopicService {
     private static final int PAGE_SIZE = 5;
 
     /*
-     * TopicRepositoryをコンストラクタインジェクションします。
+     * TopicRepositoryとAnswerRepositoryをコンストラクタインジェクションします。
      */
-    public TopicService(TopicRepository topicRepository) {
-        this.topicRepository = topicRepository;
-    }
+    public TopicService(
+        TopicRepository topicRepository,
+        AnswerRepository answerRepository) {
+
+    this.topicRepository = topicRepository;
+    this.answerRepository = answerRepository;
+   }
 
     /*
      * 削除されていないお題をページ単位で取得します。
@@ -199,4 +206,12 @@ public class TopicService {
             default -> "createdAt";
         };
     }
+
+    /**
+     * 指定したTopicにAnswerが一度でも投稿されたことがあるか確認します。
+     * 論理削除済みのAnswerも存在判定に含めます。
+     */
+    public boolean hasAnyAnswer(Long topicId) {
+    return answerRepository.existsByTopicId(topicId);
+   }
 }
