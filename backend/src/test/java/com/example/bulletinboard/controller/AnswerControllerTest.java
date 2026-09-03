@@ -28,15 +28,21 @@ import com.example.bulletinboard.service.TopicService;
 
 /*
  * 【クラスの役割】
- * AnswerControllerにおける回答の投稿・削除処理と、
- * 回答者本人または管理者による削除権限を検証するWebレイヤーテストです。
+ * AnswerControllerにおける回答の投稿・削除処理を検証する
+ * Webレイヤーテストです。
  *
  * 認証Principalにはemailが設定されるため、
- * ログインユーザーの取得・本人判定はemail基準で検証します。
+ * 削除処理ではログインユーザーのemailとROLE_ADMIN権限の有無が
+ * AnswerServiceへ正しく渡されることを確認します。
+ *
+ * 回答削除の最終的な権限判定はAnswerService側で行います。
  *
  * 旧Comment / Post仕様のテストを、
  * Answer / Topic仕様へ移行しています。
  */
+
+
+
 @WebMvcTest(AnswerController.class)
 public class AnswerControllerTest {
 
@@ -104,14 +110,14 @@ public class AnswerControllerTest {
                 .andExpect(redirectedUrl("/posts/10"));
 
         verify(answerService, times(1))
-                .deleteAnswer(1L);
+        .deleteAnswer(
+                1L,
+                "testuser01@example.com",
+                false
+        );
     }
 
-    /**
-     * 【管理者による回答削除】
-     * 回答者本人でなくても、
-     * ROLE_ADMINを持つユーザーなら回答を削除できることを検証します。
-     */
+
     @Test
     @DisplayName("回答削除時、ADMIN権限を持つユーザーであれば他人の回答でも削除できること")
     @WithMockUser(username = "admin@example.com", roles = "ADMIN")
@@ -133,8 +139,11 @@ public class AnswerControllerTest {
                         .with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/posts/10"));
-
-        verify(answerService, times(1))
-                .deleteAnswer(2L);
+       verify(answerService, times(1))
+        .deleteAnswer(
+                2L,
+                "admin@example.com",
+                true
+        );
     }
 }
