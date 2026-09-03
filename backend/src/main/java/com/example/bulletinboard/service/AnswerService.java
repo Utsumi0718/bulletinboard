@@ -34,17 +34,25 @@ import com.example.bulletinboard.repository.AnswerRepository;
  * - 「いいねが1件でも付いた回答は編集不可」
  *   「投稿者本人のみ編集・削除可能」などの詳細な業務ルールは、
  *   Topic / Answer主要機能の実装時に追加します。
+ * - 「いいねが1件でも付いた回答は編集不可」
+ *   「投稿者本人のみ編集・削除可能」などの詳細な業務ルールは、
+ *   Topic / Answer主要機能の実装時に追加します。
  */
 @Service
 public class AnswerService {
 
     private final AnswerRepository answerRepository;
+    private final LikeService likeService;
 
     /*
-     * AnswerRepositoryをコンストラクタインジェクションします。
-     */
-    public AnswerService(AnswerRepository answerRepository) {
+     * AnswerRepositoryとLikeServiceをコンストラクタインジェクションします。
+    */
+    public AnswerService(
+              AnswerRepository answerRepository,
+              LikeService likeService
+             ) {
         this.answerRepository = answerRepository;
+        this.likeService = likeService;
     }
 
     /*
@@ -97,4 +105,43 @@ public class AnswerService {
 
         answerRepository.save(answer);
     }
+
+    /*
+ * 指定されたAnswerを編集します。
+ *
+ * 編集できるのはAnswerの投稿者本人のみです。
+ * また、Likeが1件でも付いているAnswerは編集できません。
+ *
+ * 条件を満たした場合のみcontentを更新します。
+ */
+@Transactional
+public Answer updateAnswer(
+        Long answerId,
+        String loginEmail,
+        String content) {
+
+    Answer answer = answerRepository
+        .findByIdAndDeletedAtIsNull(answerId)
+        .orElseThrow(
+            () -> new IllegalArgumentException(
+                "指定された回答が存在しません。id=" + answerId
+            )
+        );
+
+    if (!answer.getUser().getEmail().equals(loginEmail)) {
+        throw new IllegalStateException(
+            "この回答を編集する権限がありません。"
+        );
+    }
+
+    if (likeService.getLikeCount(answer) > 0) {
+        throw new IllegalStateException(
+            "いいねが付いている回答は編集できません。"
+        );
+    }
+
+    answer.setContent(content);
+
+    return answerRepository.save(answer);
+}
 }
