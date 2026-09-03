@@ -1,33 +1,60 @@
 <!DOCTYPE html>
-<html  xmlns:th="http://www.thymeleaf.org"
+<html xmlns:th="http://www.thymeleaf.org"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/layout}">
 
-  <head>
-    <title layout:fragment="title">投稿編集</title>
+<head>
+    <title layout:fragment="title">お題編集</title>
 </head>
 
-    <div layout:fragment="content">
-        <h1 class="mb-3">投稿編集</h1>
+<div layout:fragment="content">
 
-        <!-- actionにIDを含める -->
-        <form th:action="@{/posts/{id}(id=${post.id})}" th:object="${post}" method="post">
-            <div class="mb-3">
-                <label for="title" class="form-title">タイトル</label>
-                <input type="text" th:field="*{title}" class="form-control" id="title" required>
-            </div>
+    <h1 class="mb-3">お題編集</h1>
 
-            <div class="mb-3">
-                <label for="content" class="form-label">内容</label>
-                <textarea th:field="*{content}" class="form-control" id="content" rows="5" required></textarea>
-            </div>
+    <form th:action="@{/posts/{id}(id=${topic.id})}"
+          th:object="${topic}"
+          method="post">
 
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary">更新する</button>
-                <a th:href="@{/posts}" class="btn btn-secondary">キャンセル</a>
-            </div>
-        </form>
-    </div>
+        <div class="mb-3">
+            <label for="title" class="form-label">タイトル</label>
+            <input type="text"
+                   th:field="*{title}"
+                   class="form-control"
+                   id="title"
+                   required>
+        </div>
 
+        <div class="mb-3">
+            <label for="image" class="form-label">画像</label>
+            <input type="text"
+                   th:field="*{image}"
+                   class="form-control"
+                   id="image"
+                   required>
+        </div>
+
+        <div class="mb-3">
+            <label for="question" class="form-label">問題文</label>
+            <textarea th:field="*{question}"
+                      class="form-control"
+                      id="question"
+                      rows="5"
+                      required></textarea>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+                更新する
+            </button>
+
+            <a th:href="@{/posts}"
+               class="btn btn-secondary">
+                キャンセル
+            </a>
+        </div>
+
+    </form>
+
+</div>
 
 </html>
