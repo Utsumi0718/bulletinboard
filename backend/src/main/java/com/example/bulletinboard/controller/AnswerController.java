@@ -24,13 +24,19 @@ import com.example.bulletinboard.service.TopicService;
  * AnswerServiceを利用してAnswerデータを保存・削除し、
  * TopicServiceを利用して回答対象となるTopicを取得します。
  *
- * また、ログインユーザー情報を取得し、
- * 回答者本人または管理者による削除権限の確認を行います。
+ * ログインユーザーのemailやROLE_ADMIN権限など、
+ * Serviceで業務ルールを判定するために必要な情報を取得して渡します。
+ *
+ * 回答の削除可否などの業務ルール判定は、
+ * AnswerService側へ委譲します。
  *
  * このクラスは旧CommentControllerをAnswer仕様へ移行する途中段階のControllerです。
- * Answerの詳細なバリデーション・編集条件・REST API化は、
- * 後続のfeature/topic-answer-apiで対応します。
+ * 現在は旧Thymeleaf画面と旧URL構造を維持しています。
+ * Answerの入力バリデーション・編集処理・REST API化については、
+ * feature/topic-answer-api内の後続工程で整理します。
  */
+
+
 @Controller
 @RequestMapping("/comments")
 public class AnswerController {
@@ -39,7 +45,10 @@ public class AnswerController {
     private final TopicService topicService;
     private final CustomUserDetailsService userDetailsService;
 
-    // 変更：AnswerService、TopicService、CustomUserDetailsServiceをDIする
+    /*
+     * AnswerService、TopicService、CustomUserDetailsServiceを
+     * コンストラクタインジェクションします。
+    */
     public AnswerController(
             AnswerService answerService,
             TopicService topicService,
@@ -50,7 +59,9 @@ public class AnswerController {
         this.userDetailsService = userDetailsService;
     }
 
-    // 変更：CommentではなくAnswerを投稿する
+    /*
+     * Topicに対して新しいAnswerを投稿します。
+     */
     @PostMapping("/add")
     public String addAnswer(
             @RequestParam Long topicId,
@@ -58,75 +69,74 @@ public class AnswerController {
             @AuthenticationPrincipal UserDetails userDetails,
             RedirectAttributes redirectAttributes) {
 
-        // PrincipalにはログインIDであるemailが設定されているため、
-        // emailを基準にログインユーザーを取得する
+         /*
+          * PrincipalにはログインIDであるemailが設定されているため、
+          * emailを基準にログインユーザーを取得します。
+          */
 
          User currentUser = userDetailsService
             .findByEmail(userDetails.getUsername())
             .orElseThrow(() ->
                 new IllegalArgumentException("ユーザーが見つかりません"));
 
-        // 変更：回答対象のPostではなくTopicを取得する
+
         Topic topic = topicService.findById(topicId)
                 .orElseThrow(() ->
                         new IllegalArgumentException("お題が見つかりません"));
 
-        // 変更：CommentではなくAnswerオブジェクトを作成する
+        /*
+         * 回答対象のTopicとログインユーザーを紐付けて
+         * Answerオブジェクトを生成します。
+        */
+
         Answer answer = new Answer();
         answer.setTopic(topic);
         answer.setUser(currentUser);
         answer.setContent(content);
 
-        // 変更：AnswerServiceを利用して回答を保存する
         answerService.saveAnswer(answer);
 
         redirectAttributes.addFlashAttribute(
                 "successMessage",
                 currentUser.getUsername() + "さんの回答が投稿されました！");
 
-        // 旧URL構造は現段階では維持
+
         return "redirect:/posts/" + topicId;
     }
 
-    // 変更：CommentではなくAnswerを削除する
-    @PostMapping("/{id}/delete")
-    public String deleteAnswer(
-            @PathVariable Long id,
-            @RequestParam Long topicId,
-            @AuthenticationPrincipal UserDetails userDetails,
-            RedirectAttributes redirectAttributes) {
+    /*
+    * 指定されたAnswerを論理削除します。
+    *
+    * Controllerではログインユーザーのemailと
+    * ROLE_ADMIN権限の有無を取得し、
+    * 削除可否の業務ルール判定はAnswerServiceへ委譲します。
+    */
+     @PostMapping("/{id}/delete")
+     public String deleteAnswer(
+        @PathVariable Long id,
+        @RequestParam Long topicId,
+        @AuthenticationPrincipal UserDetails userDetails,
+        RedirectAttributes redirectAttributes) {
 
-        Answer answer = answerService.getAnswerById(id)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("回答が見つかりません"));
+    Answer answer = answerService.getAnswerById(id)
+            .orElseThrow(() ->
+                    new IllegalArgumentException("回答が見つかりません"));
 
-        // PrincipalにはログインIDであるemailが設定されているため、
-        // Answerの投稿者emailと比較して本人か判定する
+    boolean isAdmin = userDetails.getAuthorities()
+            .stream()
+            .anyMatch(a ->
+                    a.getAuthority().equals("ROLE_ADMIN"));
 
-        boolean isLoginUser =
-            answer.getUser() != null
-                && answer.getUser()
-                         .getEmail()
-                         .equals(userDetails.getUsername());
-        boolean isAdmin = userDetails.getAuthorities()
-                .stream()
-                .anyMatch(a ->
-                        a.getAuthority().equals("ROLE_ADMIN"));
+    answerService.deleteAnswer(
+            id,
+            userDetails.getUsername(),
+            isAdmin
+    );
 
-        if (isLoginUser || isAdmin) {
-            // AnswerService側で論理削除する
-            answerService.deleteAnswer(id);
+    redirectAttributes.addFlashAttribute(
+            "successMessage",
+            answer.getUser().getUsername() + "さんの回答が削除されました！");
 
-            redirectAttributes.addFlashAttribute(
-                    "successMessage",
-                    answer.getUser().getUsername() + "さんの回答が削除されました！");
-        } else {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "回答の削除権限がありません。");
-        }
-
-        // 旧URL構造は現段階では維持
-        return "redirect:/posts/" + topicId;
-    }
+      return "redirect:/posts/" + topicId;
+  }
 }
