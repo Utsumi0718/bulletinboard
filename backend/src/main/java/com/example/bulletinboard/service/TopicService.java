@@ -44,6 +44,7 @@ import com.example.bulletinboard.repository.TopicRepository;
  * - Topicの編集は投稿者本人のみ可能です。
  * - Answerが一度でも投稿されたTopicは編集できません。
  *   論理削除済みのAnswerも存在判定に含めます。
+ * *- Topicの削除は投稿者本人またはROLE_ADMINのみ可能です。
  */
 @Service
 public class TopicService {
@@ -134,24 +135,39 @@ public class TopicService {
     /*
      * 指定されたTopicを論理削除します。
      *
-     * DBからレコードそのものを削除するのではなく、
+     * 削除できるのは、Topicの投稿者本人またはROLE_ADMINのユーザーです。
+     * その他のユーザーによる削除は許可しません。
+     *
+     * 削除時はDBからレコードそのものを削除せず、
      * deletedAtに現在日時を設定します。
      */
-    @Transactional
-    public void deleteById(Long id) {
+     @Transactional
+public void deleteById(
+        Long id,
+        String loginEmail,
+        boolean isAdmin) {
 
-        Topic topic = topicRepository
-            .findByIdAndDeletedAtIsNull(id)
-            .orElseThrow(
-                () -> new IllegalArgumentException(
-                    "指定されたお題が存在しません。id=" + id
-                )
-            );
+    Topic topic = topicRepository
+        .findByIdAndDeletedAtIsNull(id)
+        .orElseThrow(
+            () -> new IllegalArgumentException(
+                "指定されたお題が存在しません。id=" + id
+            )
+        );
 
-        topic.setDeletedAt(LocalDateTime.now());
+    boolean isOwner =
+        topic.getUser().getEmail().equals(loginEmail);
 
-        topicRepository.save(topic);
+    if (!isOwner && !isAdmin) {
+        throw new IllegalStateException(
+            "このお題を削除する権限がありません。"
+        );
     }
+
+    topic.setDeletedAt(LocalDateTime.now());
+
+    topicRepository.save(topic);
+}
 
     /*
      * ページネーションと並び替えに使用する
