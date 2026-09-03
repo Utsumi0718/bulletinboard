@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import com.example.bulletinboard.dto.ResetPasswordForm;
+import com.example.bulletinboard.dto.security.ResetPasswordForm;
 import com.example.bulletinboard.service.CustomUserDetailsService;
 
 import jakarta.validation.Valid;
