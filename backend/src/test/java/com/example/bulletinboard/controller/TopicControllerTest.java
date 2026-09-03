@@ -29,13 +29,17 @@ import com.example.bulletinboard.service.TopicService;
 /*
  * 【クラス全体の役割】
  * TopicControllerのWebレイヤーにおける
- * リクエスト制御・ユーザー紐付け・削除処理・画面遷移を検証するテストです。
+ * リクエスト制御・ユーザー紐付け・Serviceへの認証情報受け渡し・
+ * 画面遷移を検証するテストです。
  *
  * 旧PostController / Post仕様のテストを、
  * TopicController / Topic仕様へ移行しています。
  *
  * 認証Principalにはemailが設定されるため、
- * ログインユーザーの特定・本人判定もemail基準で検証します。
+ * 削除処理ではログインユーザーのemailとROLE_ADMIN権限の有無が
+ * TopicServiceへ正しく渡されることを確認します。
+ *
+ * Topic削除の最終的な権限判定はTopicService側で行います。
  */
 @WebMvcTest(TopicController.class)
 public class TopicControllerTest {
@@ -118,7 +122,11 @@ public class TopicControllerTest {
                 .andExpect(redirectedUrl("/posts"));
 
         // 3. TopicService側の論理削除処理が呼ばれること
-        verify(topicService, times(1))
-                .deleteById(1L);
+       verify(topicService, times(1))
+        .deleteById(
+                1L,
+                "testuser01@example.com",
+                false
+        );
     }
 }
