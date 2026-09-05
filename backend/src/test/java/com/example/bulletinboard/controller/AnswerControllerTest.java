@@ -1,6 +1,7 @@
 package com.example.bulletinboard.controller;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -13,6 +14,7 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -31,15 +33,28 @@ import com.example.bulletinboard.service.TopicService;
  * AnswerControllerにおける回答の投稿・削除処理を検証する
  * Webレイヤーテストです。
  *
- * 認証Principalにはemailが設定されるため、
- * 削除処理ではログインユーザーのemailとROLE_ADMIN権限の有無が
- * AnswerServiceへ正しく渡されることを確認します。
+ * 【主な検証内容】
+ * - 回答投稿時にログインユーザーをemailから取得できること
+ * - 回答投稿時に対象Topicを取得できること
+ * - Answerへログインユーザーが正しく設定されること
+ * - Answerへ対象Topicが正しく設定されること
+ * - Answerへ入力されたcontentが正しく設定されること
+ * - 一般ユーザーによる回答削除時に
+ *   loginEmailとisAdmin=falseがAnswerServiceへ渡されること
+ * - ROLE_ADMINによる回答削除時に
+ *   loginEmailとisAdmin=trueがAnswerServiceへ渡されること
+ * - 投稿・削除後に対象Topic詳細画面へリダイレクトされること
  *
- * 回答削除の最終的な権限判定はAnswerService側で行います。
- *
- * 旧Comment / Post仕様のテストを、
- * Answer / Topic仕様へ移行しています。
+ * 【設計上のポイント】
+ * - 認証PrincipalにはログインIDであるemailが設定されます。
+ * - 回答投稿時はログインユーザーと対象Topicを取得し、
+ *   Answerへ紐付けてAnswerServiceへ渡します。
+ * - 回答削除の最終的な権限判定はAnswerService側で行います。
+ * - 現在は旧Thymeleaf画面と旧URL構造を使用しています。
+ * - Answer編集処理は現在のAnswerControllerには存在しないため、
+ *   後続工程でREST API化とあわせて整理します。
  */
+
 
 
 
@@ -83,8 +98,31 @@ public class AnswerControllerTest {
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/posts/1"));
 
-        verify(answerService, times(1))
-                .saveAnswer(any());
+      ArgumentCaptor<Answer> answerCaptor =
+        ArgumentCaptor.forClass(Answer.class);
+
+      verify(
+        answerService,
+        times(1)
+      ).saveAnswer(answerCaptor.capture());
+
+     Answer savedAnswer =
+        answerCaptor.getValue();
+
+     assertSame(
+         mockUser,
+         savedAnswer.getUser()
+      );
+
+      assertSame(
+        mockTopic,
+        savedAnswer.getTopic()
+       );
+
+     assertEquals(
+    "テスト回答です",
+         savedAnswer.getContent()
+    );
     }
 
     @Test
