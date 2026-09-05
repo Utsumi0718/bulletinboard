@@ -18,7 +18,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.bulletinboard.model.Answer;
-import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.service.AnswerService;
 import com.example.bulletinboard.service.CustomUserDetailsService;
@@ -27,14 +26,26 @@ import com.example.bulletinboard.service.TopicService;
 /*
  * 【クラスの役割】
  * TopicController / AnswerControllerにおける
- * フラッシュメッセージ（RedirectAttributes）の動作を検証するWebレイヤーテストです。
+ * フラッシュメッセージ（RedirectAttributes）の動作を検証する
+ * Webレイヤーテストです。
  *
- * 他人のTopicに対する更新操作時のエラーメッセージや、
- * 自分のAnswer削除時の成功メッセージが、
- * リダイレクト時に正しいFlash Scopeへ保持されることを検証します。
+ * 【主な検証内容】
+ * - Topic更新成功時にsuccessMessageが
+ *   Flash Scopeへ正しく設定されること
+ * - Answer削除成功時にsuccessMessageが
+ *   Flash Scopeへ正しく設定されること
+ * - 処理完了後に正しい画面へリダイレクトされること
  *
- * 旧Post / Comment仕様のテストを、
- * Topic / Answer仕様へ移行しています。
+ * 【設計上のポイント】
+ * - Topic更新時の権限判定や編集可否判定は
+ *   TopicService側へ委譲します。
+ * - Answer削除時の権限判定は
+ *   AnswerService側へ委譲します。
+ * - Service側で発生した権限エラーや編集不可エラーを
+ *   FlashMessageへ変換する処理は、
+ *   STEP 12の旧Thymeleaf Controller整理時に対応します。
+ * - 旧Post / Comment仕様のテストを、
+ *   Topic / Answer仕様へ移行しています。
  */
 @WebMvcTest({TopicController.class, AnswerController.class})
 class FlashMessageTest {
@@ -53,34 +64,24 @@ class FlashMessageTest {
 
 @Test
 @WithMockUser(username = "user1@example.com")
-@DisplayName("お題更新時：他人のお題の場合はerrorMessageがフラッシュメッセージにセットされてリダイレクトすること")
-void updateTopic_unauthorized_flashMessage() throws Exception {
+@DisplayName("お題更新成功時にsuccessMessageがフラッシュメッセージにセットされてリダイレクトすること")
+void updateTopic_success_flashMessage() throws Exception {
 
-    // Topic投稿者とログインユーザーが異なる状況を作成
-    User owner = new User();
-    owner.setUsername("ownerUser");
-    owner.setEmail("owner@example.com");
-
-    Topic existingTopic = new Topic();
-    existingTopic.setId(1L);
-    existingTopic.setUser(owner);
-
-    given(topicService.findById(1L))
-            .willReturn(Optional.of(existingTopic));
-
-    // POSTリクエストを送信してレスポンス検証
-    mockMvc.perform(post("/posts/1")
-                    .with(csrf())
-                    .param("title", "更新後のタイトル")
-                    .param("question", "更新後のお題"))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(redirectedUrl("/posts"))
-            .andExpect(
-                    flash().attribute(
-                            "errorMessage",
-                            "投稿の更新に失敗しました。"
-                    )
-            );
+    mockMvc.perform(
+            post("/posts/1")
+                .with(csrf())
+                .param("title", "更新後のタイトル")
+                .param("image", "/images/updated.jpg")
+                .param("question", "更新後のお題")
+        )
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/posts"))
+        .andExpect(
+            flash().attribute(
+                "successMessage",
+                "投稿の更新に成功しました！"
+            )
+        );
 }
 
     @Test
