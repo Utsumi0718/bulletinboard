@@ -31,14 +31,29 @@ import com.example.bulletinboard.repository.UserRepository;
  *
  * 【主な検証内容】
  * - emailを基準に対象ユーザーを検索すること
- * - パスワード再設定時のハッシュ化とセキュリティロック解除
+ * - パスワード再設定時に新しいパスワードがハッシュ化されること
+ * - パスワード再設定時にfailedAttemptが0へリセットされること
+ * - パスワード再設定時にaccountNonLocked=trueとなること
  * - FROZEN / WITHDRAWNのaccountStatusが
  *   パスワード再設定によって変更されないこと
+ * - パスワード再設定対象のユーザーが存在しない場合、
+ *   パスワードのハッシュ化や保存処理を行わないこと
  * - ACTIVEユーザーの退会時に
  *   accountStatusがWITHDRAWNへ変更されること
  * - 退会日時がwithdrawnAtへ記録されること
  * - 退会処理ではaccountNonLockedとfailedAttemptを変更しないこと
- * - 対象ユーザーが存在しない場合は保存処理を行わないこと
+ * - 退会対象のユーザーが存在しない場合、
+ *   保存処理を行わないこと
+ *
+ * 【設計上のポイント】
+ * - ユーザーの検索にはログインIDであるemailを使用します。
+ * - パスワード再設定はセキュリティロックを解除しますが、
+ *   FROZEN / WITHDRAWNなどのaccountStatusは変更しません。
+ * - 退会処理ではaccountStatusをWITHDRAWNへ変更し、
+ *   withdrawnAtへ退会日時を記録します。
+ * - accountNonLocked / failedAttemptは
+ *   ログイン失敗によるセキュリティロック専用の状態として扱い、
+ *   退会処理では変更しません。
  */
 
 @ExtendWith(MockitoExtension.class)
@@ -208,5 +223,32 @@ class CustomUserDetailsServiceTest {
         userRepository,
         never()
     ).save(any(User.class));
+}
+
+@Test
+@DisplayName("存在しないメールアドレスではパスワード再設定を行わない")
+void updatePassword_WhenUserNotFound_ShouldReturnFalse() {
+
+    when(
+        userRepository.findByEmail("unknown@example.com")
+    ).thenReturn(Optional.empty());
+
+    boolean result =
+        userDetailsService.updatePassword(
+            "unknown@example.com",
+            "NewPassword123"
+        );
+
+    assertFalse(result);
+
+    verify(
+        userRepository,
+        never()
+    ).save(any(User.class));
+
+    verify(
+        passwordEncoder,
+        never()
+    ).encode(any());
 }
 }
