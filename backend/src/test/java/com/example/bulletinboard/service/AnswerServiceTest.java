@@ -32,18 +32,20 @@ import com.example.bulletinboard.repository.AnswerRepository;
  * - Answerの保存
  * - Topicに紐づく回答一覧の取得
  * - IDによる削除されていないAnswerの取得
- * - 投稿者本人によるAnswerの論理削除
  * - 投稿者本人かつLikeが0件の場合のAnswer編集
  * - 投稿者本人以外によるAnswer編集の拒否
  * - Likeが1件以上存在するAnswer編集の拒否
+ * - 投稿者本人によるAnswerの論理削除
+ * - 管理者による他ユーザーAnswerの論理削除
+ * - 権限のないユーザーによるAnswer削除の拒否
+ * - 存在しないAnswer削除時の例外
  *
  * 【設計上のポイント】
  * - Answer編集は投稿者本人のみ可能です。
  * - Likeが1件以上付いているAnswerは編集できません。
  * - Like件数の確認にはLikeService.getLikeCount()を使用します。
  * - Answer削除は物理削除ではなくdeletedAtを設定する論理削除です。
- * - Answer削除時のROLE_ADMINや権限なしのケースは
- *   後続のService Testで確認します。
+ * - Answer削除は投稿者本人またはROLE_ADMINのみ許可します。
  */
 
 @ExtendWith(MockitoExtension.class)
@@ -266,6 +268,98 @@ void updateAnswer_HasLikes_ShouldThrowException() {
             )
         )
         .isInstanceOf(IllegalStateException.class);
+
+    verify(
+        answerRepository,
+        org.mockito.Mockito.never()
+    ).save(any(Answer.class));
+}
+
+@Test
+@DisplayName("管理者は他ユーザーのAnswerを削除できること")
+void deleteAnswer_Admin_ShouldSetDeletedAt() {
+
+    User answerUser = new User();
+    answerUser.setEmail("owner@example.com");
+
+    Answer answer = new Answer();
+    answer.setId(1L);
+    answer.setUser(answerUser);
+
+    when(
+        answerRepository.findByIdAndDeletedAtIsNull(1L)
+    ).thenReturn(Optional.of(answer));
+
+    when(
+        answerRepository.save(any(Answer.class))
+    ).thenAnswer(
+        invocation -> invocation.getArgument(0)
+    );
+
+    answerService.deleteAnswer(
+        1L,
+        "admin@example.com",
+        true
+    );
+
+    assertThat(answer.getDeletedAt())
+        .isNotNull();
+
+    verify(
+        answerRepository,
+        times(1)
+    ).save(answer);
+}
+
+@Test
+@DisplayName("投稿者本人でも管理者でもない場合はAnswerを削除できないこと")
+void deleteAnswer_NotOwnerAndNotAdmin_ShouldThrowException() {
+
+    User answerUser = new User();
+    answerUser.setEmail("owner@example.com");
+
+    Answer answer = new Answer();
+    answer.setId(1L);
+    answer.setUser(answerUser);
+
+    when(
+        answerRepository.findByIdAndDeletedAtIsNull(1L)
+    ).thenReturn(Optional.of(answer));
+
+    org.assertj.core.api.Assertions
+        .assertThatThrownBy(
+            () -> answerService.deleteAnswer(
+                1L,
+                "other@example.com",
+                false
+            )
+        )
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("この回答を削除する権限がありません。");
+
+    verify(
+        answerRepository,
+        org.mockito.Mockito.never()
+    ).save(any(Answer.class));
+}
+
+@Test
+@DisplayName("存在しないAnswerを削除しようとすると例外になること")
+void deleteAnswer_AnswerNotFound_ShouldThrowException() {
+
+    when(
+        answerRepository.findByIdAndDeletedAtIsNull(999L)
+    ).thenReturn(Optional.empty());
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> answerService.deleteAnswer(
+                999L,
+                "test@example.com",
+                false
+            )
+        )
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("指定された回答が存在しません。id=999");
 
     verify(
         answerRepository,
