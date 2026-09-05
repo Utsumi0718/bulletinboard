@@ -98,35 +98,78 @@ public class TopicControllerTest {
                 "セットされたUserのemailが一致すること");
     }
 
-    @Test
-    @DisplayName("お題削除時、削除処理が行われ一覧画面へリダイレクトされること")
-    @WithMockUser(username = "testuser01@example.com")
-    void deleteTopic_success() throws Exception {
+  @Test
+@DisplayName("お題削除時、ログインユーザーのemailと管理者権限をServiceへ渡して一覧画面へリダイレクトされること")
+@WithMockUser(username = "testuser01@example.com")
+void deleteTopic_success() throws Exception {
 
-        // 1. 削除対象Topicと投稿者を準備
-        User topicUser = new User();
-        topicUser.setUsername("testuser01");
-        topicUser.setEmail("testuser01@example.com");
+    mockMvc.perform(
+            post("/posts/1/delete")
+                .with(csrf())
+        )
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/posts"));
 
-        Topic mockTopic = new Topic();
-        mockTopic.setId(1L);
-        mockTopic.setUser(topicUser);
+    verify(
+        topicService,
+        times(1)
+    ).deleteById(
+        1L,
+        "testuser01@example.com",
+        false
+    );
+}
 
-        when(topicService.findById(1L))
-                .thenReturn(Optional.of(mockTopic));
+@Test
+@DisplayName("管理者がお題を削除する場合は管理者権限trueをServiceへ渡すこと")
+@WithMockUser(
+    username = "admin@example.com",
+    roles = "ADMIN"
+)
+void deleteTopic_Admin_ShouldPassAdminTrue() throws Exception {
 
-        // 2. 削除リクエスト
-        mockMvc.perform(post("/posts/1/delete")
-                        .with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/posts"));
+    mockMvc.perform(
+            post("/posts/1/delete")
+                .with(csrf())
+        )
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/posts"));
 
-        // 3. TopicService側の論理削除処理が呼ばれること
-       verify(topicService, times(1))
-        .deleteById(
-                1L,
-                "testuser01@example.com",
-                false
-        );
-    }
+    verify(
+        topicService,
+        times(1)
+    ).deleteById(
+        1L,
+        "admin@example.com",
+        true
+    );
+}
+
+@Test
+@DisplayName("お題更新時に入力値とログインユーザーのemailをServiceへ渡すこと")
+@WithMockUser(username = "testuser01@example.com")
+void updateTopic_ShouldPassInputAndLoginEmailToService()
+        throws Exception {
+
+    mockMvc.perform(
+            post("/posts/1")
+                .param("title", "更新後タイトル")
+                .param("image", "/images/updated.jpg")
+                .param("question", "更新後のお題です")
+                .with(csrf())
+        )
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/posts"));
+
+    verify(
+        topicService,
+        times(1)
+    ).updateTopic(
+        1L,
+        "testuser01@example.com",
+        "更新後タイトル",
+        "/images/updated.jpg",
+        "更新後のお題です"
+    );
+}
 }
