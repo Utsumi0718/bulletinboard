@@ -24,6 +24,10 @@ import com.example.bulletinboard.model.Answer;
  * - Topicに紐づく削除されていない回答を取得できること
  * - IDから削除されていない回答を取得できること
  * - 論理削除済み回答が通常取得から除外されること
+ * - Answerが存在するTopicを正しく判定できること
+ * - 論理削除済みAnswerのみ存在するTopicも
+ *   「過去にAnswerが存在した」と判定できること
+ * - Answerが存在しないTopicを正しく判定できること
  */
 @DataJpaTest
 @ActiveProfiles("default")
@@ -80,4 +84,37 @@ class AnswerRepositoryTest {
 
         assertThat(answer).isEmpty();
     }
+
+    @Test
+@DisplayName("回答が存在するTopicではtrueを返すこと")
+@Sql("AnswerRepositoryTest.sql")
+void existsByTopicId_ShouldReturnTrueWhenAnswerExists() {
+
+    boolean exists =
+        answerRepository.existsByTopicId(1L);
+
+    assertThat(exists).isTrue();
+}
+
+@Test
+@DisplayName("論理削除済み回答のみでもtrueを返すこと")
+@Sql("AnswerRepositoryTest.sql")
+void existsByTopicId_ShouldReturnTrueWhenOnlyDeletedAnswerExists() {
+
+    boolean exists =
+        answerRepository.existsByTopicId(2L);
+
+    assertThat(exists).isTrue();
+}
+
+@Test
+@DisplayName("回答が存在しないTopicではfalseを返すこと")
+@Sql("AnswerRepositoryTest.sql")
+void existsByTopicId_ShouldReturnFalseWhenAnswerDoesNotExist() {
+
+    boolean exists =
+        answerRepository.existsByTopicId(3L);
+
+    assertThat(exists).isFalse();
+}
 }
