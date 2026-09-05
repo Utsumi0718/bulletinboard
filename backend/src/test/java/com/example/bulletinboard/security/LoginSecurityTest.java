@@ -53,7 +53,6 @@ class LoginSecurityTest {
 
     @Autowired
     private MockMvc mockMvc;
-
     @Autowired
     private UserRepository userRepository;
 
