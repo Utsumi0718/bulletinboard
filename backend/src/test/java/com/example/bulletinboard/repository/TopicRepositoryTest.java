@@ -22,9 +22,11 @@ import com.example.bulletinboard.model.Topic;
  *
  * 【主な検証内容】
  * - 削除されていないTopicをIDで取得できること
+ * - 削除されていないTopicのみ一覧取得できること
  * - タイトルの部分一致検索ができること
- * - Topicを正しく保存できること
+ * - 部分一致検索で論理削除済みTopicが除外されること
  * - 論理削除済みTopicが通常取得の対象外になること
+ * - Topicを正しくDBへ保存できること
  */
 @DataJpaTest
 @ActiveProfiles("default")
@@ -163,5 +165,47 @@ void save_ShouldPersistTopic() {
     assertThat(
         ((Number) result.get("user_id")).longValue()
     ).isEqualTo(user.getId());
+}
+
+/*
+ * 削除されていないTopicのみを
+ * 一覧取得できることを確認します。
+ */
+@Test
+@DisplayName("削除されていないお題のみ一覧取得できること")
+@Sql("TopicRepositoryTest.sql")
+void findByDeletedAtIsNull_ShouldExcludeDeletedTopics() {
+
+    var pageable =
+        org.springframework.data.domain.PageRequest.of(0, 5);
+
+    var result =
+        topicRepository.findByDeletedAtIsNull(pageable);
+
+    assertThat(result.getContent())
+        .allMatch(topic -> topic.getDeletedAt() == null);
+}
+
+
+/*
+ * タイトルが部分一致していても、
+ * 論理削除済みTopicは検索結果に含まれないことを確認します。
+ */
+@Test
+@DisplayName("部分一致検索では論理削除済みのお題を除外できること")
+@Sql("TopicRepositoryTest.sql")
+void findByTitleContainingAndDeletedAtIsNull_ShouldExcludeDeletedTopic() {
+
+    var pageable =
+        org.springframework.data.domain.PageRequest.of(0, 5);
+
+    var result =
+        topicRepository
+            .findByTitleContainingAndDeletedAtIsNull(
+                "削除",
+                pageable
+            );
+
+    assertThat(result.getContent()).isEmpty();
 }
 }
