@@ -2,6 +2,8 @@ package com.example.bulletinboard.dto.topic;
 
 import java.time.LocalDateTime;
 
+import com.example.bulletinboard.model.Topic;
+
 /*
  * 【クラスの役割】
  * Topicの情報をAPIからクライアントへ返すためのDTOです。
@@ -28,6 +30,27 @@ public class TopicResponse {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    /*
+     * Topic EntityをAPI返却用のTopicResponseへ変換します。
+     *
+     * User Entity自体はレスポンスへ含めず、
+     * 公開表示用のusernameのみを取り出します。
+     */
+    public static TopicResponse from(Topic topic) {
+
+        TopicResponse response = new TopicResponse();
+
+        response.setId(topic.getId());
+        response.setTitle(topic.getTitle());
+        response.setImage(topic.getImage());
+        response.setQuestion(topic.getQuestion());
+        response.setUsername(topic.getUser().getUsername());
+        response.setCreatedAt(topic.getCreatedAt());
+        response.setUpdatedAt(topic.getUpdatedAt());
+
+        return response;
+    }
 
     public Long getId() {
         return id;
