@@ -30,16 +30,32 @@ import com.example.bulletinboard.service.LikeService;
 
 /**
  * 【クラスの役割】
- * LikeController（いいね非同期API）のWebレイヤーテストクラス。
+ * LikeController（いいね非同期API）のWebレイヤーテストクラスです。
  *
  * 擬似的なHTTP POSTリクエスト
  * （/answers/{answerId}/like）を発行し、
- * 非同期レスポンス（200 OK + JSON）、
+ * 回答へのいいね処理とJSONレスポンス、
  * 未ログイン時の制御、
- * CSRFトークン検証をテストします。
+ * CSRFトークン検証を確認します。
  *
- * 旧Postへのいいねテストを、
- * Answerへのいいね仕様へ移行したテストです。
+ * 【主な検証内容】
+ * - ログインユーザーが回答へいいねできること
+ * - LikeService.toggleLike()が実行されること
+ * - LikeService.getLikeCount()で最新のいいね件数を取得すること
+ * - いいね状態をlikedとしてJSONへ返すこと
+ * - いいね件数をcountとしてJSONへ返すこと
+ * - 正常時に200 OKを返すこと
+ * - 未ログイン時に401 Unauthorizedとなること
+ * - CSRFトークンがない場合に403 Forbiddenとなること
+ * - 認証・CSRFエラー時にいいね処理を実行しないこと
+ *
+ * 【設計上のポイント】
+ * - 旧Postへのいいね処理をAnswerへのいいね仕様へ移行しています。
+ * - ログインユーザーはPrincipalのemailを基準に取得します。
+ * - 対象AnswerはAnswerServiceから取得します。
+ * - 自分自身の回答へのいいね禁止や、
+ *   論理削除済みAnswerへのいいね禁止などの詳細ルールは、
+ *   feature/like-featureで追加実装・テストします。
  */
 @WebMvcTest(LikeController.class)
 public class LikeControllerTest {
@@ -95,6 +111,8 @@ public class LikeControllerTest {
 
         verify(likeService, times(1))
                 .toggleLike(mockUser, mockAnswer);
+
+        verify(likeService,times(1)).getLikeCount(mockAnswer);
     }
 
     @Test
