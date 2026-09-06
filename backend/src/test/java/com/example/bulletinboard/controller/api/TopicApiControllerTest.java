@@ -1,0 +1,198 @@
+package com.example.bulletinboard.controller.api;
+
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import com.example.bulletinboard.model.Topic;
+import com.example.bulletinboard.service.TopicService;
+
+/**
+ * 【クラスの役割】
+ * TopicApiControllerのREST API動作を検証するテストクラスです。
+ *
+ * MockMvcを使ってHTTPリクエストを送信し、
+ * HTTP StatusやJSONレスポンスの内容、
+ * TopicServiceの呼び出しを確認します。
+ *
+ * 【現在の検証内容】
+ * - Topic通常一覧取得
+ * - keywordによるTopic.title部分一致検索
+ * - 空keyword時の400 Bad Request
+ * - 検索結果0件時のレスポンス
+ */
+@WebMvcTest(TopicApiController.class)
+class TopicApiControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean
+    private TopicService topicService;
+
+    @Test
+    @DisplayName("keyword未指定の場合はTopic一覧を200 OKで取得できること")
+    @WithMockUser(username = "testuser01@example.com")
+    void getTopics_WithoutKeyword_ShouldReturnTopicList() throws Exception {
+
+        Topic topic = new Topic();
+        topic.setId(1L);
+        topic.setTitle("猫のお題");
+        topic.setImage("/images/cat.jpg");
+        topic.setCreatedAt(LocalDateTime.of(2026, 9, 7, 10, 0));
+
+        Page<Topic> topicPage =
+                new PageImpl<>(
+                        List.of(topic),
+                        org.springframework.data.domain.PageRequest.of(0, 10),
+                        1
+                );
+
+        when(
+                topicService.findAll(
+                        0,
+                        "createdAt",
+                        "desc"
+                )
+        ).thenReturn(topicPage);
+
+        mockMvc.perform(
+                get("/api/topics")
+                        .param("page", "0")
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("猫のお題"))
+                .andExpect(jsonPath("$.content[0].image").value("/images/cat.jpg"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(10))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.totalPages").value(1));
+
+        verify(topicService).findAll(
+                0,
+                "createdAt",
+                "desc"
+        );
+    }
+
+    @Test
+    @DisplayName("keyword指定時はTopic.titleの部分一致検索が実行されること")
+    @WithMockUser(username = "testuser01@example.com")
+    void getTopics_WithKeyword_ShouldSearchTopics() throws Exception {
+
+        Topic topic = new Topic();
+        topic.setId(1L);
+        topic.setTitle("猫のお題");
+        topic.setImage("/images/cat.jpg");
+        topic.setCreatedAt(LocalDateTime.of(2026, 9, 7, 10, 0));
+
+        Page<Topic> topicPage =
+                new PageImpl<>(
+                        List.of(topic),
+                        org.springframework.data.domain.PageRequest.of(0, 10),
+                        1
+                );
+
+        when(
+                topicService.searchTopics(
+                        0,
+                        "猫",
+                        "createdAt",
+                        "desc"
+                )
+        ).thenReturn(topicPage);
+
+        mockMvc.perform(
+                get("/api/topics")
+                        .param("keyword", "猫")
+                        .param("page", "0")
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].title").value("猫のお題"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(10));
+
+        verify(topicService).searchTopics(
+                0,
+                "猫",
+                "createdAt",
+                "desc"
+        );
+    }
+
+    @Test
+    @DisplayName("keywordが空文字の場合は400 Bad Requestになること")
+    @WithMockUser(username = "testuser01@example.com")
+    void getTopics_BlankKeyword_ShouldReturnBadRequest() throws Exception {
+
+        mockMvc.perform(
+                get("/api/topics")
+                        .param("keyword", "")
+                        .param("page", "0")
+        )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message")
+                        .value("検索ワードを入力してください"))
+                .andExpect(jsonPath("$.path").value("/api/topics"));
+    }
+
+    @Test
+    @DisplayName("検索結果が0件の場合は200 OKで空のcontentを返すこと")
+    @WithMockUser(username = "testuser01@example.com")
+    void getTopics_NoSearchResults_ShouldReturnEmptyPage() throws Exception {
+
+        Page<Topic> emptyPage =
+                new PageImpl<>(
+                        List.of(),
+                        org.springframework.data.domain.PageRequest.of(0, 10),
+                        0
+                );
+
+        when(
+                topicService.searchTopics(
+                        0,
+                        "存在しない文字列",
+                        "createdAt",
+                        "desc"
+                )
+        ).thenReturn(emptyPage);
+
+        mockMvc.perform(
+                get("/api/topics")
+                        .param("keyword", "存在しない文字列")
+                        .param("page", "0")
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content").isEmpty())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(10))
+                .andExpect(jsonPath("$.totalElements").value(0))
+                .andExpect(jsonPath("$.totalPages").value(0));
+
+        verify(topicService).searchTopics(
+                0,
+                "存在しない文字列",
+                "createdAt",
+                "desc"
+        );
+    }
+}
