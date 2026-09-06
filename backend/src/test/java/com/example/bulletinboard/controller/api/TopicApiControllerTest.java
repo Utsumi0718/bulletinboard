@@ -19,7 +19,9 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.model.Topic;
+import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.service.TopicService;
 
 /**
@@ -35,6 +37,8 @@ import com.example.bulletinboard.service.TopicService;
  * - keywordによるTopic.title部分一致検索
  * - 空keyword時の400 Bad Request
  * - 検索結果0件時のレスポンス
+ * - Topic詳細取得
+ * - Topic不存在時の404 Not Found
  */
 @WebMvcTest(TopicApiController.class)
 class TopicApiControllerTest {
@@ -195,4 +199,66 @@ class TopicApiControllerTest {
                 "desc"
         );
     }
+
+    @Test
+    @DisplayName("Topic詳細を200 OKで取得できること")
+    @WithMockUser(username = "testuser01@example.com")
+    void getTopic_ShouldReturnTopicDetail() throws Exception {
+
+    User user = new User();
+    user.setUsername("testuser01");
+
+    Topic topic = new Topic();
+    topic.setId(1L);
+    topic.setTitle("猫のお題");
+    topic.setImage("/images/cat.jpg");
+    topic.setQuestion("この猫、何を考えてる？");
+    topic.setUser(user);
+    topic.setCreatedAt(LocalDateTime.of(2026, 9, 7, 10, 0));
+    topic.setUpdatedAt(LocalDateTime.of(2026, 9, 7, 11, 0));
+
+    when(
+            topicService.getById(1L)
+    ).thenReturn(topic);
+
+    mockMvc.perform(
+            get("/api/topics/1")
+    )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(1))
+            .andExpect(jsonPath("$.title").value("猫のお題"))
+            .andExpect(jsonPath("$.image").value("/images/cat.jpg"))
+            .andExpect(jsonPath("$.question")
+                    .value("この猫、何を考えてる？"))
+            .andExpect(jsonPath("$.username").value("testuser01"));
+
+    verify(topicService).getById(1L);
+}
+
+    @Test
+    @DisplayName("存在しないTopicを取得すると404 Not Foundになること")
+    @WithMockUser(username = "testuser01@example.com")
+    void getTopic_TopicNotFound_ShouldReturnNotFound() throws Exception {
+
+    when(
+            topicService.getById(999L)
+    ).thenThrow(
+            new TopicNotFoundException(
+                    "このお題は存在しないか、削除されています。"
+            )
+    );
+
+    mockMvc.perform(
+            get("/api/topics/999")
+    )
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.error").value("Not Found"))
+            .andExpect(jsonPath("$.message")
+                    .value("このお題は存在しないか、削除されています。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/topics/999"));
+
+    verify(topicService).getById(999L);
+}
 }
