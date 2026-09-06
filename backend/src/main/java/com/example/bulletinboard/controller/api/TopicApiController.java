@@ -3,12 +3,14 @@ package com.example.bulletinboard.controller.api;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.bulletinboard.dto.common.PageResponse;
 import com.example.bulletinboard.dto.topic.TopicListResponse;
+import com.example.bulletinboard.dto.topic.TopicResponse;
 import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.service.TopicService;
 
@@ -24,12 +26,12 @@ import com.example.bulletinboard.service.TopicService;
  * 旧Thymeleaf用のTopicControllerとは責務を分離し、
  * このクラスではREST APIのみを担当します。
  *
- * 【現在の対応内容】
+  * 【現在の対応内容】
  * - Topic一覧取得
  * - Topicタイトルの部分一致検索
+ * - Topic詳細取得
  *
  * 【今後追加する内容】
- * - Topic詳細取得
  * - Topic新規投稿
  * - Topic編集
  * - Topic削除
@@ -91,4 +93,23 @@ public class TopicApiController {
 
         return ResponseEntity.ok(response);
     }
+
+    /**
+      * Topic詳細を取得します。
+      *
+      * @param id Topic ID
+      * @return Topic詳細情報
+    */
+
+    @GetMapping("/{id}")
+    public ResponseEntity<TopicResponse> getTopic(
+        @PathVariable Long id) {
+
+    Topic topic = topicService.getById(id);
+
+    TopicResponse response =
+            TopicResponse.from(topic);
+
+    return ResponseEntity.ok(response);
+}
 }
