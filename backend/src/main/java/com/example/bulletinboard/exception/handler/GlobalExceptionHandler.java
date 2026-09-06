@@ -19,9 +19,13 @@ import jakarta.servlet.http.HttpServletRequest;
  * 各REST Controllerで個別にtry-catchを書くのではなく、
  * API全体の例外処理をこのクラスへ集約します。
  *
- * 【現在の対応内容】
+  * 【現在の対応内容】
  * - TopicNotFoundException
  *   → 404 Not Found
+ *   → ErrorResponseを返却
+ *
+ * - IllegalArgumentException
+ *   → 400 Bad Request
  *   → ErrorResponseを返却
  *
  * 【今後の拡張予定】
@@ -62,4 +66,32 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.NOT_FOUND)
                 .body(response);
     }
+
+    /**
+      * 不正なリクエスト値などによって発生した
+      * IllegalArgumentExceptionを処理します。
+      *
+      * 現在は主にTopic一覧検索で
+      * keywordが空文字・空白だった場合に使用します。
+      *
+      * @param ex      発生したIllegalArgumentException
+      * @param request エラーが発生したHTTPリクエスト
+      * @return 400 Bad RequestとErrorResponse
+      */
+      @ExceptionHandler(IllegalArgumentException.class)
+      public ResponseEntity<ErrorResponse> handleIllegalArgument(
+        IllegalArgumentException ex,
+        HttpServletRequest request) {
+
+           ErrorResponse response = new ErrorResponse(
+            HttpStatus.BAD_REQUEST.value(),
+            HttpStatus.BAD_REQUEST.getReasonPhrase(),
+            ex.getMessage(),
+            request.getRequestURI()
+    );
+
+         return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(response);
+      }
 }
