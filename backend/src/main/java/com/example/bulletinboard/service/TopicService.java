@@ -10,6 +10,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.repository.AnswerRepository;
 import com.example.bulletinboard.repository.TopicRepository;
@@ -44,7 +45,7 @@ import com.example.bulletinboard.repository.TopicRepository;
  * - Topicの編集は投稿者本人のみ可能です。
  * - Answerが一度でも投稿されたTopicは編集できません。
  *   論理削除済みのAnswerも存在判定に含めます。
- * *- Topicの削除は投稿者本人またはROLE_ADMINのみ可能です。
+ * - Topicの削除は投稿者本人またはROLE_ADMINのみ可能です。
  */
 @Service
 public class TopicService {
@@ -56,7 +57,7 @@ public class TopicService {
     /*
      * 1ページあたりに表示するお題の件数。
      */
-    private static final int PAGE_SIZE = 5;
+    private static final int PAGE_SIZE = 10;
 
     /*
      * TopicRepositoryとAnswerRepositoryをコンストラクタインジェクションします。
@@ -95,6 +96,23 @@ public class TopicService {
      */
     public Optional<Topic> findById(Long id) {
         return topicRepository.findByIdAndDeletedAtIsNull(id);
+    }
+
+    /**
+      * REST APIの詳細取得用として、
+      * 指定されたIDのTopicを取得します。
+      *
+      * Topicが存在しない、または論理削除済みの場合は
+      * TopicNotFoundExceptionを投げます。
+    */
+    public Topic getById(Long id) {
+       return topicRepository
+        .findByIdAndDeletedAtIsNull(id)
+        .orElseThrow(
+            () -> new TopicNotFoundException(
+                "このお題は存在しないか、削除されています。"
+            )
+        );
     }
 
     /*
@@ -150,9 +168,9 @@ public void deleteById(
     Topic topic = topicRepository
         .findByIdAndDeletedAtIsNull(id)
         .orElseThrow(
-            () -> new IllegalArgumentException(
-                "指定されたお題が存在しません。id=" + id
-            )
+         () -> new TopicNotFoundException(
+            "このお題は存在しないか、削除されています。"
+        )
         );
 
     boolean isOwner =
