@@ -22,6 +22,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.AnswerRepository;
@@ -40,7 +41,10 @@ import com.example.bulletinboard.repository.TopicRepository;
  * - ソート順
  * - 負のページ番号の補正
  * - 削除されていないTopic一覧の取得
- * - 削除されていないTopicのID取得
+ * - 既存findById()によるTopic取得
+ * - REST API用getById()によるTopic詳細取得
+ * - REST API用getById()でTopic不存在時に
+ *   TopicNotFoundExceptionとなること
  * - Topicの保存
  * - Answerの存在判定
  * - 投稿者本人かつAnswerがないTopicの編集
@@ -49,18 +53,22 @@ import com.example.bulletinboard.repository.TopicRepository;
  * - 投稿者本人によるTopicの論理削除
  * - 管理者による他ユーザーTopicの論理削除
  * - 権限のないユーザーによるTopic削除の拒否
- * - 存在しないTopic削除時の例外
+ * - Topic不存在時の削除で
+ *   TopicNotFoundExceptionとなること
  *
  * 【設計上のポイント】
  * - 検索対象はお題タイトルのみです。
  * - 検索方式は部分一致のみです。
  * - 前方一致・後方一致のテストは新仕様では不要です。
+ * - 負のページ番号は0ページ目へ補正します。
  * - Topic編集は投稿者本人かつAnswerが一度も存在しない場合のみ許可します。
  * - Answerの存在判定はAnswerRepository.existsByTopicId()を使用します。
  * - Topic削除は投稿者本人またはROLE_ADMINのみ許可します。
  * - Topic削除は物理削除ではなくdeletedAtを設定する論理削除です。
+ * - REST API用のTopic詳細取得では、
+ *   Topicが存在しない、または論理削除済みの場合に
+ *   TopicNotFoundExceptionを使用します。
  */
-
 @ExtendWith(MockitoExtension.class)
 class TopicServiceTest {
 
@@ -450,7 +458,7 @@ void deleteById_NotOwnerAndNotAdmin_ShouldThrowException() {
     ).save(any(Topic.class));
 }
 @Test
-@DisplayName("存在しないTopicを削除しようとすると例外になること")
+@DisplayName("存在しないTopicを削除しようとするとTopicNotFoundExceptionになること")
 void deleteById_TopicNotFound_ShouldThrowException() {
 
     when(
@@ -465,15 +473,14 @@ void deleteById_TopicNotFound_ShouldThrowException() {
                 false
             )
         )
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessage("指定されたお題が存在しません。id=999");
+        .isInstanceOf(TopicNotFoundException.class)
+        .hasMessage("このお題は存在しないか、削除されています。");
 
     verify(
         topicRepository,
         org.mockito.Mockito.never()
     ).save(any(Topic.class));
 }
-
 @Test
 @DisplayName("TopicにAnswerが存在する場合はtrueを返すこと")
 void hasAnyAnswer_ShouldReturnTrueWhenAnswerExists() {
@@ -535,5 +542,42 @@ void save_ShouldSaveTopic() {
         topicRepository,
         times(1)
     ).save(topic);
+}
+
+@Test
+@DisplayName("REST API用の詳細取得で削除されていないTopicを取得できること")
+void getById_ShouldReturnTopic() {
+
+    Topic topic = new Topic();
+    topic.setId(1L);
+
+    when(
+        topicRepository.findByIdAndDeletedAtIsNull(1L)
+    ).thenReturn(Optional.of(topic));
+
+    Topic result = topicService.getById(1L);
+
+    assertThat(result).isSameAs(topic);
+
+    verify(
+        topicRepository,
+        times(1)
+    ).findByIdAndDeletedAtIsNull(1L);
+}
+
+@Test
+@DisplayName("REST API用の詳細取得でTopicが存在しない場合はTopicNotFoundExceptionになること")
+void getById_TopicNotFound_ShouldThrowException() {
+
+    when(
+        topicRepository.findByIdAndDeletedAtIsNull(999L)
+    ).thenReturn(Optional.empty());
+
+    org.assertj.core.api.Assertions
+        .assertThatThrownBy(
+            () -> topicService.getById(999L)
+        )
+        .isInstanceOf(TopicNotFoundException.class)
+        .hasMessage("このお題は存在しないか、削除されています。");
 }
 }
