@@ -8,6 +8,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -42,11 +43,12 @@ import jakarta.validation.Valid;
  * - Topicタイトルの部分一致検索
  * - Topic詳細取得
  * - Topic新規投稿
+ * - Topic編集
  *
  * 【今後追加する内容】
- * - Topic編集
  * - Topic削除
  */
+
 @RestController
 @RequestMapping("/api/topics")
 public class TopicApiController {
@@ -180,5 +182,47 @@ public ResponseEntity<TopicResponse> createTopic(
     return ResponseEntity
             .created(location)
             .body(response);
+}
+
+/**
+ * 指定されたTopicを編集します。
+ *
+ * ログインユーザーのemailをAuthenticationから取得し、
+ * TopicRequestの内容を使ってTopicを更新します。
+ *
+ * 編集可能かどうかの本人確認や、
+ * Answerが存在するTopicの編集可否は
+ * TopicServiceで判定します。
+ *
+ * 更新成功時は200 OKと
+ * 更新後のTopicResponseを返します。
+ *
+ * @param id             編集対象のTopic ID
+ * @param request        Topic編集内容
+ * @param authentication ログインユーザーの認証情報
+ * @return 更新後のTopic詳細情報
+ */
+
+@PutMapping("/{id}")
+public ResponseEntity<TopicResponse> updateTopic(
+        @PathVariable Long id,
+        @Valid @RequestBody TopicRequest request,
+        Authentication authentication) {
+
+    String loginEmail = authentication.getName();
+
+    Topic updatedTopic = topicService.updateTopic(
+            id,
+            loginEmail,
+            request.getTitle(),
+            request.getImage(),
+            request.getQuestion()
+    );
+
+    TopicResponse response =
+            TopicResponse.from(updatedTopic);
+
+    return ResponseEntity
+            .ok(response);
 }
 }
