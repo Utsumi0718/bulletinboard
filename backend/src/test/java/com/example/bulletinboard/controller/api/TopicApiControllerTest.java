@@ -1,20 +1,28 @@
 package com.example.bulletinboard.controller.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -24,6 +32,7 @@ import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.service.CustomUserDetailsService;
 import com.example.bulletinboard.service.TopicService;
+
 
 /**
  * 【クラスの役割】
@@ -40,6 +49,11 @@ import com.example.bulletinboard.service.TopicService;
  * - 検索結果0件時のレスポンス
  * - Topic詳細取得
  * - Topic不存在時の404 Not Found
+ * - Topic新規投稿
+ *   → 201 Created
+ *   → Locationヘッダー
+ *   → TopicResponse
+ *   → 認証ユーザーの紐付け確認
  */
 @WebMvcTest(TopicApiController.class)
 class TopicApiControllerTest {
@@ -264,5 +278,86 @@ class TopicApiControllerTest {
                     .value("/api/topics/999"));
 
     verify(topicService).getById(999L);
+}
+
+@Test
+@DisplayName("Topicを新規投稿すると201 Createdと作成済みTopicを返すこと")
+@WithMockUser(username = "testuser01@example.com")
+void createTopic_ShouldReturnCreatedTopic() throws Exception {
+
+    User user = new User();
+    user.setUsername("testuser01");
+    user.setEmail("testuser01@example.com");
+
+    when(
+            userDetailsService.findByEmail(
+                    "testuser01@example.com"
+            )
+    ).thenReturn(Optional.of(user));
+
+    when(
+            topicService.save(any(Topic.class))
+    ).thenAnswer(invocation -> {
+
+        Topic topic = invocation.getArgument(0);
+
+        topic.setId(123L);
+        topic.setCreatedAt(
+                LocalDateTime.of(2026, 9, 7, 13, 0)
+        );
+        topic.setUpdatedAt(
+                LocalDateTime.of(2026, 9, 7, 13, 0)
+        );
+
+        return topic;
+    });
+
+    mockMvc.perform(
+            post("/api/topics")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "title": "猫のお題",
+                              "image": "/images/cat.jpg",
+                              "question": "この猫、何を考えてる？"
+                            }
+                            """)
+    )
+            .andExpect(status().isCreated())
+            .andExpect(header().string(
+                    "Location",
+                    "/api/topics/123"
+            ))
+            .andExpect(jsonPath("$.id").value(123))
+            .andExpect(jsonPath("$.title").value("猫のお題"))
+            .andExpect(jsonPath("$.image").value("/images/cat.jpg"))
+            .andExpect(jsonPath("$.question")
+                    .value("この猫、何を考えてる？"))
+            .andExpect(jsonPath("$.username")
+                    .value("testuser01"));
+
+    verify(userDetailsService).findByEmail(
+            "testuser01@example.com"
+    );
+
+    ArgumentCaptor<Topic> topicCaptor =
+            ArgumentCaptor.forClass(Topic.class);
+
+    verify(topicService).save(topicCaptor.capture());
+
+    Topic savedTopic = topicCaptor.getValue();
+
+    assertThat(savedTopic.getTitle())
+            .isEqualTo("猫のお題");
+
+    assertThat(savedTopic.getImage())
+            .isEqualTo("/images/cat.jpg");
+
+    assertThat(savedTopic.getQuestion())
+            .isEqualTo("この猫、何を考えてる？");
+
+    assertThat(savedTopic.getUser())
+            .isSameAs(user);
 }
 }
