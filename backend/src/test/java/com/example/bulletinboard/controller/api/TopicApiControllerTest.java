@@ -28,6 +28,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.example.bulletinboard.exception.ForbiddenOperationException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.model.User;
@@ -533,5 +534,53 @@ void updateTopic_ValidationError_ShouldReturnBadRequest() throws Exception {
             .andExpect(jsonPath("$.path")
                     .value("/api/topics/1"))
             .andExpect(jsonPath("$.fieldErrors.title").exists());
+}
+
+@Test
+@DisplayName("投稿者本人以外がTopicを編集しようとすると403 Forbiddenになること")
+@WithMockUser(username = "other@example.com")
+void updateTopic_NotOwner_ShouldReturnForbidden() throws Exception {
+
+    when(
+            topicService.updateTopic(
+                    1L,
+                    "other@example.com",
+                    "変更後タイトル",
+                    "/images/after.jpg",
+                    "変更後の問題"
+            )
+    ).thenThrow(
+            new ForbiddenOperationException(
+                    "このお題を編集する権限がありません。"
+            )
+    );
+
+    mockMvc.perform(
+            put("/api/topics/1")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "title": "変更後タイトル",
+                              "image": "/images/after.jpg",
+                              "question": "変更後の問題"
+                            }
+                            """)
+    )
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.status").value(403))
+            .andExpect(jsonPath("$.error").value("Forbidden"))
+            .andExpect(jsonPath("$.message")
+                    .value("このお題を編集する権限がありません。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/topics/1"));
+
+    verify(topicService).updateTopic(
+            1L,
+            "other@example.com",
+            "変更後タイトル",
+            "/images/after.jpg",
+            "変更後の問題"
+    );
 }
 }
