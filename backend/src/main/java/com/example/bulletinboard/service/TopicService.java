@@ -160,7 +160,7 @@ public class TopicService {
      * deletedAtに現在日時を設定します。
      */
      @Transactional
-public void deleteById(
+     public void deleteById(
         Long id,
         String loginEmail,
         boolean isAdmin) {
@@ -252,15 +252,18 @@ public void deleteById(
    }
 
    /*
-    * 指定されたTopicを編集します。
+    *  指定されたTopicを編集します。
     *
     * 編集できるのはTopicの投稿者本人のみです。
     * また、Answerが一度でも投稿されたTopicは編集できません。
     * 論理削除済みのAnswerも「過去に回答が存在した」として判定します。
     *
+    * Topicが存在しない、または論理削除済みの場合は、
+    * TopicNotFoundExceptionを投げます。
+    *
     * 条件を満たした場合のみ、
     * title、image、questionを更新します。
-    */
+   */
 
    @Transactional
 public Topic updateTopic(
@@ -271,12 +274,16 @@ public Topic updateTopic(
         String question) {
 
     Topic topic = topicRepository
-        .findByIdAndDeletedAtIsNull(topicId)
-        .orElseThrow(
-            () -> new IllegalArgumentException(
-                "指定されたお題が存在しません。id=" + topicId
-            )
-        );
+            .findByIdAndDeletedAtIsNull(topicId)
+            .orElseThrow(() ->
+                    new TopicNotFoundException(
+                            "このお題は存在しないか、削除されています。"
+                        )
+
+            );
+
+
+
 
     if (!topic.getUser().getEmail().equals(loginEmail)) {
         throw new IllegalStateException(
