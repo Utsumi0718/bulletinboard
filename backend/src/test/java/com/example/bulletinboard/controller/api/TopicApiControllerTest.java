@@ -70,6 +70,9 @@ import com.example.bulletinboard.service.TopicService;
  * - Topic編集時のValidationエラー
  *   → 400 Bad Request
  *   → ValidationErrorResponse確認
+ *   - 投稿者本人以外によるTopic編集
+ *   → 403 Forbidden
+ *   → ErrorResponse確認
  */
 
 @WebMvcTest(TopicApiController.class)
