@@ -22,6 +22,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import com.example.bulletinboard.exception.ForbiddenOperationException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.model.User;
@@ -50,13 +51,13 @@ import com.example.bulletinboard.repository.TopicRepository;
  * - 投稿者本人かつAnswerがないTopicの編集
  * - 投稿者本人以外によるTopic編集の拒否
  * - Answerが存在するTopicの編集拒否
- * - Topic不存在時の編集で
- *   TopicNotFoundExceptionとなること
  * - 投稿者本人によるTopicの論理削除
  * - 管理者による他ユーザーTopicの論理削除
  * - 権限のないユーザーによるTopic削除の拒否
  * - Topic不存在時の削除で
  *   TopicNotFoundExceptionとなること
+ *  - 投稿者本人以外によるTopic編集で
+ *   ForbiddenOperationExceptionとなること
  *
  * 【設計上のポイント】
  * - 検索対象はお題タイトルのみです。
@@ -64,16 +65,15 @@ import com.example.bulletinboard.repository.TopicRepository;
  * - 前方一致・後方一致のテストは新仕様では不要です。
  * - 負のページ番号は0ページ目へ補正します。
  * - Topic編集は投稿者本人かつAnswerが一度も存在しない場合のみ許可します。
- * - Topic編集対象が存在しない、または論理削除済みの場合は
- *   TopicNotFoundExceptionを使用します。
  * - Answerの存在判定はAnswerRepository.existsByTopicId()を使用します。
  * - Topic削除は投稿者本人またはROLE_ADMINのみ許可します。
  * - Topic削除は物理削除ではなくdeletedAtを設定する論理削除です。
  * - REST API用のTopic詳細取得では、
  *   Topicが存在しない、または論理削除済みの場合に
  *   TopicNotFoundExceptionを使用します。
+ * - 投稿者本人以外がTopicを編集しようとした場合は
+ *   ForbiddenOperationExceptionを使用します。
  */
-
 @ExtendWith(MockitoExtension.class)
 class TopicServiceTest {
 
@@ -327,7 +327,7 @@ void updateTopic_OwnerAndNoAnswer_ShouldUpdateTopic() {
 }
 
 @Test
-@DisplayName("投稿者本人以外はTopicを編集できないこと")
+@DisplayName("投稿者本人以外がTopicを編集しようとするとForbiddenOperationExceptionになること")
 void updateTopic_NotOwner_ShouldThrowException() {
 
     User topicUser = new User();
@@ -351,7 +351,7 @@ void updateTopic_NotOwner_ShouldThrowException() {
                 "問題"
             )
         )
-        .isInstanceOf(IllegalStateException.class)
+        .isInstanceOf(ForbiddenOperationException.class)
         .hasMessage("このお題を編集する権限がありません。");
 
     verify(
