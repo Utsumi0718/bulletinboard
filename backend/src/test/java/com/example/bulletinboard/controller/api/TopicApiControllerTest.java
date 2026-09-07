@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.service.CustomUserDetailsService;
 import com.example.bulletinboard.service.TopicService;
 
 /**
@@ -48,6 +49,9 @@ class TopicApiControllerTest {
 
     @MockitoBean
     private TopicService topicService;
+
+    @MockitoBean
+    private CustomUserDetailsService userDetailsService;
 
     @Test
     @DisplayName("keyword未指定の場合はTopic一覧を200 OKで取得できること")
