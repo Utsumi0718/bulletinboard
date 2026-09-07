@@ -10,7 +10,7 @@ import java.util.Map;
  *
  * @param status      HTTPステータスコード
  * @param error       エラー種別
- * @param message     Validation全体のメッセージ
+* @param message     Validation全体のメッセージ
  * @param path        エラーが発生したAPIパス
  * @param fieldErrors フィールド名とエラーメッセージ
  */
