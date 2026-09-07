@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.example.bulletinboard.dto.error.ErrorResponse;
 import com.example.bulletinboard.exception.TopicNotFoundException;
+import com.example.bulletinboard.exception.UserNotFoundException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -19,13 +20,17 @@ import jakarta.servlet.http.HttpServletRequest;
  * 各REST Controllerで個別にtry-catchを書くのではなく、
  * API全体の例外処理をこのクラスへ集約します。
  *
-  * 【現在の対応内容】
+ * 【現在の対応内容】
  * - TopicNotFoundException
  *   → 404 Not Found
  *   → ErrorResponseを返却
  *
  * - IllegalArgumentException
  *   → 400 Bad Request
+ *   → ErrorResponseを返却
+ *
+ * - UserNotFoundException
+ *   → 500 Internal Server Error
  *   → ErrorResponseを返却
  *
  * 【今後の拡張予定】
@@ -94,4 +99,29 @@ public class GlobalExceptionHandler {
             .status(HttpStatus.BAD_REQUEST)
             .body(response);
       }
+
+      /**
+        * 認証情報に対応するUserを取得できなかった場合の
+        * UserNotFoundExceptionを処理します。
+        *
+        * @param ex      発生したUserNotFoundException
+        * @param request エラーが発生したHTTPリクエスト
+        * @return 500 Internal Server ErrorとErrorResponse
+        */
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleUserNotFound(
+        UserNotFoundException ex,
+        HttpServletRequest request) {
+
+    ErrorResponse response = new ErrorResponse(
+            HttpStatus.INTERNAL_SERVER_ERROR.value(),
+            HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+            ex.getMessage(),
+            request.getRequestURI()
+    );
+
+    return ResponseEntity
+            .status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(response);
+}
 }
