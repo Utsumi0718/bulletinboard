@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -60,6 +61,11 @@ import com.example.bulletinboard.service.TopicService;
  * - Topic新規投稿時のValidationエラー
  *   → 400 Bad Request
  *   → ValidationErrorResponse確認
+ * - Topic編集
+ *   → 200 OK
+ *   → TopicResponse
+ *   → loginEmailの受け渡し確認
+ *   → title / image / questionの受け渡し確認
  */
 
 @WebMvcTest(TopicApiController.class)
@@ -432,5 +438,69 @@ void createTopic_ValidationError_ShouldReturnBadRequest() throws Exception {
             .andExpect(jsonPath("$.path")
                     .value("/api/topics"))
             .andExpect(jsonPath("$.fieldErrors.title").exists());
+}
+
+@Test
+@DisplayName("Topicを編集すると200 OKと更新後Topicを返すこと")
+@WithMockUser(username = "owner@example.com")
+void updateTopic_ShouldReturnUpdatedTopic() throws Exception {
+
+    User user = new User();
+    user.setUsername("owner");
+    user.setEmail("owner@example.com");
+
+    Topic updatedTopic = new Topic();
+    updatedTopic.setId(1L);
+    updatedTopic.setTitle("変更後タイトル");
+    updatedTopic.setImage("/images/after.jpg");
+    updatedTopic.setQuestion("変更後の問題");
+    updatedTopic.setUser(user);
+    updatedTopic.setCreatedAt(
+            LocalDateTime.of(2026, 9, 7, 10, 0)
+    );
+    updatedTopic.setUpdatedAt(
+            LocalDateTime.of(2026, 9, 7, 12, 0)
+    );
+
+    when(
+            topicService.updateTopic(
+                    1L,
+                    "owner@example.com",
+                    "変更後タイトル",
+                    "/images/after.jpg",
+                    "変更後の問題"
+            )
+    ).thenReturn(updatedTopic);
+
+    mockMvc.perform(
+            put("/api/topics/1")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "title": "変更後タイトル",
+                              "image": "/images/after.jpg",
+                              "question": "変更後の問題"
+                            }
+                            """)
+    )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(1))
+            .andExpect(jsonPath("$.title")
+                    .value("変更後タイトル"))
+            .andExpect(jsonPath("$.image")
+                    .value("/images/after.jpg"))
+            .andExpect(jsonPath("$.question")
+                    .value("変更後の問題"))
+            .andExpect(jsonPath("$.username")
+                    .value("owner"));
+
+    verify(topicService).updateTopic(
+            1L,
+            "owner@example.com",
+            "変更後タイトル",
+            "/images/after.jpg",
+            "変更後の問題"
+    );
 }
 }
