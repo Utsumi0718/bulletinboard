@@ -202,7 +202,6 @@ public ResponseEntity<TopicResponse> createTopic(
  * @param authentication ログインユーザーの認証情報
  * @return 更新後のTopic詳細情報
  */
-
 @PutMapping("/{id}")
 public ResponseEntity<TopicResponse> updateTopic(
         @PathVariable Long id,
@@ -222,7 +221,6 @@ public ResponseEntity<TopicResponse> updateTopic(
     TopicResponse response =
             TopicResponse.from(updatedTopic);
 
-    return ResponseEntity
-            .ok(response);
+    return ResponseEntity.ok(response);
 }
 }
