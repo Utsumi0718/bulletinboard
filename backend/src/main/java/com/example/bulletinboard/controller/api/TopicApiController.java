@@ -5,6 +5,7 @@ import java.net.URI;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -44,9 +45,9 @@ import jakarta.validation.Valid;
  * - Topic詳細取得
  * - Topic新規投稿
  * - Topic編集
- *
- * 【今後追加する内容】
  * - Topic削除
+ *
+ *
  */
 
 @RestController
@@ -141,17 +142,17 @@ public class TopicApiController {
 
 
 /**
- * 新しいTopicを投稿します。
+ * Topic一覧を取得します。
  *
- * ログイン中のユーザーをemailから取得し、
- * TopicRequestの入力内容と紐付けてTopicを保存します。
+ * keywordが未指定の場合は通常一覧を取得し、
+ * keywordが指定された場合はTopic.titleを部分一致検索します。
  *
- * 投稿成功時は201 Createdを返し、
- * Locationヘッダーに作成されたTopicのURLを設定します。
+ * keywordが空文字または空白の場合は
+ * IllegalArgumentExceptionを発生させます。
  *
- * @param request        Topic投稿内容
- * @param authentication ログインユーザーの認証情報
- * @return 作成されたTopicの詳細情報
+ * @param page    ページ番号（0始まり）
+ * @param keyword 検索キーワード
+ * @return Topic一覧のページ情報
  */
 @PostMapping
 public ResponseEntity<TopicResponse> createTopic(
@@ -222,5 +223,44 @@ public ResponseEntity<TopicResponse> updateTopic(
             TopicResponse.from(updatedTopic);
 
     return ResponseEntity.ok(response);
+}
+
+/**
+ * 指定されたTopicを論理削除します。
+ *
+ * ログインユーザーのemailをAuthenticationから取得し、
+ * ROLE_ADMINを持っているか判定します。
+ *
+ * Topicの投稿者本人またはROLE_ADMINの場合のみ削除可能です。
+ * 削除可否の最終判定と論理削除処理はTopicServiceで行います。
+ *
+ * 削除成功時は204 No Contentを返します。
+ *
+ * @param id             削除対象のTopic ID
+ * @param authentication ログインユーザーの認証情報
+ * @return 204 No Content
+ */
+
+
+@DeleteMapping("/{id}")
+public ResponseEntity<Void> deleteTopic(
+        @PathVariable Long id,
+        Authentication authentication) {
+
+    String loginEmail = authentication.getName();
+
+    boolean isAdmin = authentication.getAuthorities()
+            .stream()
+            .anyMatch(authority ->
+                    authority.getAuthority().equals("ROLE_ADMIN")
+            );
+
+    topicService.deleteById(
+            id,
+            loginEmail,
+            isAdmin
+    );
+
+    return ResponseEntity.noContent().build();
 }
 }
