@@ -66,6 +66,9 @@ import com.example.bulletinboard.service.TopicService;
  *   → TopicResponse
  *   → loginEmailの受け渡し確認
  *   → title / image / questionの受け渡し確認
+ * - Topic編集時のValidationエラー
+ *   → 400 Bad Request
+ *   → ValidationErrorResponse確認
  */
 
 @WebMvcTest(TopicApiController.class)
