@@ -10,6 +10,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.bulletinboard.exception.ForbiddenOperationException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.repository.AnswerRepository;
@@ -252,9 +253,12 @@ public class TopicService {
    }
 
    /*
-    *  指定されたTopicを編集します。
+    * 指定されたTopicを編集します。
     *
     * 編集できるのはTopicの投稿者本人のみです。
+    * 投稿者本人以外が編集しようとした場合は、
+    * ForbiddenOperationExceptionを投げます。
+    *
     * また、Answerが一度でも投稿されたTopicは編集できません。
     * 論理削除済みのAnswerも「過去に回答が存在した」として判定します。
     *
@@ -263,7 +267,7 @@ public class TopicService {
     *
     * 条件を満たした場合のみ、
     * title、image、questionを更新します。
-   */
+    */
 
    @Transactional
 public Topic updateTopic(
@@ -281,15 +285,11 @@ public Topic updateTopic(
                         )
 
             );
-
-
-
-
     if (!topic.getUser().getEmail().equals(loginEmail)) {
-        throw new IllegalStateException(
-            "このお題を編集する権限がありません。"
-        );
-    }
+    throw new ForbiddenOperationException(
+        "このお題を編集する権限がありません。"
+    );
+}
 
     if (hasAnyAnswer(topicId)) {
         throw new IllegalStateException(
