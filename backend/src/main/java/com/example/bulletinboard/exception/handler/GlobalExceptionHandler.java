@@ -1,11 +1,16 @@
 package com.example.bulletinboard.exception.handler;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.example.bulletinboard.dto.error.ErrorResponse;
+import com.example.bulletinboard.dto.error.ValidationErrorResponse;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.exception.UserNotFoundException;
 
@@ -14,7 +19,7 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * 【クラスの役割】
  * REST APIで発生した例外を共通で受け取り、
- * HTTP StatusとErrorResponseへ変換して
+ * HTTP StatusとエラーレスポンスDTOへ変換して
  * フロントエンドへJSON形式で返すクラスです。
  *
  * 各REST Controllerで個別にtry-catchを書くのではなく、
@@ -33,9 +38,11 @@ import jakarta.servlet.http.HttpServletRequest;
  *   → 500 Internal Server Error
  *   → ErrorResponseを返却
  *
- * 【今後の拡張予定】
- * - Validationエラー
+ * - MethodArgumentNotValidException
  *   → 400 Bad Request
+ *   → ValidationErrorResponseを返却
+ *
+ * 【今後の拡張予定】
  * - 権限なし
  *   → 403 Forbidden
  * - 業務ルール上の編集不可
@@ -44,6 +51,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * ※ 旧Thymeleaf ControllerのFlashMessage処理とは分離し、
  *    REST API専用の例外処理として使用します。
  */
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -122,6 +130,47 @@ public class GlobalExceptionHandler {
 
     return ResponseEntity
             .status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(response);
+}
+
+/**
+ * @ValidによるリクエストボディのValidationに失敗した場合の
+ * MethodArgumentNotValidExceptionを処理します。
+ *
+ * フィールドごとのValidationエラーをMapへ変換し、
+ * 400 Bad RequestとValidationErrorResponseを返します。
+ *
+ * @param ex      発生したMethodArgumentNotValidException
+ * @param request エラーが発生したHTTPリクエスト
+ * @return 400 Bad RequestとValidationErrorResponse
+ */
+@ExceptionHandler(MethodArgumentNotValidException.class)
+public ResponseEntity<ValidationErrorResponse> handleValidationException(
+        MethodArgumentNotValidException ex,
+        HttpServletRequest request) {
+
+      Map<String, String> fieldErrors = new LinkedHashMap<>();
+
+    ex.getBindingResult()
+            .getFieldErrors()
+            .forEach(fieldError ->
+                    fieldErrors.putIfAbsent(
+                            fieldError.getField(),
+                            fieldError.getDefaultMessage()
+                    )
+            );
+
+    ValidationErrorResponse response =
+            new ValidationErrorResponse(
+                    HttpStatus.BAD_REQUEST.value(),
+                    HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                    "入力内容に誤りがあります。",
+                    request.getRequestURI(),
+                    fieldErrors
+            );
+
+    return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
             .body(response);
 }
 }
