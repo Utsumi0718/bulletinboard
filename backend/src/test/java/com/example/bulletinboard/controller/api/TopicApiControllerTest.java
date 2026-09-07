@@ -29,6 +29,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.bulletinboard.exception.ForbiddenOperationException;
+import com.example.bulletinboard.exception.TopicEditConflictException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.model.User;
@@ -70,8 +71,12 @@ import com.example.bulletinboard.service.TopicService;
  * - Topic編集時のValidationエラー
  *   → 400 Bad Request
  *   → ValidationErrorResponse確認
- *   - 投稿者本人以外によるTopic編集
+ * - 投稿者本人以外によるTopic編集
  *   → 403 Forbidden
+ *   → ErrorResponse確認
+ *
+ * - Answerが存在するTopic編集
+ *   → 409 Conflict
  *   → ErrorResponse確認
  */
 
@@ -581,6 +586,54 @@ void updateTopic_NotOwner_ShouldReturnForbidden() throws Exception {
     verify(topicService).updateTopic(
             1L,
             "other@example.com",
+            "変更後タイトル",
+            "/images/after.jpg",
+            "変更後の問題"
+    );
+}
+
+@Test
+@DisplayName("回答が存在するTopicを編集しようとすると409 Conflictになること")
+@WithMockUser(username = "owner@example.com")
+void updateTopic_AnswerExists_ShouldReturnConflict() throws Exception {
+
+    when(
+            topicService.updateTopic(
+                    1L,
+                    "owner@example.com",
+                    "変更後タイトル",
+                    "/images/after.jpg",
+                    "変更後の問題"
+            )
+    ).thenThrow(
+            new TopicEditConflictException(
+                    "回答が投稿されたお題は編集できません。"
+            )
+    );
+
+    mockMvc.perform(
+            put("/api/topics/1")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "title": "変更後タイトル",
+                              "image": "/images/after.jpg",
+                              "question": "変更後の問題"
+                            }
+                            """)
+    )
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.status").value(409))
+            .andExpect(jsonPath("$.error").value("Conflict"))
+            .andExpect(jsonPath("$.message")
+                    .value("回答が投稿されたお題は編集できません。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/topics/1"));
+
+    verify(topicService).updateTopic(
+            1L,
+            "owner@example.com",
             "変更後タイトル",
             "/images/after.jpg",
             "変更後の問題"
