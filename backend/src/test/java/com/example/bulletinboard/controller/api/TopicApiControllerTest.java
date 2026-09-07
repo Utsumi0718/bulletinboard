@@ -503,4 +503,32 @@ void updateTopic_ShouldReturnUpdatedTopic() throws Exception {
             "変更後の問題"
     );
 }
+
+@Test
+@DisplayName("Topic編集でValidationエラーの場合は400 Bad Requestになること")
+@WithMockUser(username = "owner@example.com")
+void updateTopic_ValidationError_ShouldReturnBadRequest() throws Exception {
+
+    mockMvc.perform(
+            put("/api/topics/1")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "title": "",
+                              "image": "/images/after.jpg",
+                              "question": "変更後の問題"
+                            }
+                            """)
+    )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.error")
+                    .value("Bad Request"))
+            .andExpect(jsonPath("$.message")
+                    .value("入力内容に誤りがあります。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/topics/1"))
+            .andExpect(jsonPath("$.fieldErrors.title").exists());
+}
 }
