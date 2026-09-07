@@ -57,8 +57,10 @@ import com.example.bulletinboard.service.TopicService;
  * - Topic新規投稿時のUser取得失敗
  *   → 500 Internal Server Error
  *   → ErrorResponse確認
+ * - Topic新規投稿時のValidationエラー
+ *   → 400 Bad Request
+ *   → ValidationErrorResponse確認
  */
-
 
 @WebMvcTest(TopicApiController.class)
 class TopicApiControllerTest {
@@ -402,5 +404,33 @@ void createTopic_UserNotFound_ShouldReturnInternalServerError() throws Exception
     verify(userDetailsService).findByEmail(
             "testuser01@example.com"
     );
+}
+
+@Test
+@DisplayName("Topic新規投稿でValidationエラーの場合は400 Bad Requestになること")
+@WithMockUser(username = "testuser01@example.com")
+void createTopic_ValidationError_ShouldReturnBadRequest() throws Exception {
+
+    mockMvc.perform(
+            post("/api/topics")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "title": "",
+                              "image": "/images/cat.jpg",
+                              "question": "この猫、何を考えてる？"
+                            }
+                            """)
+    )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.error")
+                    .value("Bad Request"))
+            .andExpect(jsonPath("$.message")
+                    .value("入力内容に誤りがあります。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/topics"))
+            .andExpect(jsonPath("$.fieldErrors.title").exists());
 }
 }
