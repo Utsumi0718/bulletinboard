@@ -54,7 +54,12 @@ import com.example.bulletinboard.service.TopicService;
  *   → Locationヘッダー
  *   → TopicResponse
  *   → 認証ユーザーの紐付け確認
+ * - Topic新規投稿時のUser取得失敗
+ *   → 500 Internal Server Error
+ *   → ErrorResponse確認
  */
+
+
 @WebMvcTest(TopicApiController.class)
 class TopicApiControllerTest {
 
@@ -359,5 +364,43 @@ void createTopic_ShouldReturnCreatedTopic() throws Exception {
 
     assertThat(savedTopic.getUser())
             .isSameAs(user);
+}
+
+
+@Test
+@DisplayName("認証ユーザー情報を取得できない場合は500 Internal Server Errorになること")
+@WithMockUser(username = "testuser01@example.com")
+void createTopic_UserNotFound_ShouldReturnInternalServerError() throws Exception {
+
+    when(
+            userDetailsService.findByEmail(
+                    "testuser01@example.com"
+            )
+    ).thenReturn(Optional.empty());
+
+    mockMvc.perform(
+            post("/api/topics")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "title": "猫のお題",
+                              "image": "/images/cat.jpg",
+                              "question": "この猫、何を考えてる？"
+                            }
+                            """)
+    )
+            .andExpect(status().isInternalServerError())
+            .andExpect(jsonPath("$.status").value(500))
+            .andExpect(jsonPath("$.error")
+                    .value("Internal Server Error"))
+            .andExpect(jsonPath("$.message")
+                    .value("ログインユーザー情報を取得できませんでした。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/topics"));
+
+    verify(userDetailsService).findByEmail(
+            "testuser01@example.com"
+    );
 }
 }
