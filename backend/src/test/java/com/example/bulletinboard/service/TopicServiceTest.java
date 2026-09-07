@@ -50,6 +50,8 @@ import com.example.bulletinboard.repository.TopicRepository;
  * - 投稿者本人かつAnswerがないTopicの編集
  * - 投稿者本人以外によるTopic編集の拒否
  * - Answerが存在するTopicの編集拒否
+ * - Topic不存在時の編集で
+ *   TopicNotFoundExceptionとなること
  * - 投稿者本人によるTopicの論理削除
  * - 管理者による他ユーザーTopicの論理削除
  * - 権限のないユーザーによるTopic削除の拒否
@@ -62,6 +64,8 @@ import com.example.bulletinboard.repository.TopicRepository;
  * - 前方一致・後方一致のテストは新仕様では不要です。
  * - 負のページ番号は0ページ目へ補正します。
  * - Topic編集は投稿者本人かつAnswerが一度も存在しない場合のみ許可します。
+ * - Topic編集対象が存在しない、または論理削除済みの場合は
+ *   TopicNotFoundExceptionを使用します。
  * - Answerの存在判定はAnswerRepository.existsByTopicId()を使用します。
  * - Topic削除は投稿者本人またはROLE_ADMINのみ許可します。
  * - Topic削除は物理削除ではなくdeletedAtを設定する論理削除です。
@@ -69,6 +73,7 @@ import com.example.bulletinboard.repository.TopicRepository;
  *   Topicが存在しない、または論理削除済みの場合に
  *   TopicNotFoundExceptionを使用します。
  */
+
 @ExtendWith(MockitoExtension.class)
 class TopicServiceTest {
 
@@ -385,6 +390,33 @@ void updateTopic_AnswerExists_ShouldThrowException() {
         )
         .isInstanceOf(IllegalStateException.class)
         .hasMessage("回答が投稿されたお題は編集できません。");
+
+    verify(
+        topicRepository,
+        org.mockito.Mockito.never()
+    ).save(any(Topic.class));
+}
+
+@Test
+@DisplayName("存在しないTopicを編集しようとするとTopicNotFoundExceptionになること")
+void updateTopic_TopicNotFound_ShouldThrowException() {
+
+    when(
+        topicRepository.findByIdAndDeletedAtIsNull(999L)
+    ).thenReturn(Optional.empty());
+
+    org.assertj.core.api.Assertions
+        .assertThatThrownBy(
+            () -> topicService.updateTopic(
+                999L,
+                "owner@example.com",
+                "タイトル",
+                "image.webp",
+                "問題"
+            )
+        )
+        .isInstanceOf(TopicNotFoundException.class)
+        .hasMessage("このお題は存在しないか、削除されています。");
 
     verify(
         topicRepository,
