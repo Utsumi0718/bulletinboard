@@ -78,6 +78,10 @@ import com.example.bulletinboard.service.TopicService;
  * - Answerが存在するTopic編集
  *   → 409 Conflict
  *   → ErrorResponse確認
+ *
+ * - Topic編集対象が存在しない場合
+ *   → 404 Not Found
+ *   → ErrorResponse確認
  */
 
 @WebMvcTest(TopicApiController.class)
@@ -633,6 +637,54 @@ void updateTopic_AnswerExists_ShouldReturnConflict() throws Exception {
 
     verify(topicService).updateTopic(
             1L,
+            "owner@example.com",
+            "変更後タイトル",
+            "/images/after.jpg",
+            "変更後の問題"
+    );
+}
+
+@Test
+@DisplayName("存在しないTopicを編集しようとすると404 Not Foundになること")
+@WithMockUser(username = "owner@example.com")
+void updateTopic_TopicNotFound_ShouldReturnNotFound() throws Exception {
+
+    when(
+            topicService.updateTopic(
+                    999L,
+                    "owner@example.com",
+                    "変更後タイトル",
+                    "/images/after.jpg",
+                    "変更後の問題"
+            )
+    ).thenThrow(
+            new TopicNotFoundException(
+                    "このお題は存在しないか、削除されています。"
+            )
+    );
+
+    mockMvc.perform(
+            put("/api/topics/999")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "title": "変更後タイトル",
+                              "image": "/images/after.jpg",
+                              "question": "変更後の問題"
+                            }
+                            """)
+    )
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.error").value("Not Found"))
+            .andExpect(jsonPath("$.message")
+                    .value("このお題は存在しないか、削除されています。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/topics/999"));
+
+    verify(topicService).updateTopic(
+            999L,
             "owner@example.com",
             "変更後タイトル",
             "/images/after.jpg",
