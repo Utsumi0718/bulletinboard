@@ -19,22 +19,49 @@ import com.example.bulletinboard.repository.TopicRepository;
 
 
 /*
- * 指定されたTopicを編集します。
+ * 【クラス全体の役割】
+ * 大喜利サービスの「お題（Topic）」に関する
+ * ビジネスロジックを担当するServiceクラスです。
  *
- * 編集できるのはTopicの投稿者本人のみです。
- * 投稿者本人以外が編集しようとした場合は、
- * ForbiddenOperationExceptionを投げます。
+ * Controllerなどの上位層から要求を受け取り、
+ * TopicRepositoryやAnswerRepositoryを通して
+ * Topicの取得・検索・保存・編集・削除を行います。
  *
- * また、Answerが一度でも投稿されたTopicは編集できません。
- * 論理削除済みのAnswerも「過去に回答が存在した」として判定します。
- * Answerが存在するTopicを編集しようとした場合は、
- * TopicEditConflictExceptionを投げます。
+ * 【主な役割】
+ * - お題一覧の取得
+ * - お題のIDによる取得
+ * - お題タイトルの部分一致検索
+ * - お題の保存
+ * - お題の編集
+ * - お題の論理削除
+ * - Answerの存在確認
+ * - ページネーション
+ * - 並び替え
  *
- * Topicが存在しない、または論理削除済みの場合は、
- * TopicNotFoundExceptionを投げます。
+ * 【編集時のルール】
+ * - Topicの編集は投稿者本人のみ可能です。
+ * - 投稿者本人以外が編集しようとした場合は、
+ *   ForbiddenOperationExceptionを使用します。
+ * - Answerが一度でも投稿されたTopicは編集できません。
+ * - 論理削除済みのAnswerも存在判定に含めます。
+ * - Answerが存在するTopicを編集しようとした場合は、
+ *   TopicEditConflictExceptionを使用します。
  *
- * 条件を満たした場合のみ、
- * title、image、questionを更新します。
+ * 【削除時のルール】
+ * - Topicの削除は投稿者本人またはROLE_ADMINのみ可能です。
+ * - 投稿者本人でもROLE_ADMINでもないユーザーが
+ *   削除しようとした場合は、
+ *   ForbiddenOperationExceptionを使用します。
+ * - Topicの削除は物理削除ではなく、
+ *   deletedAtに削除日時を設定する論理削除方式です。
+ *
+ * 【共通ルール】
+ * - 通常の一覧取得・ID取得・検索では、
+ *   deletedAtがNULLのTopicのみを対象とします。
+ * - Topicが存在しない、または論理削除済みの場合は、
+ *   TopicNotFoundExceptionを使用します。
+ * - 検索対象はTopic.titleのみです。
+ * - 検索方式は部分一致のみです。
  */
 
 @Service
@@ -144,12 +171,17 @@ public class TopicService {
      * 指定されたTopicを論理削除します。
      *
      * 削除できるのは、Topicの投稿者本人またはROLE_ADMINのユーザーです。
-     * その他のユーザーによる削除は許可しません。
+     * その他のユーザーが削除しようとした場合は、
+     * ForbiddenOperationExceptionを投げます。
+     *
+     * Topicが存在しない、または論理削除済みの場合は、
+     * TopicNotFoundExceptionを投げます。
      *
      * 削除時はDBからレコードそのものを削除せず、
      * deletedAtに現在日時を設定します。
      */
-     @Transactional
+
+    @Transactional
      public void deleteById(
         Long id,
         String loginEmail,
@@ -167,10 +199,10 @@ public class TopicService {
         topic.getUser().getEmail().equals(loginEmail);
 
     if (!isOwner && !isAdmin) {
-        throw new IllegalStateException(
-            "このお題を削除する権限がありません。"
-        );
-    }
+    throw new ForbiddenOperationException(
+        "このお題を削除する権限がありません。"
+    );
+}
 
     topic.setDeletedAt(LocalDateTime.now());
 
