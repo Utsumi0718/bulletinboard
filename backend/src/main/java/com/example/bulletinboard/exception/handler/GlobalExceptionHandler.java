@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.example.bulletinboard.dto.error.ErrorResponse;
 import com.example.bulletinboard.dto.error.ValidationErrorResponse;
 import com.example.bulletinboard.exception.ForbiddenOperationException;
+import com.example.bulletinboard.exception.TopicEditConflictException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.exception.UserNotFoundException;
 
@@ -26,7 +27,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * 各REST Controllerで個別にtry-catchを書くのではなく、
  * API全体の例外処理をこのクラスへ集約します。
  *
-  * 【現在の対応内容】
+ * 【現在の対応内容】
  * - TopicNotFoundException
  *   → 404 Not Found
  *   → ErrorResponseを返却
@@ -47,14 +48,16 @@ import jakarta.servlet.http.HttpServletRequest;
  *   → 403 Forbidden
  *   → ErrorResponseを返却
  *
- * 【今後の拡張予定】
- * - 業務ルール上の編集不可
+ * - TopicEditConflictException
  *   → 409 Conflict
+ *   → ErrorResponseを返却
+ *
+ * 【今後の拡張予定】
+ * - 必要に応じて他の業務例外も追加
  *
  * ※ 旧Thymeleaf ControllerのFlashMessage処理とは分離し、
  *    REST API専用の例外処理として使用します。
  */
-
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -199,6 +202,31 @@ public ResponseEntity<ErrorResponse> handleForbiddenOperation(
 
     return ResponseEntity
             .status(HttpStatus.FORBIDDEN)
+            .body(response);
+}
+
+/**
+ * Topic編集時に業務ルール上の競合が発生した場合の
+ * TopicEditConflictExceptionを処理します。
+ *
+ * @param ex      発生したTopicEditConflictException
+ * @param request エラーが発生したHTTPリクエスト
+ * @return 409 ConflictとErrorResponse
+ */
+@ExceptionHandler(TopicEditConflictException.class)
+public ResponseEntity<ErrorResponse> handleTopicEditConflict(
+        TopicEditConflictException ex,
+        HttpServletRequest request) {
+
+    ErrorResponse response = new ErrorResponse(
+            HttpStatus.CONFLICT.value(),
+            HttpStatus.CONFLICT.getReasonPhrase(),
+            ex.getMessage(),
+            request.getRequestURI()
+    );
+
+    return ResponseEntity
+            .status(HttpStatus.CONFLICT)
             .body(response);
 }
 }
