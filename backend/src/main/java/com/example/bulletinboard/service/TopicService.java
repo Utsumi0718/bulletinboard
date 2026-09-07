@@ -11,43 +11,32 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.bulletinboard.exception.ForbiddenOperationException;
+import com.example.bulletinboard.exception.TopicEditConflictException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.repository.AnswerRepository;
 import com.example.bulletinboard.repository.TopicRepository;
 
+
 /*
- * 【クラス全体の役割】
- * 大喜利サービスの「お題（Topic）」に関する
- * ビジネスロジックを担当するServiceクラスです。
+ * 指定されたTopicを編集します。
  *
- * Controllerなどの上位層から要求を受け取り、
- * TopicRepositoryを通してtopicsテーブルへアクセスします。
+ * 編集できるのはTopicの投稿者本人のみです。
+ * 投稿者本人以外が編集しようとした場合は、
+ * ForbiddenOperationExceptionを投げます。
  *
- * 【主な役割】
- * - お題一覧の取得
- * - お題のIDによる取得
- * - お題の保存
- * - お題の編集
- * - お題タイトルの部分一致検索
- * - ページネーション
- * - 並び替え
- * - お題の論理削除
+ * また、Answerが一度でも投稿されたTopicは編集できません。
+ * 論理削除済みのAnswerも「過去に回答が存在した」として判定します。
+ * Answerが存在するTopicを編集しようとした場合は、
+ * TopicEditConflictExceptionを投げます。
  *
- * 【設計上のポイント】
- * - 旧PostServiceではタイトルと本文に対して、
- *   部分一致・前方一致・後方一致検索を行っていました。
- * - 新しいTopicでは、検索対象を「お題タイトル」のみに限定し、
- *   検索方式も部分一致検索のみとします。
- * - Topicの削除はRepositoryのdelete()を使用した物理削除ではなく、
- *   deletedAtに削除日時を設定する論理削除方式を採用します。
- * - 通常の一覧取得・ID取得・検索では、
- *   deletedAtがNULLのTopicのみを対象とします。
- * - Topicの編集は投稿者本人のみ可能です。
- * - Answerが一度でも投稿されたTopicは編集できません。
- *   論理削除済みのAnswerも存在判定に含めます。
- * - Topicの削除は投稿者本人またはROLE_ADMINのみ可能です。
+ * Topicが存在しない、または論理削除済みの場合は、
+ * TopicNotFoundExceptionを投げます。
+ *
+ * 条件を満たした場合のみ、
+ * title、image、questionを更新します。
  */
+
 @Service
 public class TopicService {
 
@@ -291,11 +280,11 @@ public Topic updateTopic(
     );
 }
 
-    if (hasAnyAnswer(topicId)) {
-        throw new IllegalStateException(
-            "回答が投稿されたお題は編集できません。"
-        );
-    }
+ if (hasAnyAnswer(topicId)) {
+    throw new TopicEditConflictException(
+        "回答が投稿されたお題は編集できません。"
+    );
+}
 
     topic.setTitle(title);
     topic.setImage(image);
