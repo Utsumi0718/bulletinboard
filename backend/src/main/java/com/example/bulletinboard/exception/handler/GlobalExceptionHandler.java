@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.example.bulletinboard.dto.error.ErrorResponse;
 import com.example.bulletinboard.dto.error.ValidationErrorResponse;
+import com.example.bulletinboard.exception.ForbiddenOperationException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.exception.UserNotFoundException;
 
@@ -25,7 +26,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * 各REST Controllerで個別にtry-catchを書くのではなく、
  * API全体の例外処理をこのクラスへ集約します。
  *
- * 【現在の対応内容】
+  * 【現在の対応内容】
  * - TopicNotFoundException
  *   → 404 Not Found
  *   → ErrorResponseを返却
@@ -42,9 +43,11 @@ import jakarta.servlet.http.HttpServletRequest;
  *   → 400 Bad Request
  *   → ValidationErrorResponseを返却
  *
- * 【今後の拡張予定】
- * - 権限なし
+ * - ForbiddenOperationException
  *   → 403 Forbidden
+ *   → ErrorResponseを返却
+ *
+ * 【今後の拡張予定】
  * - 業務ルール上の編集不可
  *   → 409 Conflict
  *
@@ -171,6 +174,31 @@ public ResponseEntity<ValidationErrorResponse> handleValidationException(
 
     return ResponseEntity
             .status(HttpStatus.BAD_REQUEST)
+            .body(response);
+}
+
+/**
+ * 認証済みユーザーが権限を持たない操作を行おうとした場合の
+ * ForbiddenOperationExceptionを処理します。
+ *
+ * @param ex      発生したForbiddenOperationException
+ * @param request エラーが発生したHTTPリクエスト
+ * @return 403 ForbiddenとErrorResponse
+ */
+@ExceptionHandler(ForbiddenOperationException.class)
+public ResponseEntity<ErrorResponse> handleForbiddenOperation(
+        ForbiddenOperationException ex,
+        HttpServletRequest request) {
+
+    ErrorResponse response = new ErrorResponse(
+            HttpStatus.FORBIDDEN.value(),
+            HttpStatus.FORBIDDEN.getReasonPhrase(),
+            ex.getMessage(),
+            request.getRequestURI()
+    );
+
+    return ResponseEntity
+            .status(HttpStatus.FORBIDDEN)
             .body(response);
 }
 }
