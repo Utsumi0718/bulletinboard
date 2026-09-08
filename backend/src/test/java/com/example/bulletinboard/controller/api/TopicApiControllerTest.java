@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -82,6 +83,11 @@ import com.example.bulletinboard.service.TopicService;
  * - Topic編集対象が存在しない場合
  *   → 404 Not Found
  *   → ErrorResponse確認
+ *
+ * - 投稿者本人によるTopic削除
+ *   → 204 No Content
+ *   → loginEmailの受け渡し確認
+ *   → isAdmin = false の受け渡し確認
  */
 
 @WebMvcTest(TopicApiController.class)
@@ -689,6 +695,24 @@ void updateTopic_TopicNotFound_ShouldReturnNotFound() throws Exception {
             "変更後タイトル",
             "/images/after.jpg",
             "変更後の問題"
+    );
+}
+
+@Test
+@DisplayName("投稿者本人がTopicを削除すると204 No Contentになること")
+@WithMockUser(username = "owner@example.com")
+void deleteTopic_Owner_ShouldReturnNoContent() throws Exception {
+
+    mockMvc.perform(
+            delete("/api/topics/1")
+                    .with(csrf())
+    )
+            .andExpect(status().isNoContent());
+
+    verify(topicService).deleteById(
+            1L,
+            "owner@example.com",
+            false
     );
 }
 }
