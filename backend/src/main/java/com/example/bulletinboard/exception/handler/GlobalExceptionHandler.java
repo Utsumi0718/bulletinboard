@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.example.bulletinboard.dto.error.ErrorResponse;
 import com.example.bulletinboard.dto.error.ValidationErrorResponse;
+import com.example.bulletinboard.exception.AnswerEditConflictException;
 import com.example.bulletinboard.exception.AnswerNotFoundException;
 import com.example.bulletinboard.exception.ForbiddenOperationException;
 import com.example.bulletinboard.exception.TopicEditConflictException;
@@ -55,6 +56,10 @@ import jakarta.servlet.http.HttpServletRequest;
  *
  * - AnswerNotFoundException
  *   → 404 Not Found
+ *   → ErrorResponseを返却
+ *
+ * - AnswerEditConflictException
+ *   → 409 Conflict
  *   → ErrorResponseを返却
  *
  * 【今後の拡張予定】
@@ -260,5 +265,33 @@ public ResponseEntity<ErrorResponse> handleAnswerNotFound(
             .body(response);
 }
 
+
+/**
+ * Answer編集時に業務ルール上の競合が発生した場合の
+ * AnswerEditConflictExceptionを処理します。
+ *
+ * 現在は、Likeが1件以上付いているAnswerを
+ * 編集しようとした場合に使用します。
+ *
+ * @param ex      発生したAnswerEditConflictException
+ * @param request エラーが発生したHTTPリクエスト
+ * @return 409 ConflictとErrorResponse
+ */
+@ExceptionHandler(AnswerEditConflictException.class)
+public ResponseEntity<ErrorResponse> handleAnswerEditConflict(
+        AnswerEditConflictException ex,
+        HttpServletRequest request) {
+
+    ErrorResponse response = new ErrorResponse(
+            HttpStatus.CONFLICT.value(),
+            HttpStatus.CONFLICT.getReasonPhrase(),
+            ex.getMessage(),
+            request.getRequestURI()
+    );
+
+    return ResponseEntity
+            .status(HttpStatus.CONFLICT)
+            .body(response);
+}
 
 }
