@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import com.example.bulletinboard.dto.error.ErrorResponse;
+import com.example.bulletinboard.exception.AnswerEditConflictException;
 import com.example.bulletinboard.exception.AnswerNotFoundException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 
@@ -39,6 +40,10 @@ import com.example.bulletinboard.exception.TopicNotFoundException;
  *   → 404 Not Found
  *   → ErrorResponse
  *
+ * - AnswerEditConflictException
+ *   → 409 Conflict
+ *   → ErrorResponse
+ *
  * 【今後の検証対象】
  * - IllegalArgumentException
  *   → 400 Bad Request
@@ -59,11 +64,8 @@ import com.example.bulletinboard.exception.TopicNotFoundException;
  * - UserNotFoundException
  *   → 500 Internal Server Error
  *   → ErrorResponse
- *
- * - AnswerEditConflictException
- *   → 409 Conflict
- *   → ErrorResponse
  */
+
 class GlobalExceptionHandlerTest {
 
     private final GlobalExceptionHandler handler =
@@ -148,4 +150,46 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().path())
                 .isEqualTo("/api/answers/999");
     }
+
+
+   @Test
+   @DisplayName("AnswerEditConflictExceptionを409 ConflictとErrorResponseへ変換できること")
+   void handleAnswerEditConflict_ShouldReturnConflict() {
+
+    AnswerEditConflictException exception =
+            new AnswerEditConflictException(
+                    "いいねが付いている回答は編集できません。"
+            );
+
+    MockHttpServletRequest request =
+            new MockHttpServletRequest();
+
+    request.setRequestURI("/api/answers/1");
+
+    ResponseEntity<ErrorResponse> response =
+            handler.handleAnswerEditConflict(
+                    exception,
+                    request
+            );
+
+    assertThat(response.getStatusCode())
+            .isEqualTo(HttpStatus.CONFLICT);
+
+    assertThat(response.getBody())
+            .isNotNull();
+
+    assertThat(response.getBody().status())
+            .isEqualTo(409);
+
+    assertThat(response.getBody().error())
+            .isEqualTo("Conflict");
+
+    assertThat(response.getBody().message())
+            .isEqualTo(
+                    "いいねが付いている回答は編集できません。"
+            );
+
+    assertThat(response.getBody().path())
+            .isEqualTo("/api/answers/1");
+}
 }
