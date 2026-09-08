@@ -94,6 +94,12 @@ import com.example.bulletinboard.service.TopicService;
  *   → 204 No Content
  *   → loginEmailの受け渡し確認
  *   → isAdmin = true の受け渡し確認
+ *
+* - 存在しないTopicの削除
+ *   → 404 Not Found
+ *   → ErrorResponse確認
+ *   → loginEmailの受け渡し確認
+ *   → isAdmin = false の受け渡し確認
  */
 
 @WebMvcTest(TopicApiController.class)
@@ -776,4 +782,39 @@ void deleteTopic_NotOwnerAndNotAdmin_ShouldReturnForbidden() throws Exception {
             false
     );
 }
+
+@Test
+@DisplayName("存在しないTopicを削除しようとすると404 Not Foundになること")
+@WithMockUser(username = "owner@example.com")
+void deleteTopic_TopicNotFound_ShouldReturnNotFound() throws Exception {
+
+    doThrow(
+            new TopicNotFoundException(
+                    "このお題は存在しないか、削除されています。"
+            )
+    ).when(topicService).deleteById(
+            999L,
+            "owner@example.com",
+            false
+    );
+
+    mockMvc.perform(
+            delete("/api/topics/999")
+                    .with(csrf())
+    )
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.error").value("Not Found"))
+            .andExpect(jsonPath("$.message")
+                    .value("このお題は存在しないか、削除されています。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/topics/999"));
+
+    verify(topicService).deleteById(
+            999L,
+            "owner@example.com",
+            false
+    );
+}
+
 }
