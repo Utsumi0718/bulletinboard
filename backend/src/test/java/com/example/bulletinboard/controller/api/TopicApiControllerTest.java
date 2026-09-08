@@ -88,6 +88,11 @@ import com.example.bulletinboard.service.TopicService;
  *   → 204 No Content
  *   → loginEmailの受け渡し確認
  *   → isAdmin = false の受け渡し確認
+ *
+ * - ROLE_ADMINによる他ユーザーTopic削除
+ *   → 204 No Content
+ *   → loginEmailの受け渡し確認
+ *   → isAdmin = true の受け渡し確認
  */
 
 @WebMvcTest(TopicApiController.class)
@@ -713,6 +718,27 @@ void deleteTopic_Owner_ShouldReturnNoContent() throws Exception {
             1L,
             "owner@example.com",
             false
+    );
+}
+
+@Test
+@DisplayName("管理者が他ユーザーのTopicを削除すると204 No Contentになること")
+@WithMockUser(
+        username = "admin@example.com",
+        roles = "ADMIN"
+)
+void deleteTopic_Admin_ShouldReturnNoContent() throws Exception {
+
+    mockMvc.perform(
+            delete("/api/topics/1")
+                    .with(csrf())
+    )
+            .andExpect(status().isNoContent());
+
+    verify(topicService).deleteById(
+            1L,
+            "admin@example.com",
+            true
     );
 }
 }
