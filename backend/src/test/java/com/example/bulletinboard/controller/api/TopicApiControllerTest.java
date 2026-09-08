@@ -95,7 +95,7 @@ import com.example.bulletinboard.service.TopicService;
  *   → loginEmailの受け渡し確認
  *   → isAdmin = true の受け渡し確認
  *
-* - 存在しないTopicの削除
+ * - 存在しないTopicの削除
  *   → 404 Not Found
  *   → ErrorResponse確認
  *   → loginEmailの受け渡し確認
