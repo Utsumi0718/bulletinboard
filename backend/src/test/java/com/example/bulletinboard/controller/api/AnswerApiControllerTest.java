@@ -1,5 +1,6 @@
 package com.example.bulletinboard.controller.api;
 
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -17,6 +18,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.model.Answer;
 import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.model.User;
@@ -65,7 +67,7 @@ class AnswerApiControllerTest {
     private TopicService topicService;
 
 
-  @Test
+@Test
 @DisplayName("指定TopicのAnswer一覧を200 OKで取得できること")
 @WithMockUser(username = "testuser01@example.com")
 void getAnswersByTopicId_ShouldReturnAnswerList() throws Exception {
@@ -111,5 +113,62 @@ void getAnswersByTopicId_ShouldReturnAnswerList() throws Exception {
 
     verify(answerService)
             .getAnswersByTopicId(1L);
+}
+
+@Test
+@DisplayName("指定TopicにAnswerが0件の場合は200 OKで空配列を返すこと")
+@WithMockUser(username = "testuser01@example.com")
+void getAnswersByTopicId_NoAnswers_ShouldReturnEmptyList() throws Exception {
+
+    Topic topic = new Topic();
+    topic.setId(1L);
+
+    when(
+            topicService.getById(1L)
+    ).thenReturn(topic);
+
+    when(
+            answerService.getAnswersByTopicId(1L)
+    ).thenReturn(List.of());
+
+    mockMvc.perform(
+            get("/api/topics/1/answers")
+    )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$").isArray())
+            .andExpect(jsonPath("$").isEmpty());
+
+    verify(topicService).getById(1L);
+
+    verify(answerService)
+            .getAnswersByTopicId(1L);
+}
+
+@Test
+@DisplayName("存在しないTopicのAnswer一覧を取得しようとすると404 Not Foundになること")
+@WithMockUser(username = "testuser01@example.com")
+void getAnswersByTopicId_TopicNotFound_ShouldReturnNotFound() throws Exception {
+
+    when(
+            topicService.getById(999L)
+    ).thenThrow(
+            new TopicNotFoundException(
+                    "このお題は存在しないか、削除されています。"
+            )
+    );
+
+    mockMvc.perform(
+            get("/api/topics/999/answers")
+    )
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.error").value("Not Found"))
+            .andExpect(jsonPath("$.message")
+                    .value("このお題は存在しないか、削除されています。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/topics/999/answers"));
+
+   verify(answerService, never())
+        .getAnswersByTopicId(999L);
 }
 }
