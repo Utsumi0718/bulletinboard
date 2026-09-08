@@ -2,6 +2,7 @@ package com.example.bulletinboard.controller.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -739,6 +740,40 @@ void deleteTopic_Admin_ShouldReturnNoContent() throws Exception {
             1L,
             "admin@example.com",
             true
+    );
+}
+
+@Test
+@DisplayName("投稿者本人でも管理者でもないユーザーがTopicを削除すると403 Forbiddenになること")
+@WithMockUser(username = "other@example.com")
+void deleteTopic_NotOwnerAndNotAdmin_ShouldReturnForbidden() throws Exception {
+
+    doThrow(
+            new ForbiddenOperationException(
+                    "このお題を削除する権限がありません。"
+            )
+    ).when(topicService).deleteById(
+            1L,
+            "other@example.com",
+            false
+    );
+
+    mockMvc.perform(
+            delete("/api/topics/1")
+                    .with(csrf())
+    )
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.status").value(403))
+            .andExpect(jsonPath("$.error").value("Forbidden"))
+            .andExpect(jsonPath("$.message")
+                    .value("このお題を削除する権限がありません。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/topics/1"));
+
+    verify(topicService).deleteById(
+            1L,
+            "other@example.com",
+            false
     );
 }
 }
