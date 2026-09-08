@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.example.bulletinboard.dto.error.ErrorResponse;
 import com.example.bulletinboard.dto.error.ValidationErrorResponse;
+import com.example.bulletinboard.exception.AnswerNotFoundException;
 import com.example.bulletinboard.exception.ForbiddenOperationException;
 import com.example.bulletinboard.exception.TopicEditConflictException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
@@ -50,6 +51,10 @@ import jakarta.servlet.http.HttpServletRequest;
  *
  * - TopicEditConflictException
  *   → 409 Conflict
+ *   → ErrorResponseを返却
+ *
+ * - AnswerNotFoundException
+ *   → 404 Not Found
  *   → ErrorResponseを返却
  *
  * 【今後の拡張予定】
@@ -229,4 +234,31 @@ public ResponseEntity<ErrorResponse> handleTopicEditConflict(
             .status(HttpStatus.CONFLICT)
             .body(response);
 }
+
+/**
+ * Answerが存在しない、または論理削除済みの場合の
+ * AnswerNotFoundExceptionを処理します。
+ *
+ * @param ex      発生したAnswerNotFoundException
+ * @param request エラーが発生したHTTPリクエスト
+ * @return 404 Not FoundとErrorResponse
+ */
+@ExceptionHandler(AnswerNotFoundException.class)
+public ResponseEntity<ErrorResponse> handleAnswerNotFound(
+        AnswerNotFoundException ex,
+        HttpServletRequest request) {
+
+    ErrorResponse response = new ErrorResponse(
+            HttpStatus.NOT_FOUND.value(),
+            HttpStatus.NOT_FOUND.getReasonPhrase(),
+            ex.getMessage(),
+            request.getRequestURI()
+    );
+
+    return ResponseEntity
+            .status(HttpStatus.NOT_FOUND)
+            .body(response);
+}
+
+
 }
