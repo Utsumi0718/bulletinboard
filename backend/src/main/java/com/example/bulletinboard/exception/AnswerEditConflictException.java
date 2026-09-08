@@ -16,4 +16,4 @@ public class AnswerEditConflictException extends RuntimeException {
     public AnswerEditConflictException(String message) {
         super(message);
     }
-}
+}   
