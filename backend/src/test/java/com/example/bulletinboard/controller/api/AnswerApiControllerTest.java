@@ -1,19 +1,26 @@
 package com.example.bulletinboard.controller.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -23,8 +30,8 @@ import com.example.bulletinboard.model.Answer;
 import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.service.AnswerService;
+import com.example.bulletinboard.service.CustomUserDetailsService;
 import com.example.bulletinboard.service.TopicService;
-
 
 /*
  * 【クラスの役割】
@@ -33,7 +40,8 @@ import com.example.bulletinboard.service.TopicService;
  *
  * MockMvcを使用してHTTPリクエストを送信し、
  * HTTP StatusやJSONレスポンス、
- * AnswerService・TopicServiceの呼び出しを確認します。
+ * AnswerService・TopicService・CustomUserDetailsServiceの
+ * 呼び出しを確認します。
  *
  * 【現在の検証対象】
  * - GET /api/topics/{topicId}/answers
@@ -43,17 +51,29 @@ import com.example.bulletinboard.service.TopicService;
  *   → Answerが0件の場合は空配列
  *   → Topic不存在時は404 Not Found
  *
- * 【今後の検証対象】
  * - POST /api/topics/{topicId}/answers
+ *   → 指定TopicへのAnswer投稿
+ *   → 正常時 201 Created
+ *   → loginEmailからUser取得
+ *   → Topic取得
+ *   → AnswerへUser / Topic / contentを設定
+ *   → Validationエラー時 400 Bad Request
+ *   → Topic不存在時 404 Not Found
+ *   → User取得失敗時 500 Internal Server Error
+ *
+ * 【今後の検証対象】
  * - PUT /api/answers/{id}
  * - DELETE /api/answers/{id}
  *
  * 【設計上のポイント】
  * - 旧AnswerControllerTestのredirect検証はREST APIでは行いません。
  * - REST APIではHTTP StatusとJSONレスポンスを検証します。
+ * - 認証PrincipalにはログインIDであるemailが設定されます。
  * - Topicの存在確認はTopicServiceへ委譲します。
- * - Answer一覧取得はAnswerServiceへ委譲します。
+ * - Answer一覧取得・保存はAnswerServiceへ委譲します。
+ * - ログインユーザー取得はCustomUserDetailsServiceへ委譲します。
  */
+
 @WebMvcTest(AnswerApiController.class)
 class AnswerApiControllerTest {
 
@@ -65,6 +85,9 @@ class AnswerApiControllerTest {
 
     @MockitoBean
     private TopicService topicService;
+
+    @MockitoBean
+    private CustomUserDetailsService userDetailsService;
 
 
 @Test
@@ -170,5 +193,194 @@ void getAnswersByTopicId_TopicNotFound_ShouldReturnNotFound() throws Exception {
 
    verify(answerService, never())
         .getAnswersByTopicId(999L);
+}
+
+@Test
+@DisplayName("指定TopicへAnswerを投稿すると201 Createdと作成済みAnswerを返すこと")
+@WithMockUser(username = "testuser01@example.com")
+void createAnswer_ShouldReturnCreatedAnswer() throws Exception {
+
+    User user = new User();
+    user.setUsername("testuser01");
+    user.setEmail("testuser01@example.com");
+
+    Topic topic = new Topic();
+    topic.setId(1L);
+
+    when(
+            userDetailsService.findByEmail(
+                    "testuser01@example.com"
+            )
+    ).thenReturn(Optional.of(user));
+
+    when(
+            topicService.getById(1L)
+    ).thenReturn(topic);
+
+    when(
+            answerService.saveAnswer(any(Answer.class))
+    ).thenAnswer(invocation -> {
+
+        Answer answer = invocation.getArgument(0);
+
+        answer.setId(100L);
+        answer.setCreatedAt(
+                LocalDateTime.of(2026, 9, 9, 8, 0)
+        );
+        answer.setUpdatedAt(
+                LocalDateTime.of(2026, 9, 9, 8, 0)
+        );
+
+        return answer;
+    });
+
+    mockMvc.perform(
+            post("/api/topics/1/answers")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "content": "テスト回答です"
+                            }
+                            """)
+    )
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.id").value(100))
+            .andExpect(jsonPath("$.content")
+                    .value("テスト回答です"))
+            .andExpect(jsonPath("$.username")
+                    .value("testuser01"));
+
+    verify(userDetailsService)
+            .findByEmail("testuser01@example.com");
+
+    verify(topicService)
+            .getById(1L);
+
+    ArgumentCaptor<Answer> answerCaptor =
+            ArgumentCaptor.forClass(Answer.class);
+
+    verify(answerService)
+            .saveAnswer(answerCaptor.capture());
+
+    Answer savedAnswer =
+            answerCaptor.getValue();
+
+    assertThat(savedAnswer.getTopic())
+            .isSameAs(topic);
+
+    assertThat(savedAnswer.getUser())
+            .isSameAs(user);
+
+    assertThat(savedAnswer.getContent())
+            .isEqualTo("テスト回答です");
+}
+
+@Test
+@DisplayName("Answer投稿でValidationエラーの場合は400 Bad Requestになること")
+@WithMockUser(username = "testuser01@example.com")
+void createAnswer_ValidationError_ShouldReturnBadRequest() throws Exception {
+
+    mockMvc.perform(
+            post("/api/topics/1/answers")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "content": ""
+                            }
+                            """)
+    )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.error")
+                    .value("Bad Request"))
+            .andExpect(jsonPath("$.message")
+                    .value("入力内容に誤りがあります。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/topics/1/answers"))
+            .andExpect(jsonPath("$.fieldErrors.content").exists());
+}
+
+@Test
+@DisplayName("存在しないTopicへAnswerを投稿しようとすると404 Not Foundになること")
+@WithMockUser(username = "testuser01@example.com")
+void createAnswer_TopicNotFound_ShouldReturnNotFound() throws Exception {
+
+    User user = new User();
+    user.setUsername("testuser01");
+    user.setEmail("testuser01@example.com");
+
+    when(
+            userDetailsService.findByEmail(
+                    "testuser01@example.com"
+            )
+    ).thenReturn(Optional.of(user));
+
+    when(
+            topicService.getById(999L)
+    ).thenThrow(
+            new TopicNotFoundException(
+                    "このお題は存在しないか、削除されています。"
+            )
+    );
+
+    mockMvc.perform(
+            post("/api/topics/999/answers")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "content": "テスト回答です"
+                            }
+                            """)
+    )
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.error").value("Not Found"))
+            .andExpect(jsonPath("$.message")
+                    .value("このお題は存在しないか、削除されています。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/topics/999/answers"));
+
+    verify(userDetailsService)
+            .findByEmail("testuser01@example.com");
+
+    verify(topicService)
+            .getById(999L);
+}
+
+@Test
+@DisplayName("Answer投稿時にログインユーザー情報を取得できない場合は500 Internal Server Errorになること")
+@WithMockUser(username = "testuser01@example.com")
+void createAnswer_UserNotFound_ShouldReturnInternalServerError() throws Exception {
+
+    when(
+            userDetailsService.findByEmail(
+                    "testuser01@example.com"
+            )
+    ).thenReturn(Optional.empty());
+
+    mockMvc.perform(
+            post("/api/topics/1/answers")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "content": "テスト回答です"
+                            }
+                            """)
+    )
+            .andExpect(status().isInternalServerError())
+            .andExpect(jsonPath("$.status").value(500))
+            .andExpect(jsonPath("$.error")
+                    .value("Internal Server Error"))
+            .andExpect(jsonPath("$.message")
+                    .value("ログインユーザー情報を取得できませんでした。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/topics/1/answers"));
+
+    verify(userDetailsService)
+            .findByEmail("testuser01@example.com");
 }
 }
