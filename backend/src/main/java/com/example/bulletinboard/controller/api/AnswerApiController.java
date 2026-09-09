@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,8 +31,7 @@ import jakarta.validation.Valid;
  * 【クラスの役割】
  * Answerに関するREST APIを提供するControllerです。
  *
- * 現在は、指定されたTopicに紐づくAnswer一覧取得と
- * 新しいAnswerの投稿処理を担当します。
+ * Answer一覧取得、投稿、編集、削除を担当します。
  *
  * 業務ルールやデータ取得・保存処理はService層へ委譲し、
  * ControllerではHTTPリクエストの受け取り、
@@ -55,15 +55,26 @@ import jakarta.validation.Valid;
  *   → Answerの編集
  *   → AuthenticationからloginEmailを取得
  *   → AnswerRequestのcontentをAnswerServiceへ渡す
- *   → 正常時は200 OKとAnswerResponseを返す
- *   → Answer不存在時は404 Not Found
+ *   → 正常時 200 OKとAnswerResponse
+ *   → Answer不存在時 404 Not Found
  *   → 編集権限がない場合は403 Forbidden
  *   → Likeが付いている場合は409 Conflict
  *   → Validationエラー時は400 Bad Request
  *
- * 【今後追加予定】
- *
  * - DELETE /api/answers/{id}
+ *   → Answerの論理削除
+ *   → AuthenticationからloginEmailを取得
+ *   → ROLE_ADMIN判定
+ *   → 投稿者本人またはROLE_ADMINのみ削除可能
+ *   → 正常時 204 No Content
+ *   → Answer不存在時 404 Not Found
+ *   → 削除権限がない場合は403 Forbidden
+ *
+ * 【設計上のポイント】
+ * - ControllerではHTTP層の責務に集中します。
+ * - Answerに関する業務ルールはAnswerServiceへ委譲します。
+ * - 認証PrincipalにはログインIDであるemailが設定されます。
+ * - REST APIの例外レスポンスはGlobalExceptionHandlerへ委譲します。
  */
 
 
@@ -225,5 +236,56 @@ public ResponseEntity<AnswerResponse> updateAnswer(
             AnswerResponse.from(updatedAnswer);
 
     return ResponseEntity.ok(response);
+}
+
+/**
+ * 指定されたAnswerを論理削除します。
+ *
+ * Authenticationからログインユーザーのemailを取得し、
+ * ROLE_ADMIN権限を持っているかを判定します。
+ *
+ * AnswerServiceへAnswer ID・loginEmail・管理者判定結果を渡し、
+ * 削除処理を委譲します。
+ *
+ * 削除できるのは投稿者本人またはROLE_ADMINです。
+ *
+ * Answerが存在しない、または論理削除済みの場合は
+ * AnswerNotFoundExceptionが発生し、
+ * 404 Not Foundになります。
+ *
+ * 削除権限がない場合は
+ * ForbiddenOperationExceptionが発生し、
+ * 403 Forbiddenになります。
+ *
+ * 正常時は204 No Contentを返し、
+ * Response Bodyは返しません。
+ *
+ * @param id             削除対象AnswerのID
+ * @param authentication ログインユーザーの認証情報
+ * @return 204 No Content
+ */
+
+@DeleteMapping("/answers/{id}")
+public ResponseEntity<Void> deleteAnswer(
+        @PathVariable Long id,
+        Authentication authentication) {
+
+    String loginEmail = authentication.getName();
+
+    boolean isAdmin = authentication.getAuthorities()
+            .stream()
+            .anyMatch(
+                    authority ->
+                            authority.getAuthority()
+                                    .equals("ROLE_ADMIN")
+            );
+
+    answerService.deleteAnswer(
+            id,
+            loginEmail,
+            isAdmin
+    );
+
+    return ResponseEntity.noContent().build();
 }
 }
