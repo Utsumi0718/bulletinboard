@@ -38,8 +38,8 @@ import jakarta.validation.Valid;
  * 取得したTopicはDTOへ変換し、
  * JSON形式のレスポンスとして返します。
  *
- * 旧Thymeleaf用のTopicControllerとは責務を分離しており、
- * 本クラスではREST APIのみを担当します。
+ * Reactなどのフロントエンドから利用するJSON APIとして、
+ * お題の一覧取得・詳細取得・新規投稿・編集・削除を担当します。
  *
  * 【現在の対応API】
  * - GET /api/topics

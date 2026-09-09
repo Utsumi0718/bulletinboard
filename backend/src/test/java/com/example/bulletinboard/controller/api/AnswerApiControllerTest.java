@@ -88,7 +88,9 @@ import com.example.bulletinboard.service.TopicService;
  *   → ROLE_ADMIN判定結果をAnswerServiceへ渡す
  *
  * 【設計上のポイント】
- * - 旧AnswerControllerTestのredirect検証はREST APIでは行いません。
+ * - REST APIでは画面リダイレクトを行わず、
+ *   HTTPステータスとJSONレスポンスを検証します。
+ *
  * - REST APIではHTTP StatusとJSONレスポンスを検証します。
  * - 認証PrincipalにはログインIDであるemailが設定されます。
  * - Topicの存在確認はTopicServiceへ委譲します。
