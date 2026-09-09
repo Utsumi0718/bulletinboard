@@ -7,6 +7,9 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.bulletinboard.exception.AnswerEditConflictException;
+import com.example.bulletinboard.exception.AnswerNotFoundException;
+import com.example.bulletinboard.exception.ForbiddenOperationException;
 import com.example.bulletinboard.model.Answer;
 import com.example.bulletinboard.repository.AnswerRepository;
 
@@ -137,23 +140,23 @@ public class AnswerService {
 
     Answer answer = answerRepository
         .findByIdAndDeletedAtIsNull(answerId)
-        .orElseThrow(
-            () -> new IllegalArgumentException(
-                "指定された回答が存在しません。id=" + answerId
-            )
-        );
+       .orElseThrow(
+        () -> new AnswerNotFoundException(
+        "この回答は存在しないか、削除されています。"
+        )
+      );
 
     if (!answer.getUser().getEmail().equals(loginEmail)) {
-        throw new IllegalStateException(
-            "この回答を編集する権限がありません。"
-        );
+    throw new ForbiddenOperationException(
+        "この回答を編集する権限がありません。"
+    );
     }
 
     if (likeService.getLikeCount(answer) > 0) {
-        throw new IllegalStateException(
-            "いいねが付いている回答は編集できません。"
-        );
-    }
+    throw new AnswerEditConflictException(
+        "いいねが付いている回答は編集できません。"
+    );
+  }
 
     answer.setContent(content);
 
