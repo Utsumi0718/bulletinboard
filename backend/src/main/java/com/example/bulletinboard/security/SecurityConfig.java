@@ -64,7 +64,7 @@ public class SecurityConfig {
                  * 静的リソースなどは、未ログインユーザーにも公開します。
                  */
                 .requestMatchers(
-                    "/posts",
+
                     "/login",
                     "/register",
                     "/reset-password",
