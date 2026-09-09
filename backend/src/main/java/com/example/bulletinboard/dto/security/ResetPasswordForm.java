@@ -1,4 +1,4 @@
-package com.example.bulletinboard.dto;
+package com.example.bulletinboard.dto.security;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;

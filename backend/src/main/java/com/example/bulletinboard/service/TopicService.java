@@ -10,8 +10,13 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.bulletinboard.exception.ForbiddenOperationException;
+import com.example.bulletinboard.exception.TopicEditConflictException;
+import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.model.Topic;
+import com.example.bulletinboard.repository.AnswerRepository;
 import com.example.bulletinboard.repository.TopicRepository;
+
 
 /*
  * 【クラス全体の役割】
@@ -19,45 +24,68 @@ import com.example.bulletinboard.repository.TopicRepository;
  * ビジネスロジックを担当するServiceクラスです。
  *
  * Controllerなどの上位層から要求を受け取り、
- * TopicRepositoryを通してtopicsテーブルへアクセスします。
+ * TopicRepositoryやAnswerRepositoryを通して
+ * Topicの取得・検索・保存・編集・削除を行います。
  *
  * 【主な役割】
  * - お題一覧の取得
  * - お題のIDによる取得
- * - お題の保存
  * - お題タイトルの部分一致検索
+ * - お題の保存
+ * - お題の編集
+ * - お題の論理削除
+ * - Answerの存在確認
  * - ページネーション
  * - 並び替え
- * - お題の論理削除
  *
- * 【設計上のポイント】
- * - 旧PostServiceではタイトルと本文に対して、
- *   部分一致・前方一致・後方一致検索を行っていました。
- * - 新しいTopicでは、検索対象を「お題タイトル」のみに限定し、
- *   検索方式も部分一致検索のみとします。
- * - Topicの削除はRepositoryのdelete()を使用した物理削除ではなく、
- *   deletedAtに削除日時を設定する論理削除方式を採用します。
+ * 【編集時のルール】
+ * - Topicの編集は投稿者本人のみ可能です。
+ * - 投稿者本人以外が編集しようとした場合は、
+ *   ForbiddenOperationExceptionを使用します。
+ * - Answerが一度でも投稿されたTopicは編集できません。
+ * - 論理削除済みのAnswerも存在判定に含めます。
+ * - Answerが存在するTopicを編集しようとした場合は、
+ *   TopicEditConflictExceptionを使用します。
+ *
+ * 【削除時のルール】
+ * - Topicの削除は投稿者本人またはROLE_ADMINのみ可能です。
+ * - 投稿者本人でもROLE_ADMINでもないユーザーが
+ *   削除しようとした場合は、
+ *   ForbiddenOperationExceptionを使用します。
+ * - Topicの削除は物理削除ではなく、
+ *   deletedAtに削除日時を設定する論理削除方式です。
+ *
+ * 【共通ルール】
  * - 通常の一覧取得・ID取得・検索では、
  *   deletedAtがNULLのTopicのみを対象とします。
- * - 投稿者本人のみ編集可能、回答が付いた後は編集不可などの
- *   業務ルールについては、Topic / Answer主要機能の実装時に追加します。
+ * - Topicが存在しない、または論理削除済みの場合は、
+ *   TopicNotFoundExceptionを使用します。
+ * - 検索対象はTopic.titleのみです。
+ * - 検索方式は部分一致のみです。
  */
+
 @Service
 public class TopicService {
 
     private final TopicRepository topicRepository;
+    private final AnswerRepository answerRepository;
+
 
     /*
      * 1ページあたりに表示するお題の件数。
      */
-    private static final int PAGE_SIZE = 5;
+    private static final int PAGE_SIZE = 10;
 
     /*
-     * TopicRepositoryをコンストラクタインジェクションします。
+     * TopicRepositoryとAnswerRepositoryをコンストラクタインジェクションします。
      */
-    public TopicService(TopicRepository topicRepository) {
-        this.topicRepository = topicRepository;
-    }
+    public TopicService(
+        TopicRepository topicRepository,
+        AnswerRepository answerRepository) {
+
+    this.topicRepository = topicRepository;
+    this.answerRepository = answerRepository;
+   }
 
     /*
      * 削除されていないお題をページ単位で取得します。
@@ -85,6 +113,23 @@ public class TopicService {
      */
     public Optional<Topic> findById(Long id) {
         return topicRepository.findByIdAndDeletedAtIsNull(id);
+    }
+
+    /**
+      * REST APIの詳細取得用として、
+      * 指定されたIDのTopicを取得します。
+      *
+      * Topicが存在しない、または論理削除済みの場合は
+      * TopicNotFoundExceptionを投げます。
+    */
+    public Topic getById(Long id) {
+       return topicRepository
+        .findByIdAndDeletedAtIsNull(id)
+        .orElseThrow(
+            () -> new TopicNotFoundException(
+                "このお題は存在しないか、削除されています。"
+            )
+        );
     }
 
     /*
@@ -125,24 +170,44 @@ public class TopicService {
     /*
      * 指定されたTopicを論理削除します。
      *
-     * DBからレコードそのものを削除するのではなく、
+     * 削除できるのは、Topicの投稿者本人またはROLE_ADMINのユーザーです。
+     * その他のユーザーが削除しようとした場合は、
+     * ForbiddenOperationExceptionを投げます。
+     *
+     * Topicが存在しない、または論理削除済みの場合は、
+     * TopicNotFoundExceptionを投げます。
+     *
+     * 削除時はDBからレコードそのものを削除せず、
      * deletedAtに現在日時を設定します。
      */
+
     @Transactional
-    public void deleteById(Long id) {
+     public void deleteById(
+        Long id,
+        String loginEmail,
+        boolean isAdmin) {
 
-        Topic topic = topicRepository
-            .findByIdAndDeletedAtIsNull(id)
-            .orElseThrow(
-                () -> new IllegalArgumentException(
-                    "指定されたお題が存在しません。id=" + id
-                )
-            );
+    Topic topic = topicRepository
+        .findByIdAndDeletedAtIsNull(id)
+        .orElseThrow(
+         () -> new TopicNotFoundException(
+            "このお題は存在しないか、削除されています。"
+        )
+        );
 
-        topic.setDeletedAt(LocalDateTime.now());
+    boolean isOwner =
+        topic.getUser().getEmail().equals(loginEmail);
 
-        topicRepository.save(topic);
-    }
+    if (!isOwner && !isAdmin) {
+    throw new ForbiddenOperationException(
+        "このお題を削除する権限がありません。"
+    );
+}
+
+    topic.setDeletedAt(LocalDateTime.now());
+
+    topicRepository.save(topic);
+}
 
     /*
      * ページネーションと並び替えに使用する
@@ -199,4 +264,64 @@ public class TopicService {
             default -> "createdAt";
         };
     }
+
+    /**
+     * 指定したTopicにAnswerが一度でも投稿されたことがあるか確認します。
+     * 論理削除済みのAnswerも存在判定に含めます。
+     */
+    public boolean hasAnyAnswer(Long topicId) {
+    return answerRepository.existsByTopicId(topicId);
+   }
+
+   /*
+    * 指定されたTopicを編集します。
+    *
+    * 編集できるのはTopicの投稿者本人のみです。
+    * 投稿者本人以外が編集しようとした場合は、
+    * ForbiddenOperationExceptionを投げます。
+    *
+    * また、Answerが一度でも投稿されたTopicは編集できません。
+    * 論理削除済みのAnswerも「過去に回答が存在した」として判定します。
+    *
+    * Topicが存在しない、または論理削除済みの場合は、
+    * TopicNotFoundExceptionを投げます。
+    *
+    * 条件を満たした場合のみ、
+    * title、image、questionを更新します。
+    */
+
+   @Transactional
+public Topic updateTopic(
+        Long topicId,
+        String loginEmail,
+        String title,
+        String image,
+        String question) {
+
+    Topic topic = topicRepository
+            .findByIdAndDeletedAtIsNull(topicId)
+            .orElseThrow(() ->
+                    new TopicNotFoundException(
+                            "このお題は存在しないか、削除されています。"
+                        )
+
+            );
+    if (!topic.getUser().getEmail().equals(loginEmail)) {
+    throw new ForbiddenOperationException(
+        "このお題を編集する権限がありません。"
+    );
+}
+
+ if (hasAnyAnswer(topicId)) {
+    throw new TopicEditConflictException(
+        "回答が投稿されたお題は編集できません。"
+    );
+}
+
+    topic.setTitle(title);
+    topic.setImage(image);
+    topic.setQuestion(question);
+
+    return topicRepository.save(topic);
+}
 }

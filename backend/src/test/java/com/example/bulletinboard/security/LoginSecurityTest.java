@@ -25,16 +25,26 @@ import com.example.bulletinboard.repository.UserRepository;
 /**
  * 【クラス全体の役割】
  * email + passwordによるログイン認証と、
- * ログイン失敗回数によるセキュリティロックを検証するテストクラスです。
+ * ログイン失敗回数によるセキュリティロック、
+ * accountStatusによるログイン可否を検証するテストクラスです。
  *
  * 【主な検証内容】
  * - パスワード誤り時にfailedAttemptが加算されること
  * - ログイン失敗3回でaccountNonLocked=falseになること
  * - ロック状態では正しいパスワードでもログインできないこと
+ * - ACTIVEユーザーが正常にログインできること
+ * - FROZENユーザーがログインできないこと
+ * - WITHDRAWNユーザーがログインできないこと
+ * - ログイン成功時にfailedAttemptが0へリセットされること
  *
- *  * accountStatusについては、
- * ACTIVE / FROZEN / WITHDRAWNそれぞれの
- * ログイン可否を検証します。
+ * 【設計上のポイント】
+ * - ログインIDにはusernameではなくemailを使用します。
+ * - ログイン失敗回数が3回に達すると
+ *   accountNonLocked=falseとなりセキュリティロックされます。
+ * - ログイン成功時はAuthenticationEventListenerを通して
+ *   failedAttemptを0へリセットします。
+ * - accountStatusはACTIVE / FROZEN / WITHDRAWNを区別し、
+ *   ACTIVEの場合のみ通常ログインを許可します。
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -43,7 +53,6 @@ class LoginSecurityTest {
 
     @Autowired
     private MockMvc mockMvc;
-
     @Autowired
     private UserRepository userRepository;
 
@@ -228,5 +237,40 @@ void login_WhenWithdrawn_RedirectsToWithdrawn() throws Exception {
             .andExpect(
                 redirectedUrl("/login?error=withdrawn")
             );
+}
+
+@Test
+@DisplayName("ログイン成功時にfailedAttemptが0へリセットされること")
+void loginSuccess_ShouldResetFailedAttempts()
+        throws Exception {
+
+    User user = userRepository
+            .findByEmail("testuser@example.com")
+            .orElseThrow();
+
+    user.setFailedAttempt(2);
+    userRepository.save(user);
+
+    mockMvc.perform(post("/login")
+            .param("email", "testuser@example.com")
+            .param("password", "Password123")
+            .with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(
+                redirectedUrl("/posts")
+            );
+
+    User updatedUser = userRepository
+            .findByEmail("testuser@example.com")
+            .orElseThrow();
+
+    assertEquals(
+        0,
+        updatedUser.getFailedAttempt()
+    );
+
+    assertTrue(
+        updatedUser.isAccountNonLocked()
+    );
 }
 }

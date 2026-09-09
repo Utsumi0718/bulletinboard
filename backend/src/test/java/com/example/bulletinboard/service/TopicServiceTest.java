@@ -22,14 +22,19 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import com.example.bulletinboard.exception.ForbiddenOperationException;
+import com.example.bulletinboard.exception.TopicEditConflictException;
+import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.model.Topic;
+import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.repository.AnswerRepository;
 import com.example.bulletinboard.repository.TopicRepository;
 
 /*
  * 【クラスの役割】
  * TopicServiceのビジネスロジックを検証する単体テストクラスです。
  *
- * TopicRepositoryをMockitoでモック化し、
+ * TopicRepositoryとAnswerRepositoryをMockitoでモック化し、
  * 実際のデータベースには接続せずにService層だけをテストします。
  *
  * 【主な検証内容】
@@ -38,21 +43,63 @@ import com.example.bulletinboard.repository.TopicRepository;
  * - ソート順
  * - 負のページ番号の補正
  * - 削除されていないTopic一覧の取得
- * - Topicの論理削除
+ * - 既存findById()によるTopic取得
+ * - REST API用getById()によるTopic詳細取得
+ * - REST API用getById()でTopic不存在時に
+ *   TopicNotFoundExceptionとなること
+ * - Topicの保存
+ * - Answerの存在判定
+ *
+ * - 投稿者本人かつAnswerがないTopicの編集
+ * - 投稿者本人以外によるTopic編集で
+ *   ForbiddenOperationExceptionとなること
+ * - Answerが存在するTopic編集で
+ *   TopicEditConflictExceptionとなること
+ * - Topic不存在時の編集で
+ *   TopicNotFoundExceptionとなること
+ *
+ * - 投稿者本人によるTopicの論理削除
+ * - ROLE_ADMINによる他ユーザーTopicの論理削除
+ * - 投稿者本人でもROLE_ADMINでもないユーザーによるTopic削除で
+ *   ForbiddenOperationExceptionとなること
+ * - Topic不存在時の削除で
+ *   TopicNotFoundExceptionとなること
  *
  * 【設計上のポイント】
  * - 検索対象はお題タイトルのみです。
  * - 検索方式は部分一致のみです。
  * - 前方一致・後方一致のテストは新仕様では不要です。
+ * - 負のページ番号は0ページ目へ補正します。
+ *
+ * - Topic編集は投稿者本人かつ
+ *   Answerが一度も存在しない場合のみ許可します。
+ * - 投稿者本人以外がTopicを編集しようとした場合は、
+ *   ForbiddenOperationExceptionを使用します。
+ * - Answerが一度でも存在するTopicを編集しようとした場合は、
+ *   TopicEditConflictExceptionを使用します。
+ * - Answerの存在判定は
+ *   AnswerRepository.existsByTopicId()を使用します。
+ *
+ * - Topic削除は投稿者本人またはROLE_ADMINのみ許可します。
+ * - 投稿者本人でもROLE_ADMINでもないユーザーが削除しようとした場合は、
+ *   ForbiddenOperationExceptionを使用します。
+ * - Topic削除は物理削除ではなく、
+ *   deletedAtを設定する論理削除です。
+ *
+ * - Topicが存在しない、または論理削除済みの場合は、
+ *   TopicNotFoundExceptionを使用します。
  */
 @ExtendWith(MockitoExtension.class)
 class TopicServiceTest {
 
-    @Mock
-    private TopicRepository topicRepository;
+   @Mock
+   private TopicRepository topicRepository;
 
-    @InjectMocks
-    private TopicService topicService;
+   @Mock
+   private AnswerRepository answerRepository;
+
+   @InjectMocks
+   private TopicService topicService;
 
     @Test
     @DisplayName("お題タイトルを部分一致検索できること")
@@ -209,31 +256,376 @@ class TopicServiceTest {
     }
 
     @Test
-    @DisplayName("指定したTopicを論理削除できること")
+    @DisplayName("投稿者本人が指定したTopicを論理削除できること")
     void deleteById_ShouldSetDeletedAt() {
 
-        Topic topic = new Topic();
-        topic.setId(1L);
+    User topicUser = new User();
+    topicUser.setEmail("testuser01@example.com");
 
-        when(
-            topicRepository
-                .findByIdAndDeletedAtIsNull(1L)
-        ).thenReturn(Optional.of(topic));
+    Topic topic = new Topic();
+    topic.setId(1L);
+    topic.setUser(topicUser);
 
-        when(
-            topicRepository.save(any(Topic.class))
-        ).thenAnswer(
-            invocation -> invocation.getArgument(0)
-        );
+    when(
+        topicRepository
+            .findByIdAndDeletedAtIsNull(1L)
+    ).thenReturn(Optional.of(topic));
 
-        topicService.deleteById(1L);
+    when(
+        topicRepository.save(any(Topic.class))
+    ).thenAnswer(
+        invocation -> invocation.getArgument(0)
+    );
 
-        assertThat(topic.getDeletedAt())
-            .isNotNull();
+    topicService.deleteById(
+        1L,
+        "testuser01@example.com",
+        false
+    );
 
-        verify(
-            topicRepository,
-            times(1)
-        ).save(topic);
-    }
+    assertThat(topic.getDeletedAt())
+        .isNotNull();
+
+    verify(
+        topicRepository,
+        times(1)
+    ).save(topic);
+}
+
+@Test
+@DisplayName("投稿者本人かつ回答がないTopicを編集できること")
+void updateTopic_OwnerAndNoAnswer_ShouldUpdateTopic() {
+
+    User topicUser = new User();
+    topicUser.setEmail("owner@example.com");
+
+    Topic topic = new Topic();
+    topic.setId(1L);
+    topic.setUser(topicUser);
+    topic.setTitle("変更前タイトル");
+    topic.setImage("before.webp");
+    topic.setQuestion("変更前の問題");
+
+    when(
+        topicRepository.findByIdAndDeletedAtIsNull(1L)
+    ).thenReturn(Optional.of(topic));
+
+    when(
+        answerRepository.existsByTopicId(1L)
+    ).thenReturn(false);
+
+    when(
+        topicRepository.save(any(Topic.class))
+    ).thenAnswer(
+        invocation -> invocation.getArgument(0)
+    );
+
+    Topic updated = topicService.updateTopic(
+        1L,
+        "owner@example.com",
+        "変更後タイトル",
+        "after.webp",
+        "変更後の問題"
+    );
+
+    assertThat(updated.getTitle())
+        .isEqualTo("変更後タイトル");
+
+    assertThat(updated.getImage())
+        .isEqualTo("after.webp");
+
+    assertThat(updated.getQuestion())
+        .isEqualTo("変更後の問題");
+
+    verify(topicRepository, times(1))
+        .save(topic);
+}
+
+@Test
+@DisplayName("投稿者本人以外がTopicを編集しようとするとForbiddenOperationExceptionになること")
+void updateTopic_NotOwner_ShouldThrowException() {
+
+    User topicUser = new User();
+    topicUser.setEmail("owner@example.com");
+
+    Topic topic = new Topic();
+    topic.setId(1L);
+    topic.setUser(topicUser);
+
+    when(
+        topicRepository.findByIdAndDeletedAtIsNull(1L)
+    ).thenReturn(Optional.of(topic));
+
+    org.assertj.core.api.Assertions
+        .assertThatThrownBy(
+            () -> topicService.updateTopic(
+                1L,
+                "other@example.com",
+                "タイトル",
+                "image.webp",
+                "問題"
+            )
+        )
+        .isInstanceOf(ForbiddenOperationException.class)
+        .hasMessage("このお題を編集する権限がありません。");
+
+    verify(
+        topicRepository,
+        org.mockito.Mockito.never()
+    ).save(any(Topic.class));
+}
+
+@Test
+@DisplayName("回答が存在するTopicは編集できないこと")
+void updateTopic_AnswerExists_ShouldThrowException() {
+
+    User topicUser = new User();
+    topicUser.setEmail("owner@example.com");
+
+    Topic topic = new Topic();
+    topic.setId(1L);
+    topic.setUser(topicUser);
+
+    when(
+        topicRepository.findByIdAndDeletedAtIsNull(1L)
+    ).thenReturn(Optional.of(topic));
+
+    when(
+        answerRepository.existsByTopicId(1L)
+    ).thenReturn(true);
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> topicService.updateTopic(
+                1L,
+                "owner@example.com",
+                "タイトル",
+                "image.webp",
+                "問題"
+            )
+        )
+        .isInstanceOf( TopicEditConflictException.class)
+        .hasMessage("回答が投稿されたお題は編集できません。");
+
+    verify(
+        topicRepository,
+        org.mockito.Mockito.never()
+    ).save(any(Topic.class));
+}
+
+@Test
+@DisplayName("存在しないTopicを編集しようとするとTopicNotFoundExceptionになること")
+void updateTopic_TopicNotFound_ShouldThrowException() {
+
+    when(
+        topicRepository.findByIdAndDeletedAtIsNull(999L)
+    ).thenReturn(Optional.empty());
+
+    org.assertj.core.api.Assertions
+        .assertThatThrownBy(
+            () -> topicService.updateTopic(
+                999L,
+                "owner@example.com",
+                "タイトル",
+                "image.webp",
+                "問題"
+            )
+        )
+        .isInstanceOf(TopicNotFoundException.class)
+        .hasMessage("このお題は存在しないか、削除されています。");
+
+    verify(
+        topicRepository,
+        org.mockito.Mockito.never()
+    ).save(any(Topic.class));
+}
+
+@Test
+@DisplayName("管理者は他ユーザーのTopicを削除できること")
+void deleteById_Admin_ShouldSetDeletedAt() {
+
+    User topicUser = new User();
+    topicUser.setEmail("owner@example.com");
+
+    Topic topic = new Topic();
+    topic.setId(1L);
+    topic.setUser(topicUser);
+
+    when(
+        topicRepository.findByIdAndDeletedAtIsNull(1L)
+    ).thenReturn(Optional.of(topic));
+
+    when(
+        topicRepository.save(any(Topic.class))
+    ).thenAnswer(
+        invocation -> invocation.getArgument(0)
+    );
+
+    topicService.deleteById(
+        1L,
+        "admin@example.com",
+        true
+    );
+
+    assertThat(topic.getDeletedAt())
+        .isNotNull();
+
+    verify(topicRepository, times(1))
+        .save(topic);
+}
+
+@Test
+@DisplayName("投稿者本人でも管理者でもない場合はForbiddenOperationExceptionになること")
+void deleteById_NotOwnerAndNotAdmin_ShouldThrowException() {
+
+    User topicUser = new User();
+    topicUser.setEmail("owner@example.com");
+
+    Topic topic = new Topic();
+    topic.setId(1L);
+    topic.setUser(topicUser);
+
+    when(
+        topicRepository.findByIdAndDeletedAtIsNull(1L)
+    ).thenReturn(Optional.of(topic));
+
+    org.assertj.core.api.Assertions
+        .assertThatThrownBy(
+            () -> topicService.deleteById(
+                1L,
+                "other@example.com",
+                false
+            )
+        )
+        .isInstanceOf(ForbiddenOperationException.class)
+        .hasMessage("このお題を削除する権限がありません。");
+
+    verify(
+        topicRepository,
+        org.mockito.Mockito.never()
+    ).save(any(Topic.class));
+}
+
+@Test
+@DisplayName("存在しないTopicを削除しようとするとTopicNotFoundExceptionになること")
+void deleteById_TopicNotFound_ShouldThrowException() {
+
+    when(
+        topicRepository.findByIdAndDeletedAtIsNull(999L)
+    ).thenReturn(Optional.empty());
+
+    org.assertj.core.api.Assertions
+        .assertThatThrownBy(
+            () -> topicService.deleteById(
+                999L,
+                "test@example.com",
+                false
+            )
+        )
+        .isInstanceOf(TopicNotFoundException.class)
+        .hasMessage("このお題は存在しないか、削除されています。");
+
+    verify(
+        topicRepository,
+        org.mockito.Mockito.never()
+    ).save(any(Topic.class));
+}
+@Test
+@DisplayName("TopicにAnswerが存在する場合はtrueを返すこと")
+void hasAnyAnswer_ShouldReturnTrueWhenAnswerExists() {
+
+    when(
+        answerRepository.existsByTopicId(1L)
+    ).thenReturn(true);
+
+    boolean result =
+        topicService.hasAnyAnswer(1L);
+
+    assertThat(result).isTrue();
+
+    verify(
+        answerRepository,
+        times(1)
+    ).existsByTopicId(1L);
+}
+
+@Test
+@DisplayName("削除されていないTopicをIDで取得できること")
+void findById_ShouldReturnTopic() {
+
+    Topic topic = new Topic();
+    topic.setId(1L);
+
+    when(
+        topicRepository.findByIdAndDeletedAtIsNull(1L)
+    ).thenReturn(Optional.of(topic));
+
+    Optional<Topic> result =
+        topicService.findById(1L);
+
+    assertThat(result).isPresent();
+    assertThat(result.get()).isSameAs(topic);
+
+    verify(
+        topicRepository,
+        times(1)
+    ).findByIdAndDeletedAtIsNull(1L);
+}
+
+@Test
+@DisplayName("TopicをRepositoryへ保存できること")
+void save_ShouldSaveTopic() {
+
+    Topic topic = new Topic();
+
+    when(
+        topicRepository.save(topic)
+    ).thenReturn(topic);
+
+    Topic result =
+        topicService.save(topic);
+
+    assertThat(result).isSameAs(topic);
+
+    verify(
+        topicRepository,
+        times(1)
+    ).save(topic);
+}
+
+@Test
+@DisplayName("REST API用の詳細取得で削除されていないTopicを取得できること")
+void getById_ShouldReturnTopic() {
+
+    Topic topic = new Topic();
+    topic.setId(1L);
+
+    when(
+        topicRepository.findByIdAndDeletedAtIsNull(1L)
+    ).thenReturn(Optional.of(topic));
+
+    Topic result = topicService.getById(1L);
+
+    assertThat(result).isSameAs(topic);
+
+    verify(
+        topicRepository,
+        times(1)
+    ).findByIdAndDeletedAtIsNull(1L);
+}
+
+@Test
+@DisplayName("REST API用の詳細取得でTopicが存在しない場合はTopicNotFoundExceptionになること")
+void getById_TopicNotFound_ShouldThrowException() {
+
+    when(
+        topicRepository.findByIdAndDeletedAtIsNull(999L)
+    ).thenReturn(Optional.empty());
+
+    org.assertj.core.api.Assertions
+        .assertThatThrownBy(
+            () -> topicService.getById(999L)
+        )
+        .isInstanceOf(TopicNotFoundException.class)
+        .hasMessage("このお題は存在しないか、削除されています。");
+}
 }
