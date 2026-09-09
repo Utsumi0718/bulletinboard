@@ -33,23 +33,58 @@ import jakarta.validation.Valid;
  *
  * Reactなどのフロントエンドから送信される
  * /api/topics 配下のHTTPリクエストを受け取り、
- * TopicServiceを呼び出して処理結果をDTOへ変換し、
- * JSON形式でレスポンスを返します。
+ * TopicServiceへ処理を委譲します。
  *
- * 旧Thymeleaf用のTopicControllerとは責務を分離し、
- * このクラスではREST APIのみを担当します。
+ * 取得したTopicはDTOへ変換し、
+ * JSON形式のレスポンスとして返します。
  *
- * 【現在の対応内容】
- * - Topic一覧取得
- * - Topicタイトルの部分一致検索
- * - Topic詳細取得
- * - Topic新規投稿
- * - Topic編集
- * - Topic削除
+ * 旧Thymeleaf用のTopicControllerとは責務を分離しており、
+ * 本クラスではREST APIのみを担当します。
  *
+ * 【現在の対応API】
+ * - GET /api/topics
+ *   → Topic一覧取得
+ *   → Topic.titleの部分一致検索
+ *   → ページング
+ *   → 正常時 200 OK
  *
+ * - GET /api/topics/{id}
+ *   → Topic詳細取得
+ *   → 正常時 200 OK
+ *   → Topic不存在・論理削除済みの場合は404 Not Found
+ *
+ * - POST /api/topics
+ *   → Topic新規投稿
+ *   → 正常時 201 Created
+ *   → Locationヘッダーに作成済みTopicのURLを設定
+ *   → Validationエラー時 400 Bad Request
+ *   → ログインユーザー取得失敗時 500 Internal Server Error
+ *
+ * - PUT /api/topics/{id}
+ *   → Topic編集
+ *   → 投稿者本人のみ編集可能
+ *   → Answerが一度でも投稿されたTopicは編集不可
+ *   → 正常時 200 OK
+ *   → Validationエラー時 400 Bad Request
+ *   → 権限がない場合は403 Forbidden
+ *   → Topic不存在・論理削除済みの場合は404 Not Found
+ *   → Answer投稿履歴がある場合は409 Conflict
+ *
+ * - DELETE /api/topics/{id}
+ *   → Topicの論理削除
+ *   → 投稿者本人またはROLE_ADMINのみ削除可能
+ *   → 正常時 204 No Content
+ *   → 権限がない場合は403 Forbidden
+ *   → Topic不存在・論理削除済みの場合は404 Not Found
+ *
+ * 【設計上のポイント】
+ * - 認証PrincipalにはログインIDであるemailが設定されます。
+ * - Topicに関する業務ルールはTopicServiceへ委譲します。
+ * - ControllerではHTTPリクエストの受付、
+ *   認証情報の取得、DTO変換、HTTPレスポンス生成を担当します。
+ * - REST APIの例外レスポンスはGlobalExceptionHandlerへ委譲します。
+ * - Thymeleaf用のView、redirect、FlashMessageは扱いません。
  */
-
 @RestController
 @RequestMapping("/api/topics")
 public class TopicApiController {
@@ -65,6 +100,27 @@ public class TopicApiController {
     this.userDetailsService = userDetailsService;
    }
 
+
+
+   /**
+     * Topic一覧を取得します。
+     *
+     * keywordが未指定の場合は、
+     * 作成日時の降順でTopic一覧を取得します。
+     *
+     * keywordが指定された場合は、
+     * Topic.titleのみを対象として部分一致検索を行います。
+     *
+     * keywordが空文字または空白の場合は、
+     * IllegalArgumentExceptionを発生させます。
+     *
+     * 取得結果はTopicListResponseへ変換し、
+     * PageResponseとして200 OKで返します。
+     *
+     * @param page    ページ番号（0始まり）
+     * @param keyword Topic.titleを部分一致検索するキーワード
+     * @return Topic一覧のページ情報と200 OK
+     */
 
     @GetMapping
     public ResponseEntity<PageResponse<TopicListResponse>> getTopics(
@@ -105,11 +161,18 @@ public class TopicApiController {
     }
 
     /**
-      * Topic詳細を取得します。
+      * 指定されたTopicの詳細を取得します。
       *
-      * @param id Topic ID
-      * @return Topic詳細情報
-    */
+      * TopicServiceから削除されていないTopicを取得し、
+      * TopicResponseへ変換して200 OKで返します。
+      *
+      * Topicが存在しない、または論理削除済みの場合は
+      * TopicNotFoundExceptionが発生し、
+      * GlobalExceptionHandlerによって404 Not Foundになります。
+      *
+      * @param id 取得対象TopicのID
+      * @return Topic詳細情報と200 OK
+      */
 
     @GetMapping("/{id}")
     public ResponseEntity<TopicResponse> getTopic(
@@ -126,24 +189,30 @@ public class TopicApiController {
 
 
     /**
-      * 新しいTopicを投稿します。
-      *
-      * ログイン中のユーザーをemailから取得し、
-      * TopicRequestの入力内容と紐付けてTopicを保存します。
-      *
-      * 認証情報のemailに対応するUserが取得できない場合は、
-      * UserNotFoundExceptionを発生させます。
-      *
-      * 投稿成功時は201 Createdを返し、
-      * Locationヘッダーに作成されたTopicのURLを設定します。
-      *
-      * @param request        Topic投稿内容
-      * @param authentication ログインユーザーの認証情報
-      * @return 作成されたTopicの詳細情報
-      * @throws UserNotFoundException ログインユーザー情報を取得できない場合
-      */
-      @PostMapping
-      public ResponseEntity<TopicResponse> createTopic(
+ * 新しいTopicを投稿します。
+ *
+ * Authenticationからログインユーザーのemailを取得し、
+ * CustomUserDetailsServiceを使用してUserを取得します。
+ *
+ * TopicRequestのtitle・image・questionと
+ * ログインユーザーをTopicへ設定し、
+ * TopicServiceへ保存処理を委譲します。
+ *
+ * ログインユーザー情報を取得できない場合は
+ * UserNotFoundExceptionが発生します。
+ *
+ * リクエスト内容がValidationに違反した場合は
+ * 400 Bad Requestになります。
+ *
+ * 正常時は201 Createdを返し、
+ * Locationヘッダーに作成されたTopicのURLを設定します。
+ *
+ * @param request        Topic投稿内容
+ * @param authentication ログインユーザーの認証情報
+ * @return 作成されたTopicResponseと201 Created
+ */
+ @PostMapping
+ public ResponseEntity<TopicResponse> createTopic(
         @Valid @RequestBody TopicRequest request,
         Authentication authentication) {
 
@@ -161,7 +230,6 @@ public class TopicApiController {
     topic.setQuestion(request.getQuestion());
     topic.setUser(user);
     Topic savedTopic = topicService.save(topic);
-
     TopicResponse response =
             TopicResponse.from(savedTopic);
 
@@ -173,24 +241,39 @@ public class TopicApiController {
             .body(response);
 }
 
+
 /**
  * 指定されたTopicを編集します。
  *
- * ログインユーザーのemailをAuthenticationから取得し、
- * TopicRequestの内容を使ってTopicを更新します。
+ * Authenticationからログインユーザーのemailを取得し、
+ * TopicRequestのtitle・image・questionとともに
+ * TopicServiceへ編集処理を委譲します。
  *
- * 編集可能かどうかの本人確認や、
- * Answerが存在するTopicの編集可否は
- * TopicServiceで判定します。
+ * 投稿者本人かどうかの判定や、
+ * Answerが一度でも投稿されたTopicを編集できないという
+ * 業務ルールはTopicServiceで判定します。
  *
- * 更新成功時は200 OKと
- * 更新後のTopicResponseを返します。
+ * Topicが存在しない、または論理削除済みの場合は
+ * 404 Not Foundになります。
  *
- * @param id             編集対象のTopic ID
+ * 編集権限がない場合は
+ * 403 Forbiddenになります。
+ *
+ * Answer投稿履歴があり編集できない場合は
+ * 409 Conflictになります。
+ *
+ * リクエスト内容がValidationに違反した場合は
+ * 400 Bad Requestになります。
+ *
+ * 正常時は更新後のTopicをTopicResponseへ変換し、
+ * 200 OKで返します。
+ *
+ * @param id             編集対象TopicのID
  * @param request        Topic編集内容
  * @param authentication ログインユーザーの認証情報
- * @return 更新後のTopic詳細情報
+ * @return 更新後のTopicResponseと200 OK
  */
+
 @PutMapping("/{id}")
 public ResponseEntity<TopicResponse> updateTopic(
         @PathVariable Long id,
@@ -216,15 +299,24 @@ public ResponseEntity<TopicResponse> updateTopic(
 /**
  * 指定されたTopicを論理削除します。
  *
- * ログインユーザーのemailをAuthenticationから取得し、
- * ROLE_ADMINを持っているか判定します。
+ * Authenticationからログインユーザーのemailを取得し、
+ * ROLE_ADMIN権限を持っているかを判定します。
  *
- * Topicの投稿者本人またはROLE_ADMINの場合のみ削除可能です。
- * 削除可否の最終判定と論理削除処理はTopicServiceで行います。
+ * TopicServiceへTopic ID・loginEmail・管理者判定結果を渡し、
+ * 削除可否の判定と論理削除処理を委譲します。
  *
- * 削除成功時は204 No Contentを返します。
+ * 削除できるのは投稿者本人またはROLE_ADMINです。
  *
- * @param id             削除対象のTopic ID
+ * Topicが存在しない、または論理削除済みの場合は
+ * 404 Not Foundになります。
+ *
+ * 削除権限がない場合は
+ * 403 Forbiddenになります。
+ *
+ * 正常時は204 No Contentを返し、
+ * Response Bodyは返しません。
+ *
+ * @param id             削除対象TopicのID
  * @param authentication ログインユーザーの認証情報
  * @return 204 No Content
  */
