@@ -8,6 +8,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -50,8 +51,18 @@ import jakarta.validation.Valid;
  *   → Topic不存在時 404 Not Found
  *   → ログインユーザー取得失敗時 500 Internal Server Error
  *
- * 【今後追加予定】
  * - PUT /api/answers/{id}
+ *   → Answerの編集
+ *   → AuthenticationからloginEmailを取得
+ *   → AnswerRequestのcontentをAnswerServiceへ渡す
+ *   → 正常時は200 OKとAnswerResponseを返す
+ *   → Answer不存在時は404 Not Found
+ *   → 編集権限がない場合は403 Forbidden
+ *   → Likeが付いている場合は409 Conflict
+ *   → Validationエラー時は400 Bad Request
+ *
+ * 【今後追加予定】
+ *
  * - DELETE /api/answers/{id}
  */
 
@@ -164,5 +175,55 @@ public ResponseEntity<AnswerResponse> createAnswer(
     return ResponseEntity
             .status(HttpStatus.CREATED)
             .body(response);
+}
+
+/**
+ * 指定されたAnswerを編集します。
+ *
+ * Authenticationからログインユーザーのemailを取得し、
+ * AnswerRequestのcontentとともに
+ * AnswerServiceへ編集処理を委譲します。
+ *
+ * Answerが存在しない、または論理削除済みの場合は
+ * AnswerNotFoundExceptionが発生し、
+ * 404 Not Foundになります。
+ *
+ * 投稿者本人以外が編集しようとした場合は
+ * ForbiddenOperationExceptionが発生し、
+ * 403 Forbiddenになります。
+ *
+ * Likeが1件以上付いているAnswerを編集しようとした場合は
+ * AnswerEditConflictExceptionが発生し、
+ * 409 Conflictになります。
+ *
+ * リクエスト内容がValidationに違反した場合は
+ * 400 Bad Requestになります。
+ *
+ * 正常時は更新後のAnswerをAnswerResponseへ変換し、
+ * 200 OKで返します。
+ *
+ * @param id             編集対象AnswerのID
+ * @param request        更新する回答内容
+ * @param authentication ログインユーザーの認証情報
+ * @return 更新されたAnswerResponseと200 OK
+ */
+@PutMapping("/answers/{id}")
+public ResponseEntity<AnswerResponse> updateAnswer(
+        @PathVariable Long id,
+        @Valid @RequestBody AnswerRequest request,
+        Authentication authentication) {
+
+    String loginEmail = authentication.getName();
+
+    Answer updatedAnswer = answerService.updateAnswer(
+            id,
+            loginEmail,
+            request.getContent()
+    );
+
+    AnswerResponse response =
+            AnswerResponse.from(updatedAnswer);
+
+    return ResponseEntity.ok(response);
 }
 }
