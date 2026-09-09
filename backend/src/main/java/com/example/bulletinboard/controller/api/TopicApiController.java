@@ -65,23 +65,7 @@ public class TopicApiController {
     this.userDetailsService = userDetailsService;
    }
 
-    /**
-      * 新しいTopicを投稿します。
-      *
-      * ログイン中のユーザーをemailから取得し、
-      * TopicRequestの入力内容と紐付けてTopicを保存します。
-      *
-      * 認証情報のemailに対応するUserが取得できない場合は、
-      * UserNotFoundExceptionを発生させます。
-      *
-      * 投稿成功時は201 Createdを返し、
-      * Locationヘッダーに作成されたTopicのURLを設定します。
-      *
-      * @param request        Topic投稿内容
-      * @param authentication ログインユーザーの認証情報
-      * @return 作成されたTopicの詳細情報
-      * @throws UserNotFoundException ログインユーザー情報を取得できない場合
-      */
+
     @GetMapping
     public ResponseEntity<PageResponse<TopicListResponse>> getTopics(
             @RequestParam(defaultValue = "0") int page,
@@ -141,21 +125,25 @@ public class TopicApiController {
 
 
 
-/**
- * Topic一覧を取得します。
- *
- * keywordが未指定の場合は通常一覧を取得し、
- * keywordが指定された場合はTopic.titleを部分一致検索します。
- *
- * keywordが空文字または空白の場合は
- * IllegalArgumentExceptionを発生させます。
- *
- * @param page    ページ番号（0始まり）
- * @param keyword 検索キーワード
- * @return Topic一覧のページ情報
- */
-@PostMapping
-public ResponseEntity<TopicResponse> createTopic(
+    /**
+      * 新しいTopicを投稿します。
+      *
+      * ログイン中のユーザーをemailから取得し、
+      * TopicRequestの入力内容と紐付けてTopicを保存します。
+      *
+      * 認証情報のemailに対応するUserが取得できない場合は、
+      * UserNotFoundExceptionを発生させます。
+      *
+      * 投稿成功時は201 Createdを返し、
+      * Locationヘッダーに作成されたTopicのURLを設定します。
+      *
+      * @param request        Topic投稿内容
+      * @param authentication ログインユーザーの認証情報
+      * @return 作成されたTopicの詳細情報
+      * @throws UserNotFoundException ログインユーザー情報を取得できない場合
+      */
+      @PostMapping
+      public ResponseEntity<TopicResponse> createTopic(
         @Valid @RequestBody TopicRequest request,
         Authentication authentication) {
 
