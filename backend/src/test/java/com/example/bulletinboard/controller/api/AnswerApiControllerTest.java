@@ -2,10 +2,12 @@ package com.example.bulletinboard.controller.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -53,7 +55,7 @@ import com.example.bulletinboard.service.TopicService;
  *   → 正常時 200 OK
  *   → AnswerResponseの内容確認
  *   → Answerが0件の場合は空配列
- *   → Topic不存在時は404 Not Found
+ *   → Topic不存在時 404 Not Found
  *
  * - POST /api/topics/{topicId}/answers
  *   → 指定TopicへのAnswer投稿
@@ -76,17 +78,23 @@ import com.example.bulletinboard.service.TopicService;
  *   → Answer不存在時 404 Not Found
  *   → Likeが付いているAnswerの編集時 409 Conflict
  *
- * 【今後の検証対象】
  * - DELETE /api/answers/{id}
+ *   → Answerの論理削除
+ *   → 投稿者本人による削除時 204 No Content
+ *   → ROLE_ADMINによる削除時 204 No Content
+ *   → 削除権限がない場合 403 Forbidden
+ *   → Answer不存在時 404 Not Found
+ *   → AuthenticationからloginEmailを取得
+ *   → ROLE_ADMIN判定結果をAnswerServiceへ渡す
  *
  * 【設計上のポイント】
  * - 旧AnswerControllerTestのredirect検証はREST APIでは行いません。
  * - REST APIではHTTP StatusとJSONレスポンスを検証します。
  * - 認証PrincipalにはログインIDであるemailが設定されます。
  * - Topicの存在確認はTopicServiceへ委譲します。
- * - Answer一覧取得・保存・編集はAnswerServiceへ委譲します。
+ * - Answer一覧取得・保存・編集・削除はAnswerServiceへ委譲します。
  * - ログインユーザー取得はCustomUserDetailsServiceへ委譲します。
- * - Answer編集時の業務ルール判定はAnswerServiceへ委譲します。
+ * - Answer編集・削除時の業務ルール判定はAnswerServiceへ委譲します。
  * - GlobalExceptionHandlerを通して、
  *   Validationエラー・権限エラー・不存在・編集競合を
  *   REST API用のエラーレスポンスへ変換します。
@@ -605,6 +613,119 @@ void updateAnswer_LikeExists_ShouldReturnConflict() throws Exception {
                     .value("いいねが付いている回答は編集できません。"))
             .andExpect(jsonPath("$.path")
                     .value("/api/answers/100"));
+}
+
+@Test
+@DisplayName("投稿者本人がAnswerを削除すると204 No Contentになること")
+@WithMockUser(username = "testuser01@example.com")
+void deleteAnswer_Owner_ShouldReturnNoContent() throws Exception {
+
+    mockMvc.perform(
+            delete("/api/answers/100")
+                    .with(csrf())
+    )
+            .andExpect(status().isNoContent());
+
+    verify(answerService)
+            .deleteAnswer(
+                    100L,
+                    "testuser01@example.com",
+                    false
+            );
+}
+
+@Test
+@DisplayName("管理者が他ユーザーのAnswerを削除すると204 No Contentになること")
+@WithMockUser(
+        username = "admin@example.com",
+        roles = "ADMIN"
+)
+void deleteAnswer_Admin_ShouldReturnNoContent() throws Exception {
+
+    mockMvc.perform(
+            delete("/api/answers/100")
+                    .with(csrf())
+    )
+            .andExpect(status().isNoContent());
+
+    verify(answerService)
+            .deleteAnswer(
+                    100L,
+                    "admin@example.com",
+                    true
+            );
+}
+
+@Test
+@DisplayName("削除権限のないユーザーがAnswerを削除しようとすると403 Forbiddenになること")
+@WithMockUser(username = "other@example.com")
+void deleteAnswer_Forbidden_ShouldReturnForbidden() throws Exception {
+
+    doThrow(
+            new ForbiddenOperationException(
+                    "この回答を削除する権限がありません。"
+            )
+    ).when(answerService)
+            .deleteAnswer(
+                    100L,
+                    "other@example.com",
+                    false
+            );
+
+    mockMvc.perform(
+            delete("/api/answers/100")
+                    .with(csrf())
+    )
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.status").value(403))
+            .andExpect(jsonPath("$.error").value("Forbidden"))
+            .andExpect(jsonPath("$.message")
+                    .value("この回答を削除する権限がありません。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/answers/100"));
+
+    verify(answerService)
+            .deleteAnswer(
+                    100L,
+                    "other@example.com",
+                    false
+            );
+}
+
+@Test
+@DisplayName("存在しないAnswerを削除しようとすると404 Not Foundになること")
+@WithMockUser(username = "testuser01@example.com")
+void deleteAnswer_AnswerNotFound_ShouldReturnNotFound() throws Exception {
+
+    doThrow(
+            new AnswerNotFoundException(
+                    "この回答は存在しないか、削除されています。"
+            )
+    ).when(answerService)
+            .deleteAnswer(
+                    999L,
+                    "testuser01@example.com",
+                    false
+            );
+
+    mockMvc.perform(
+            delete("/api/answers/999")
+                    .with(csrf())
+    )
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.error").value("Not Found"))
+            .andExpect(jsonPath("$.message")
+                    .value("この回答は存在しないか、削除されています。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/answers/999"));
+
+    verify(answerService)
+            .deleteAnswer(
+                    999L,
+                    "testuser01@example.com",
+                    false
+            );
 }
 
 }
