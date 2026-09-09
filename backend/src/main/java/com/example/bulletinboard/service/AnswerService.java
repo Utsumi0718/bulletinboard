@@ -25,22 +25,35 @@ import com.example.bulletinboard.repository.AnswerRepository;
  * - 回答の保存
  * - 特定のお題に紐づく回答一覧の取得
  * - 回答のIDによる取得
+ * - 回答の編集
  * - 回答の論理削除
  *
  * 【設計上のポイント】
  * - 旧CommentServiceではPostに紐づくCommentを扱っていましたが、
  *   新しい設計ではTopicに紐づくAnswerを扱います。
- * - Answerの削除は物理削除ではなく、
- *   deletedAtに削除日時を設定する論理削除方式を採用します。
+ *
  * - 通常の一覧取得・ID取得では、
  *   deletedAtがNULLのAnswerのみを対象とします。
- * - 「いいねが1件でも付いた回答は編集不可」
- *   「投稿者本人のみ編集・削除可能」などの詳細な業務ルールは、
- *   Topic / Answer主要機能の実装時に追加します。
- * - 「いいねが1件でも付いた回答は編集不可」
- *   「投稿者本人のみ編集・削除可能」などの詳細な業務ルールは、
- *   Topic / Answer主要機能の実装時に追加します。
+ *
+ * - Answerの編集は投稿者本人のみ可能です。
+ *
+ * - Likeが1件でも付いているAnswerは編集できません。
+ *
+ * - Answerの削除は投稿者本人またはROLE_ADMINのみ可能です。
+ *
+ * - Answerの削除は物理削除ではなく、
+ *   deletedAtに削除日時を設定する論理削除方式を採用します。
+ *
+ * - Answerが存在しない、または論理削除済みの場合は、
+ *   AnswerNotFoundExceptionを使用します。
+ *
+ * - 編集・削除権限がない場合は、
+ *   ForbiddenOperationExceptionを使用します。
+ *
+ * - Likeが付いていて編集できない場合は、
+ *   AnswerEditConflictExceptionを使用します。
  */
+
 @Service
 public class AnswerService {
 
@@ -87,15 +100,23 @@ public class AnswerService {
         return answerRepository.findByIdAndDeletedAtIsNull(id);
     }
 
+
     /*
      * 指定されたAnswerを論理削除します。
      *
-     * 削除できるのは、Answerの投稿者本人またはROLE_ADMINのユーザーです。
-     * その他のユーザーによる削除は許可しません。
+     * 削除できるのは、
+     * Answerの投稿者本人またはROLE_ADMINのユーザーです。
+     *
+     * Answerが存在しない、または論理削除済みの場合は
+     * AnswerNotFoundExceptionを発生させます。
+     *
+     * 投稿者本人でもROLE_ADMINでもない場合は
+     * ForbiddenOperationExceptionを発生させます。
      *
      * 削除時はDBからレコードそのものを削除せず、
-     * deletedAtに現在日時を設定します。
-     */
+    * deletedAtに現在日時を設定します。
+    */
+
     @Transactional
      public void deleteAnswer(
         Long id,
@@ -105,19 +126,18 @@ public class AnswerService {
       Answer answer = answerRepository
         .findByIdAndDeletedAtIsNull(id)
         .orElseThrow(
-            () -> new IllegalArgumentException(
-                "指定された回答が存在しません。id=" + id
-            )
-        );
-
+       () -> new AnswerNotFoundException(
+        "この回答は存在しないか、削除されています。"
+     )
+      );
     boolean isOwner =
         answer.getUser().getEmail().equals(loginEmail);
 
     if (!isOwner && !isAdmin) {
-        throw new IllegalStateException(
-            "この回答を削除する権限がありません。"
-        );
-    }
+    throw new ForbiddenOperationException(
+        "この回答を削除する権限がありません。"
+    );
+}
 
     answer.setDeletedAt(LocalDateTime.now());
 
