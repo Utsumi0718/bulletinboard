@@ -46,25 +46,30 @@ import com.example.bulletinboard.repository.AnswerRepository;
  * - Answer削除
  *   → 投稿者本人による論理削除
  *   → ROLE_ADMINによる他ユーザーAnswerの論理削除
- *   → 権限のないユーザーによる削除拒否
- *   → Answer不存在時の削除拒否
+ *   → 権限のないユーザーはForbiddenOperationException
+ *   → Answer不存在時はAnswerNotFoundException
  *
  * 【設計上のポイント】
  * - 通常の取得対象はdeletedAtがNULLのAnswerのみです。
+ *
  * - Answer編集は投稿者本人のみ可能です。
+ *
  * - Likeが1件でも付いているAnswerは編集できません。
+ *
  * - Answer編集時の権限エラーには
  *   ForbiddenOperationExceptionを使用します。
+ *
  * - Like付きAnswerの編集競合には
  *   AnswerEditConflictExceptionを使用します。
- * - Answer不存在・論理削除済みの編集には
- *   AnswerNotFoundExceptionを使用します。
+ *
  * - Answer削除は投稿者本人またはROLE_ADMINのみ可能です。
  *
- * ※ 削除処理のIllegalArgumentException / IllegalStateExceptionは
- *    DELETE API実装工程で独自Exceptionへ整理します。
+ * - Answer削除時の権限エラーには
+ *   ForbiddenOperationExceptionを使用します。
+ *
+ * - Answer不存在・論理削除済みの場合は、
+ *   編集・削除ともにAnswerNotFoundExceptionを使用します。
  */
-
 
 @ExtendWith(MockitoExtension.class)
 class AnswerServiceTest {
@@ -265,7 +270,7 @@ void deleteAnswer_Admin_ShouldSetDeletedAt() {
 }
 
 @Test
-@DisplayName("投稿者本人でも管理者でもない場合はAnswerを削除できないこと")
+@DisplayName("投稿者本人でも管理者でもない場合はForbiddenOperationExceptionになること")
 void deleteAnswer_NotOwnerAndNotAdmin_ShouldThrowException() {
 
     User answerUser = new User();
@@ -276,47 +281,48 @@ void deleteAnswer_NotOwnerAndNotAdmin_ShouldThrowException() {
     answer.setUser(answerUser);
 
     when(
-        answerRepository.findByIdAndDeletedAtIsNull(1L)
+            answerRepository.findByIdAndDeletedAtIsNull(1L)
     ).thenReturn(Optional.of(answer));
 
     org.assertj.core.api.Assertions
-        .assertThatThrownBy(
-            () -> answerService.deleteAnswer(
-                1L,
-                "other@example.com",
-                false
+            .assertThatThrownBy(
+                    () -> answerService.deleteAnswer(
+                            1L,
+                            "other@example.com",
+                            false
+                    )
             )
-        )
-        .isInstanceOf(IllegalStateException.class)
-        .hasMessage("この回答を削除する権限がありません。");
+            .isInstanceOf(ForbiddenOperationException.class)
+            .hasMessage("この回答を削除する権限がありません。");
 
     verify(
-        answerRepository,
-        org.mockito.Mockito.never()
+            answerRepository,
+            org.mockito.Mockito.never()
     ).save(any(Answer.class));
 }
 
 @Test
-@DisplayName("存在しないAnswerを削除しようとすると例外になること")
+@DisplayName("存在しないAnswerを削除しようとするとAnswerNotFoundExceptionになること")
 void deleteAnswer_AnswerNotFound_ShouldThrowException() {
 
     when(
-        answerRepository.findByIdAndDeletedAtIsNull(999L)
+            answerRepository.findByIdAndDeletedAtIsNull(999L)
     ).thenReturn(Optional.empty());
 
-    org.assertj.core.api.Assertions.assertThatThrownBy(
-            () -> answerService.deleteAnswer(
-                999L,
-                "test@example.com",
-                false
+    org.assertj.core.api.Assertions
+            .assertThatThrownBy(
+                    () -> answerService.deleteAnswer(
+                            999L,
+                            "test@example.com",
+                            false
+                    )
             )
-        )
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessage("指定された回答が存在しません。id=999");
+            .isInstanceOf(AnswerNotFoundException.class)
+            .hasMessage("この回答は存在しないか、削除されています。");
 
     verify(
-        answerRepository,
-        org.mockito.Mockito.never()
+            answerRepository,
+            org.mockito.Mockito.never()
     ).save(any(Answer.class));
 }
 
