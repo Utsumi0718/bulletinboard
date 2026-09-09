@@ -780,3 +780,683 @@ emailではなく公開用の `username` を使用するようにしています
 となり、
 認証・アカウント再設計後の状態で
 テストがすべて成功することを確認しています。
+
+### 4. Topic / Answer APIの実装と旧Thymeleaf構成の整理
+
+Repository / Service / 認証・アカウント機能の再設計が完了した後、
+
+大喜利サービスの中心機能である `Topic` / `Answer` を、
+
+Reactなどのフロントエンドから利用できるREST APIとして実装しました。
+
+このブランチでは、
+
+単純にControllerをAPI化するだけではなく、
+
+Topic / Answerの業務ルール・例外処理・レスポンス形式・テストを整理したうえで、
+
+旧Thymeleaf構成のうち不要になった部分も段階的に削除しています。
+
+#### Topic一覧API
+
+Topic一覧を取得するREST APIを実装しました。
+
+エンドポイント：
+
+`GET /api/topics`
+
+主な仕様：
+
+- ページネーション対応
+- `createdAt` の降順で固定ソート
+- keyword未指定時は通常の一覧取得
+- keyword指定時はTopicタイトル検索
+- 検索対象は `Topic.title` のみ
+- 検索方式は部分一致のみ
+- 論理削除済みTopicは取得対象外
+
+検索仕様については、
+
+旧掲示板に存在していた前方一致・後方一致・matchTypeによる検索切り替えを使用せず、
+
+大喜利サービス向けにシンプルな検索仕様へ統一しています。
+
+#### Topic詳細API
+
+Topic単体を取得するREST APIを実装しました。
+
+エンドポイント：
+
+`GET /api/topics/{id}`
+
+存在しないTopic、
+
+または論理削除済みTopicを指定した場合は、
+
+`TopicNotFoundException`
+
+を発生させ、
+
+HTTPステータス `404 Not Found` を返す構成にしています。
+
+#### Topic新規投稿API
+
+新しいTopicを投稿するREST APIを実装しました。
+
+エンドポイント：
+
+`POST /api/topics`
+
+主な処理：
+
+- `TopicRequest` による入力受付
+- Bean Validationによる入力検証
+- Spring SecurityのPrincipalからログイン中ユーザーのemailを取得
+- emailを基準に投稿者Userを特定
+- Topicを保存
+- 作成したTopicを `TopicResponse` として返却
+
+作成成功時は、
+
+HTTPステータス `201 Created`
+
+を返し、
+
+作成したTopicのURLを `Location` ヘッダーへ設定しています。
+
+#### Topic編集API
+
+Topicを編集するREST APIを実装しました。
+
+エンドポイント：
+
+`PUT /api/topics/{id}`
+
+編集には以下の業務ルールを設定しています。
+
+- Topicを投稿した本人のみ編集可能
+- 管理者であっても他ユーザーのTopicは編集しない
+- 一度でもAnswerが投稿されたTopicは編集不可
+- 論理削除されたAnswerも「過去に回答が存在した」として編集可否判定に含める
+
+そのため、
+
+Topicに現在表示されているAnswerが0件であっても、
+
+過去にAnswerが投稿されていれば編集できません。
+
+編集権限がない場合は、
+
+HTTPステータス `403 Forbidden`
+
+を返します。
+
+Answer投稿履歴が存在して編集できない場合は、
+
+`TopicEditConflictException`
+
+を発生させ、
+
+HTTPステータス `409 Conflict`
+
+を返す構成にしています。
+
+#### Topic削除API
+
+Topicを削除するREST APIを実装しました。
+
+エンドポイント：
+
+`DELETE /api/topics/{id}`
+
+削除可能なユーザーは、
+
+- Topicを投稿した本人
+- ROLE_ADMINを持つ管理者
+
+としています。
+
+削除時にはデータを物理削除せず、
+
+`deletedAt`
+
+へ削除日時を設定する論理削除方式を使用しています。
+
+削除成功時は、
+
+HTTPステータス `204 No Content`
+
+を返します。
+
+#### TopicService / TopicRepositoryのAPI対応
+
+Topic APIの実装に合わせて、
+
+TopicService / TopicRepositoryも整理しました。
+
+主な変更内容：
+
+- API向けの `getById()` を追加
+- `TopicNotFoundException` による404制御
+- Topic編集時の本人判定
+- Answer投稿履歴による編集可否判定
+- Topic削除時の本人 / 管理者判定
+- 論理削除済みTopicを除外した取得処理
+- Topicタイトル部分一致検索
+- ページネーション処理の整理
+
+TopicRepositoryでは、
+
+`findByDeletedAtIsNull(...)`
+
+`findByIdAndDeletedAtIsNull(...)`
+
+`findByTitleContainingAndDeletedAtIsNull(...)`
+
+などを利用し、
+
+論理削除を前提とした取得処理へ統一しています。
+
+#### Answer一覧API
+
+指定されたTopicに投稿されたAnswer一覧を取得するREST APIを実装しました。
+
+エンドポイント：
+
+`GET /api/topics/{topicId}/answers`
+
+主な仕様：
+
+- 対象Topicの存在確認
+- 論理削除済みAnswerを取得対象外とする
+- Answerが存在しない場合は空配列を返す
+
+対象Topic自体が存在しない、
+
+または論理削除済みの場合は、
+
+HTTPステータス `404 Not Found`
+
+を返します。
+
+#### Answer投稿API
+
+TopicへAnswerを投稿するREST APIを実装しました。
+
+エンドポイント：
+
+`POST /api/topics/{topicId}/answers`
+
+主な処理：
+
+- `AnswerRequest` による入力受付
+- Bean Validationによる入力検証
+- Principalからログイン中ユーザーのemailを取得
+- emailを基準に回答者Userを特定
+- 対象Topicの存在確認
+- Answerを保存
+- `AnswerResponse` を返却
+
+作成成功時は、
+
+HTTPステータス `201 Created`
+
+を返します。
+
+#### Answer編集API
+
+Answerを編集するREST APIを実装しました。
+
+エンドポイント：
+
+`PUT /api/answers/{id}`
+
+編集には以下の業務ルールを設定しています。
+
+- Answerを投稿した本人のみ編集可能
+- 管理者であっても他ユーザーのAnswerは編集不可
+- Likeが1件以上付いているAnswerは編集不可
+- 論理削除済みAnswerは編集不可
+
+権限がない場合は、
+
+HTTPステータス `403 Forbidden`
+
+を返します。
+
+Likeが付いているため編集できない場合は、
+
+`AnswerEditConflictException`
+
+を発生させ、
+
+HTTPステータス `409 Conflict`
+
+を返します。
+
+存在しない、
+
+または論理削除済みAnswerの場合は、
+
+`AnswerNotFoundException`
+
+によって `404 Not Found` を返します。
+
+#### Answer削除API
+
+Answerを削除するREST APIを実装しました。
+
+エンドポイント：
+
+`DELETE /api/answers/{id}`
+
+削除可能なユーザーは、
+
+- Answerを投稿した本人
+- ROLE_ADMINを持つ管理者
+
+としています。
+
+Topic編集とは異なり、
+
+管理者は不適切なAnswerを削除できる仕様としています。
+
+削除方法には物理削除ではなく、
+
+`deletedAt`
+
+を利用した論理削除方式を採用しています。
+
+削除成功時は、
+
+HTTPステータス `204 No Content`
+
+を返します。
+
+#### AnswerService / AnswerRepositoryのAPI対応
+
+Answer APIの実装に合わせて、
+
+AnswerService / AnswerRepositoryを整理しました。
+
+主な変更内容：
+
+- Topic単位のAnswer一覧取得
+- Answer IDによる取得
+- Answer編集処理
+- Answer削除処理
+- Answer所有者判定
+- 管理者による削除判定
+- Like件数を利用した編集可否判定
+- 論理削除済みAnswerの除外
+- Topicに過去のAnswerが存在するか確認する処理
+
+Answer編集・削除時に使用していた汎用的な例外処理も整理し、
+
+API仕様に合わせた独自Exceptionを利用する構成へ変更しました。
+
+#### Topic / Answer用DTOの整備
+
+REST APIとEntityを直接結び付けないため、
+
+Topic / Answer用のRequest / Response DTOを使用しています。
+
+Answerでは、
+
+- `AnswerRequest`
+- `AnswerResponse`
+
+を利用し、
+
+一覧系のAPIでは共通ページングレスポンスとして
+
+`PageResponse`
+
+を利用しています。
+
+これにより、
+
+Entity内部の構造をそのまま外部へ公開せず、
+
+APIとして必要な情報だけをJSONで返す構成にしています。
+
+#### 独自Exceptionと共通エラーレスポンスの整理
+
+Topic / Answer APIで発生するエラーを、
+
+HTTPステータスとJSONレスポンスで統一して扱うため、
+
+独自ExceptionとGlobalExceptionHandlerを整理しました。
+
+主なException：
+
+- `TopicNotFoundException`
+- `AnswerNotFoundException`
+- `ForbiddenOperationException`
+- `TopicEditConflictException`
+- `AnswerEditConflictException`
+- `UserNotFoundException`
+
+主なHTTPステータス：
+
+- 入力エラー → `400 Bad Request`
+- Topic / Answer不存在 → `404 Not Found`
+- 操作権限なし → `403 Forbidden`
+- 編集条件の競合 → `409 Conflict`
+- 想定外のUser取得失敗 → `500 Internal Server Error`
+
+通常のエラーでは、
+
+`ErrorResponse`
+
+Validationエラーでは、
+
+`ValidationErrorResponse`
+
+を返す構成にしています。
+
+これにより、
+
+旧Thymeleaf画面で使用していたFlashMessageではなく、
+
+React側がHTTPステータスとJSONレスポンスを基準に
+
+エラー表示を制御できる構成へ移行しています。
+
+#### Topic / Answer APIテストの整備
+
+REST API化に合わせて、
+
+Controller / Serviceテストも現在のAPI仕様へ対応させました。
+
+Topic APIでは、
+
+- 一覧取得
+- 詳細取得
+- 新規投稿
+- 編集
+- 削除
+- Validationエラー
+- 404
+- 403
+- 409
+
+などを検証しています。
+
+Answer APIでは、
+
+- Answer一覧取得
+- Answer 0件時の空配列
+- Topic不存在時の404
+- Answer投稿
+- Validationエラー
+- User取得失敗
+- Answer編集
+- 所有者以外による編集禁止
+- Like付きAnswerの編集禁止
+- Answer削除
+- 管理者によるAnswer削除
+- 所有者 / 管理者以外による削除禁止
+- Answer不存在時の404
+
+などを検証しています。
+
+また、
+
+AnswerServiceTestについても、
+
+独自Exceptionを利用する現在の業務ルールへ追従させています。
+
+#### 旧TopicController / AnswerControllerの削除
+
+Topic / AnswerのREST APIが完成したため、
+
+旧Thymeleaf画面向けに使用していた、
+
+- `TopicController`
+- `AnswerController`
+
+を削除しました。
+
+旧Controllerが担当していた処理は、
+
+それぞれ、
+
+`TopicApiController`
+
+`AnswerApiController`
+
+へ移行しています。
+
+この段階で、
+
+Topic / Answerのバックエンド処理については、
+
+Thymeleaf画面へ直接Viewを返す構成から、
+
+JSONを返すREST API中心の構成へ移行しています。
+
+#### 旧ControllerTestの削除
+
+旧Thymeleaf Controllerの削除に伴い、
+
+以下のテストも削除しました。
+
+- `TopicControllerTest`
+- `AnswerControllerTest`
+- `FlashControllerTest`
+
+今後は、
+
+REST APIとしてのHTTPステータス・JSONレスポンス・業務ルールを
+
+ControllerTest / ServiceTestで検証する方針としています。
+
+#### templates/posts/ の削除
+
+TopicControllerの削除に伴い、
+
+旧 `/posts` 画面で使用していたThymeleafテンプレートを削除しました。
+
+削除対象：
+
+- `templates/posts/detail.html`
+- `templates/posts/edit.html`
+- `templates/posts/list.html`
+- `templates/posts/new.html`
+
+Topic画面については、
+
+今後、
+
+`TopicApiController + React`
+
+による構成へ置き換える予定です。
+
+#### 旧Like用JavaScriptの削除
+
+旧掲示板画面で使用していた、
+
+`static/js/like.js`
+
+についても整理しました。
+
+このJavaScriptは、
+
+旧 `/posts` を前提としたLikeリクエストを送信する実装でしたが、
+
+プロジェクト内から参照されていないことを確認したため削除しました。
+
+Like機能そのものについては、
+
+後続の `feature/like-feature`
+
+で正式なREST APIとして再設計する方針です。
+
+#### 残存Thymeleaf Controllerの依存確認
+
+Topic / Answer関連の旧Controllerを削除した後、
+
+残っているControllerについても
+
+Thymeleaf画面への依存状況を確認しました。
+
+確認対象：
+
+- `AdminController`
+- `AuthController`
+- `PasswordResetController`
+- `ContactController`
+- `WithdrawalController`
+- `LikeController`
+
+`AdminController`
+
+→ Model / RedirectAttributes / Thymeleaf View / FlashMessageへの依存が残っているため、
+
+管理機能のREST API化・React移行まで維持します。
+
+`AuthController`
+
+→ Model / @ModelAttribute / BindingResult / Thymeleaf View / redirectを使用しているため、
+
+React認証画面・認証APIの実装まで維持します。
+
+`PasswordResetController`
+
+→ ThymeleafフォームとBindingResultを利用しているため、
+
+React向けパスワード再設定APIへ移行するまで維持します。
+
+`ContactController`
+
+→ お問い合わせフォーム・確認画面・完了画面に加え、
+
+Contact保存とメール送信処理も担当しているため、
+
+お問い合わせREST API化まで維持します。
+
+`WithdrawalController`
+
+→ Thymeleaf Viewそのものへの直接依存はありませんが、
+
+redirectによるMVC画面遷移を使用しているため、
+
+React向け退会API化まで維持します。
+
+`LikeController`
+
+→ JSONを返す中間的なControllerとして現在は残し、
+
+`feature/like-feature`
+
+で正式なLike APIへ移行した後に削除する方針です。
+
+#### SecurityConfigの旧画面URL依存確認
+
+TopicController削除後、
+
+SecurityConfigに残っている旧 `/posts` 依存も確認しました。
+
+`permitAll()` に設定されていた
+
+`/posts`
+
+については削除しました。
+
+一方、
+
+`defaultSuccessUrl("/posts", true)`
+
+および、
+
+`LoginUrlAuthenticationEntryPoint("/posts?error=unauthorized")`
+
+については、
+
+React側の認証画面・ルーティング設計とまとめて変更する必要があるため、
+
+このブランチでは変更を見送りました。
+
+今後React認証へ移行する際に、
+
+- `loginPage`
+- `failureHandler`
+- `defaultSuccessUrl`
+- `authenticationEntryPoint`
+- `logoutSuccessUrl`
+
+をまとめて再設計する方針です。
+
+#### 残存Thymeleafテンプレートの扱い
+
+`templates/posts/`
+
+は削除しましたが、
+
+以下のテンプレートは現在も対応するControllerから使用されているため残しています。
+
+- `templates/admin/`
+- `templates/auth/`
+- `templates/contact/`
+- `templates/layout/`
+
+これらは、
+
+各機能をReact画面・REST APIへ移行したタイミングで
+
+順次削除する方針です。
+
+また、
+
+`templates/admin/user_activities.html`
+
+には旧Post / Comment依存が残っていることを確認しています。
+
+管理者によるTopic / Answer活動履歴については、
+
+後続の管理機能実装フェーズで再構築する予定です。
+
+#### pom.xmlのThymeleaf依存確認
+
+pom.xmlについても、
+
+Thymeleaf関連依存が残っていることを確認しました。
+
+現在使用している主な依存：
+
+- `spring-boot-starter-thymeleaf`
+- `thymeleaf-layout-dialect`
+- `thymeleaf-extras-springsecurity6`
+
+現在も、
+
+Admin / Auth / ContactなどのThymeleaf画面が残っているため、
+
+このブランチでは削除していません。
+
+Reactへの完全移行後、
+
+旧Thymeleaf Controller / templateをすべて削除した段階で、
+
+これらの依存もpom.xmlから削除する予定です。
+
+#### 最終確認
+
+このブランチの完了時には、
+
+- `mvn compile`
+- 全テスト実行
+- `git status`
+
+を確認しました。
+
+その結果、
+
+コンパイル・テストともに成功し、
+
+未コミットの変更が残っていない状態で
+
+`feature/topic-answer-api`
+
+を完了しました。
