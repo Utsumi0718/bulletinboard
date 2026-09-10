@@ -14,6 +14,7 @@ import com.example.bulletinboard.dto.error.ValidationErrorResponse;
 import com.example.bulletinboard.exception.AnswerEditConflictException;
 import com.example.bulletinboard.exception.AnswerNotFoundException;
 import com.example.bulletinboard.exception.ForbiddenOperationException;
+import com.example.bulletinboard.exception.LikeConflictException;
 import com.example.bulletinboard.exception.TopicEditConflictException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.exception.UserNotFoundException;
@@ -59,6 +60,10 @@ import jakarta.servlet.http.HttpServletRequest;
  *   → ErrorResponseを返却
  *
  * - AnswerEditConflictException
+ *   → 409 Conflict
+ *   → ErrorResponseを返却
+ *
+ *  - LikeConflictException
  *   → 409 Conflict
  *   → ErrorResponseを返却
  *
@@ -280,6 +285,36 @@ public ResponseEntity<ErrorResponse> handleAnswerNotFound(
 @ExceptionHandler(AnswerEditConflictException.class)
 public ResponseEntity<ErrorResponse> handleAnswerEditConflict(
         AnswerEditConflictException ex,
+        HttpServletRequest request) {
+
+    ErrorResponse response = new ErrorResponse(
+            HttpStatus.CONFLICT.value(),
+            HttpStatus.CONFLICT.getReasonPhrase(),
+            ex.getMessage(),
+            request.getRequestURI()
+    );
+
+    return ResponseEntity
+            .status(HttpStatus.CONFLICT)
+            .body(response);
+}
+
+
+
+/**
+ * Like登録時に競合が発生した場合の
+ * LikeConflictExceptionを処理します。
+ *
+ * 主に同一User + AnswerへのLike登録が
+ * UNIQUE制約と競合した場合に使用します。
+ *
+ * @param ex      発生したLikeConflictException
+ * @param request エラーが発生したHTTPリクエスト
+ * @return 409 ConflictとErrorResponse
+ */
+@ExceptionHandler(LikeConflictException.class)
+public ResponseEntity<ErrorResponse> handleLikeConflictException(
+        LikeConflictException ex,
         HttpServletRequest request) {
 
     ErrorResponse response = new ErrorResponse(
