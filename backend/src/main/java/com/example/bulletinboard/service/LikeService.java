@@ -142,39 +142,26 @@ public class LikeService {
     /**
       * 指定されたUserが対象AnswerをLikeしているか確認する。
       *
-      * UserまたはAnswerがnullの場合はfalseを返す。
-      *
       * @param user   Like状態を確認するUser
       * @param answer 対象Answer
-      * @return Like済みの場合true、未Likeまたは引数がnullの場合false
-     */
-
-    public boolean isLikedByUser(User user, Answer answer) {
-
-        if (user == null || answer == null) {
-            return false;
-        }
-
-        return likeRepository.existsByUserAndAnswer(
-                user,
-                answer
-        );
-    }
-
-    /**
-      * 指定されたAnswerの現在のLike件数を取得する。
-      *
-      * Answerがnullの場合は0を返す。
-      *
-      * @param answer 対象Answer
-      * @return 現在のLike件数。Answerがnullの場合は0
+      * @return Like済みの場合true、未Likeの場合false
       */
-    public long getLikeCount(Answer answer) {
+   public boolean isLikedByUser(User user, Answer answer) {
 
-        if (answer == null) {
-            return 0;
-        }
+    return likeRepository.existsByUserAndAnswer(
+            user,
+            answer
+    );
+   }
 
-        return likeRepository.countByAnswer(answer);
-    }
+/**
+ * 指定されたAnswerの現在のLike件数を取得する。
+ *
+ * @param answer 対象Answer
+ * @return 現在のLike件数
+ */
+public long getLikeCount(Answer answer) {
+
+    return likeRepository.countByAnswer(answer);
+}
 }
