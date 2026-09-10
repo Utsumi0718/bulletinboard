@@ -1,7 +1,5 @@
 package com.example.bulletinboard.controller;
 
-import java.util.HashMap;
-import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -11,10 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import com.example.bulletinboard.model.Answer;
-import com.example.bulletinboard.model.User;
-import com.example.bulletinboard.service.AnswerService;
-import com.example.bulletinboard.service.CustomUserDetailsService;
+import com.example.bulletinboard.dto.like.LikeResponse;
 import com.example.bulletinboard.service.LikeService;
 
 /**
@@ -39,51 +34,24 @@ import com.example.bulletinboard.service.LikeService;
 public class LikeController {
 
     private final LikeService likeService;
-    private final AnswerService answerService;
-    private final CustomUserDetailsService userDetailsService;
+
 
     public LikeController(
-            LikeService likeService,
-            AnswerService answerService,
-            CustomUserDetailsService userDetailsService) {
+            LikeService likeService) {
 
         this.likeService = likeService;
-        this.answerService = answerService;
-        this.userDetailsService = userDetailsService;
     }
 
     @PostMapping("/{answerId}/like")
-    public ResponseEntity<Map<String, Object>> toggleLike(
-            @PathVariable Long answerId,
-            @AuthenticationPrincipal UserDetails userDetails) {
+ public ResponseEntity<LikeResponse> toggleLike(
+        @PathVariable Long answerId,
+        @AuthenticationPrincipal UserDetails userDetails) {
 
-        // PrincipalにはログインIDであるemailが設定されているため、
-        // emailを基準にログインユーザーを取得する
-        User user = userDetailsService.findByEmail(userDetails.getUsername())
-            .orElseThrow(() ->
-                new IllegalArgumentException(
-                        "ユーザーが見つかりません: " + userDetails.getUsername()
-                ));
+    LikeResponse response = likeService.toggleLike(
+            answerId,
+            userDetails.getUsername()
+    );
 
-        // 変更：PostではなくAnswerを取得する
-        Answer answer = answerService.getAnswerById(answerId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "指定された回答は見つかりません: " + answerId
-                        ));
-
-        // 変更：Answerに対するいいねの切り替えを実行
-        boolean isLiked = likeService.toggleLike(user, answer);
-
-        // 変更：Answerの最新いいね件数を取得
-        long likeCount = likeService.getLikeCount(answer);
-
-        // レスポンスデータの組み立て
-        Map<String, Object> response = new HashMap<>();
-        response.put("liked", isLiked);
-        response.put("count", likeCount);
-
-        // JSONデータとして返却
-        return ResponseEntity.ok(response);
-    }
+    return ResponseEntity.ok(response);
+}
 }
