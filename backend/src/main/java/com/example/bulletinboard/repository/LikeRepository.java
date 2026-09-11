@@ -1,8 +1,11 @@
 package com.example.bulletinboard.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.example.bulletinboard.model.Answer;
 import com.example.bulletinboard.model.Like;
@@ -22,16 +25,19 @@ import com.example.bulletinboard.model.User;
  * - ユーザーと回答の組み合わせからLikeを取得する
  * - 特定の回答に付いているいいね数を取得する
  * - ユーザーが特定の回答に付けたいいねを削除する
+ * - 複数AnswerのLike件数を一括取得する
+ * - ログインユーザーがLike済みのAnswer IDを一括取得する
  *
  * 【設計上のポイント】
- * - 旧LikeRepositoryではPostへのいいねを管理していましたが、
- *   新しい設計ではAnswerへのいいねを管理します。
  * - 同じユーザーが同じ回答に複数回いいねできないことは、
  *   likesテーブルのUNIQUE(user_id, answer_id)制約でも保証しています。
- * - 自分自身の回答へのいいね禁止はDB制約ではなく、
+ *
+ * - 自分自身の回答へのいいね禁止は、
  *   Service層で判定します。
- * - 論理削除済みのAnswerへのいいね禁止も、
- *   Service層で判定する予定です。
+ *
+ * - Answer一覧取得時は、
+ *   AnswerごとにLike件数・liked状態を問い合わせず、
+ *   一括Queryを使用してN+1を避けます。
  */
 public interface LikeRepository extends JpaRepository<Like, Long> {
 
@@ -60,4 +66,39 @@ public interface LikeRepository extends JpaRepository<Like, Long> {
      * いいねを削除します。
      */
     void deleteByUserAndAnswer(User user, Answer answer);
+
+    /*
+     * 指定された複数のAnswerについて、
+     * AnswerごとのLike件数を一括取得します。
+     *
+     * Likeが0件のAnswerは結果に含まれないため、
+     * Service側で0件として補完します。
+     */
+    @Query("""
+            SELECT
+                l.answer.id AS answerId,
+                COUNT(l.id) AS likeCount
+            FROM Like l
+            WHERE l.answer.id IN :answerIds
+            GROUP BY l.answer.id
+            """)
+    List<AnswerLikeCount> countLikesByAnswerIds(
+            @Param("answerIds") List<Long> answerIds
+    );
+
+    /*
+     * 指定されたユーザーがLikeしているAnswerのうち、
+     * 指定されたAnswer ID一覧に含まれるAnswer IDを
+     * 一括取得します。
+     */
+    @Query("""
+            SELECT l.answer.id
+            FROM Like l
+            WHERE l.user.id = :userId
+              AND l.answer.id IN :answerIds
+            """)
+    List<Long> findLikedAnswerIdsByUserIdAndAnswerIds(
+            @Param("userId") Long userId,
+            @Param("answerIds") List<Long> answerIds
+    );
 }
