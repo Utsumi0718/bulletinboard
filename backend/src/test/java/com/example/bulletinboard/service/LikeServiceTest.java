@@ -1,16 +1,21 @@
 package com.example.bulletinboard.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -31,8 +36,10 @@ import com.example.bulletinboard.model.Answer;
 import com.example.bulletinboard.model.Like;
 import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.repository.AnswerLikeCount;
 import com.example.bulletinboard.repository.AnswerRepository;
 import com.example.bulletinboard.repository.LikeRepository;
+
 
 /**
  * 【クラスの役割】
@@ -473,4 +480,84 @@ class LikeServiceTest {
         verify(likeRepository, times(1))
                 .countByAnswer(testAnswer);
     }
+
+
+    @Test
+    @DisplayName("複数AnswerのLike件数を一括取得しLike0件のAnswerは0で補完されること")
+    void getLikeCountsByAnswerIds_ShouldReturnLikeCountsIncludingZero() {
+
+    // Given
+    List<Long> answerIds =
+            List.of(10L, 20L, 30L);
+
+    AnswerLikeCount answer10Count =
+            mock(AnswerLikeCount.class);
+
+    AnswerLikeCount answer20Count =
+            mock(AnswerLikeCount.class);
+
+    when(answer10Count.getAnswerId())
+            .thenReturn(10L);
+
+    when(answer10Count.getLikeCount())
+            .thenReturn(2L);
+
+    when(answer20Count.getAnswerId())
+            .thenReturn(20L);
+
+    when(answer20Count.getLikeCount())
+            .thenReturn(1L);
+
+    when(
+            likeRepository.countLikesByAnswerIds(answerIds)
+    ).thenReturn(
+            List.of(
+                    answer10Count,
+                    answer20Count
+            )
+    );
+
+    // When
+    Map<Long, Long> result =
+            likeService.getLikeCountsByAnswerIds(
+                    answerIds
+            );
+
+    // Then
+    assertThat(result)
+            .containsEntry(10L, 2L)
+            .containsEntry(20L, 1L)
+            .containsEntry(30L, 0L);
+
+    assertThat(result).hasSize(3);
+
+    verify(
+            likeRepository
+    ).countLikesByAnswerIds(answerIds);
+}
+
+@Test
+@DisplayName("Answer ID一覧が空の場合は空Mapを返しLikeRepositoryを呼び出さないこと")
+void getLikeCountsByAnswerIds_WhenAnswerIdsEmpty_ShouldReturnEmptyMap() {
+
+    // Given
+    List<Long> answerIds =
+            List.of();
+
+    // When
+    Map<Long, Long> result =
+            likeService.getLikeCountsByAnswerIds(
+                    answerIds
+            );
+
+    // Then
+    assertThat(result).isEmpty();
+
+    verify(
+            likeRepository,
+            never()
+    ).countLikesByAnswerIds(
+            anyList()
+    );
+}
 }
