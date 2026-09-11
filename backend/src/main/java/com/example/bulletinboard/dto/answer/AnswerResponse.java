@@ -28,6 +28,20 @@ public class AnswerResponse {
     private LocalDateTime updatedAt;
 
     /*
+     * 現在ログインしているユーザーが、
+     * このAnswerへLikeしているかを表します。
+     *
+     * true  : Like済み
+     * false : Likeしていない
+     */
+    private boolean liked;
+
+    /*
+     * このAnswerに現在付いているLike件数です。
+     */
+    private long likeCount;
+
+    /*
      * Answer EntityをAPI返却用のAnswerResponseへ変換します。
      *
      * User Entity自体はレスポンスへ含めず、
@@ -45,6 +59,19 @@ public class AnswerResponse {
 
         return response;
     }
+
+    public static AnswerResponse from(
+        Answer answer,
+        boolean liked,
+        long likeCount) {
+
+      AnswerResponse response = from(answer);
+
+      response.setLiked(liked);
+      response.setLikeCount(likeCount);
+
+    return response;
+}
 
     public Long getId() {
         return id;
@@ -85,4 +112,20 @@ public class AnswerResponse {
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
+
+    public boolean isLiked() {
+    return liked;
+}
+
+    public void setLiked(boolean liked) {
+    this.liked = liked;
+   }
+
+   public long getLikeCount() {
+    return likeCount;
+   }
+
+   public void setLikeCount(long likeCount) {
+    this.likeCount = likeCount;
+  }
 }
