@@ -3,6 +3,7 @@ package com.example.bulletinboard.repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -34,10 +35,15 @@ public interface AnswerRepository extends JpaRepository<Answer, Long> {
     /*
      * 指定したTopicに紐づく、
      * 削除されていない回答を取得します。
+     *
+     * Answer一覧表示ではusernameを使用するため、
+     * EntityGraphでUserも同時取得し、
+     * AnswerごとのUser取得によるN+1を防ぎます。
      */
-    List<Answer> findByTopicIdAndDeletedAtIsNull(Long topicId);
+     @EntityGraph(attributePaths = "user")
+     List<Answer> findByTopicIdAndDeletedAtIsNull(Long topicId);
 
-    /*
+     /*
      * 指定したIDかつ削除されていない回答を取得します。
      */
     Optional<Answer> findByIdAndDeletedAtIsNull(Long id);
