@@ -1460,3 +1460,476 @@ Reactへの完全移行後、
 `feature/topic-answer-api`
 
 を完了しました。
+
+
+### 5. Like機能の完成とAnswer APIへの連携
+
+`feature/topic-answer-api` でTopic / AnswerのREST API化が完了した後、
+AnswerへのLike機能を正式な業務仕様として完成させました。
+
+このブランチでは、
+
+- Like追加・解除
+- Likeに関する業務ルール
+- REST API
+- 例外処理
+- Repository / Service / Controller Test
+- Answer一覧APIとのLike情報連携
+- N+1問題の確認・改善
+- 旧LikeControllerの削除
+
+まで対応しています。
+
+#### Like業務ルールの整理
+
+Like機能について、以下のルールを正式仕様として実装しました。
+
+- ログインユーザーのみLike可能
+- 同一ユーザーは同一Answerへ1件のみLike可能
+- Like済みAnswerへ再度LikeするとLike解除
+- 自分自身が投稿したAnswerにはLike不可
+- 論理削除済みAnswerにはLike不可
+- 親Topicが論理削除済みの場合もLike不可
+- 管理者も一般ユーザーと同じLikeルールを適用
+- Answer / Topicを論理削除しても既存Likeデータ自体は保持
+
+重複Likeについては、
+
+`UNIQUE(user_id, answer_id)`
+
+によるDB側の制約も利用し、
+アプリケーション側とDB側の両方で重複を防止する構成としています。
+
+#### LikeServiceの再構築
+
+Like操作の業務ロジックを `LikeService` に集約しました。
+
+主な処理：
+
+- loginEmailからログインUserを取得
+- Answerの存在確認
+- 論理削除済みAnswerの除外
+- 親Topicの論理削除状態確認
+- User.idを利用した自分自身のAnswer判定
+- Like済みの場合は解除
+- 未Likeの場合は新規登録
+- Like操作後の最新Like件数を取得
+- 現在のログインユーザーがLike済みか確認
+
+Like登録時には、
+DBのUNIQUE制約違反などによる競合も考慮し、
+
+`DataIntegrityViolationException`
+
+をLike用の競合エラーへ変換する構成にしています。
+
+#### Like REST API
+
+旧LikeControllerを正式なREST APIへ置き換えました。
+
+エンドポイント：
+
+`POST /api/answers/{answerId}/like`
+
+レスポンスには、
+
+- `liked`
+- `likeCount`
+
+を持つ `LikeResponse` を使用します。
+
+Like追加後は、
+
+`liked = true`
+
+Like解除後は、
+
+`liked = false`
+
+となり、
+操作後の最新Like件数も同時に返します。
+
+これによりReact側では、
+Like操作後に別途件数取得APIを呼ばなくても、
+レスポンスだけでLikeボタンの状態と件数を更新できる構成にしています。
+
+#### Like関連の例外処理
+
+Like操作で発生するエラーについても、
+REST API用のHTTPステータスとJSONレスポンスへ統一しました。
+
+主なエラー：
+
+- Answer不存在 / 論理削除済み → `404 Not Found`
+- 親Topicが論理削除済み → `404 Not Found`
+- 自分自身のAnswerへのLike → `403 Forbidden`
+- 重複登録などの競合 → `409 Conflict`
+
+これらは `GlobalExceptionHandler` を通して、
+API共通の `ErrorResponse` として返します。
+
+#### AnswerResponseへのLike情報追加
+
+Answer一覧をReact側で表示する際に、
+各回答のLike状態を同時に扱えるよう、
+
+`AnswerResponse`
+
+へ以下を追加しました。
+
+- `liked`
+- `likeCount`
+
+`liked`
+
+は現在ログインしているユーザーが
+そのAnswerへLikeしているかを表します。
+
+`likeCount`
+
+はそのAnswerに付いているLike件数を表します。
+
+これにより、
+
+`GET /api/topics/{topicId}/answers`
+
+のレスポンスだけで、
+
+- Answer本文
+- 投稿者username
+- 作成日時
+- Like済み状態
+- Like件数
+
+をまとめて取得できる構成になりました。
+
+#### Answer作成・編集時のLike情報
+
+Answer新規投稿直後はLikeが存在しないため、
+
+`POST /api/topics/{topicId}/answers`
+
+成功時のレスポンスでは、
+
+`liked = false`
+
+`likeCount = 0`
+
+となります。
+
+また、Answer編集については、
+
+「Likeが1件以上付いているAnswerは編集できない」
+
+という業務ルールがあります。
+
+そのため、
+
+`PUT /api/answers/{id}`
+
+が正常に成功したAnswerについても、
+
+`liked = false`
+
+`likeCount = 0`
+
+となります。
+
+#### Like情報の一括取得
+
+Answer一覧でLike情報を返す際に、
+
+Answerごとに、
+
+- Like件数取得
+- liked状態確認
+
+を行うと、
+Answer件数に比例してSQLが増える可能性があります。
+
+そこで、
+Answer ID一覧をまとめてLikeRepositoryへ渡し、
+
+Like件数とLike済みAnswer IDを
+一括取得する処理を追加しました。
+
+LikeRepositoryでは、
+
+- Answer ID一覧ごとのLike件数取得
+- 指定UserがLikeしているAnswer ID一覧取得
+
+をそれぞれ一括クエリで取得します。
+
+LikeService側では取得結果を、
+
+- `Map<Long, Long>`
+- `Set<Long>`
+
+へ変換し、
+AnswerResponse作成時にメモリ上で参照する構成としました。
+
+これにより、
+AnswerごとにLikeRepositoryへ問い合わせる構造を避けています。
+
+#### Like取得時のN+1確認
+
+実装後はHibernateのSQLログを利用して、
+実際に発行されるSQLも確認しました。
+
+複数Answerを持つTopicを取得し、
+
+Like件数については、
+
+Answer ID一覧を利用した
+
+`IN (?, ?, ...)`
+
+形式のSQLが1回だけ発行されることを確認しました。
+
+ログインユーザーのliked状態についても、
+
+User IDとAnswer ID一覧を利用した
+一括クエリが1回だけ発行されることを確認しています。
+
+これにより、
+Like情報取得側ではAnswer件数に比例してSQLが増える
+N+1問題が発生していないことを確認しました。
+
+#### Answer → UserのN+1問題を発見・改善
+
+Like情報のSQL確認を行う過程で、
+
+Answer一覧取得後に、
+
+Answerごとの投稿者Userを取得するSQLが
+個別に発行されていることも確認しました。
+
+例えば3件のAnswerを、
+それぞれ異なるUserが投稿している状態では、
+
+Answer一覧取得後に、
+
+`select ... from users where id = ?`
+
+がAnswerごとに発行されていました。
+
+これは、
+
+`Answer.user`
+
+が遅延読み込みされており、
+`AnswerResponse` 作成時に
+
+`answer.getUser().getUsername()`
+
+へアクセスすることで発生していました。
+
+そこで `AnswerRepository` の一覧取得処理へ、
+
+`@EntityGraph(attributePaths = "user")`
+
+を追加しました。
+
+これにより、
+Answer一覧取得時にUserもJOINしてまとめて取得できるようになり、
+
+AnswerごとのUser取得SQLが発行されないことを
+SQLログで確認しました。
+
+Entity側の関連付け自体はLAZYのままとし、
+Answer一覧取得が必要な箇所だけ
+EntityGraphでUserを同時取得する構成としています。
+
+#### N+1確認用テストデータの工夫
+
+最初のSQL確認では、
+すべてのAnswerを同じUserが投稿した状態で確認していました。
+
+この場合、
+HibernateのPersistence Contextによって
+同じUserが再利用されるため、
+
+N+1問題が分かりにくい状態になっていました。
+
+そこで、
+
+複数の異なるUserがそれぞれAnswerを投稿している
+テストデータへ変更して再確認しました。
+
+これにより、
+AnswerごとにUser取得SQLが増えることを確認でき、
+
+EntityGraph追加後に
+それらの個別SQLがなくなることも確認しました。
+
+今回の確認では、
+単にアプリケーションが正常に動作することだけではなく、
+
+実際にHibernateがどのSQLを発行しているかまで確認しながら
+パフォーマンス上の問題を改善しています。
+
+#### Repository Test
+
+LikeRepositoryへ追加した
+一括取得処理についてRepository Testを追加しました。
+
+主な確認内容：
+
+- 複数AnswerのLike件数をまとめて取得できる
+- Like 0件のAnswerは集計結果に含まれない
+- 指定UserがLikeしたAnswer IDだけ取得できる
+- 他ユーザーのLikeはliked判定へ含まれない
+
+Like 0件のAnswerについては、
+Service側で `0` を補完する構成としています。
+
+#### LikeService Test
+
+LikeServiceについて、
+既存のLike追加・解除テストに加えて、
+
+Answer一覧用のLike一括取得処理についても
+テストを追加しました。
+
+主な確認内容：
+
+- Answer IDごとのLike件数取得
+- Like 0件を0として補完
+- 空のAnswer ID一覧を安全に処理
+- UserがLikeしているAnswer IDをSetとして取得
+- 空のAnswer ID一覧ではRepositoryへ不要な問い合わせを行わない
+
+#### LikeApiController Test
+
+正式なLike REST APIについて、
+MockMvcを利用したController Testを追加しました。
+
+主な確認内容：
+
+- Like追加
+- Like解除
+- `liked`
+- `likeCount`
+- Answer不存在
+- 自分自身のAnswerへのLike禁止
+- Like競合
+- CSRFトークンなしの場合のアクセス拒否
+- LikeServiceへ正しいanswerId / loginEmailが渡されること
+
+これにより、
+Like APIの正常系・異常系の両方を検証しています。
+
+#### AnswerApiController Testの更新
+
+Answer一覧APIへLike情報を追加したため、
+`AnswerApiControllerTest` も更新しました。
+
+主な確認内容：
+
+- Answer一覧で `liked` が返る
+- Answer一覧で `likeCount` が返る
+- PrincipalのloginEmailからログインUserを取得する
+- LikeServiceへAnswer ID一覧を渡す
+- ログインUser.idをliked状態取得処理へ渡す
+- POST成功時 `liked = false`
+- POST成功時 `likeCount = 0`
+- PUT成功時 `liked = false`
+- PUT成功時 `likeCount = 0`
+
+従来のTopic / Answer API仕様を維持したまま、
+Like情報をレスポンスへ追加できていることを確認しています。
+
+#### 旧LikeControllerの削除
+
+`feature/topic-answer-api` では、
+Like機能を正式API化するまでの中間構成として、
+
+`LikeController`
+
+を残していました。
+
+旧エンドポイント：
+
+`POST /answers/{answerId}/like`
+
+正式なLike REST API完成後は、
+
+`POST /api/answers/{answerId}/like`
+
+へ完全に役割を移行できたため、
+
+- `LikeController.java`
+- `LikeControllerTest.java`
+
+を削除しました。
+
+削除後にはプロジェクト全体を検索し、
+
+- `LikeController`
+- 旧Like Mapping
+- `feature/like-feature` を指す古い実装コメント
+
+が残っていないことを確認しています。
+
+#### SecurityConfigへの影響確認
+
+旧LikeController削除時に、
+SecurityConfigへ旧Like URL専用の設定が残っていないか確認しました。
+
+現在は、
+
+`.anyRequest().authenticated()`
+
+によってLike APIも認証対象となるため、
+旧LikeController削除に伴うSecurityConfigの追加変更は行っていません。
+
+なお、
+現在のSecurityConfigでは未認証状態でREST APIへアクセスした場合も、
+
+`LoginUrlAuthenticationEntryPoint`
+
+によってログイン画面向けのリダイレクト処理が実行されます。
+
+そのため、
+Like APIへの未認証アクセスも現時点では
+`401 Unauthorized` ではなく302リダイレクトとなります。
+
+この点については、
+
+`feature/api-integration`
+
+でReactとSpring Boot APIを接続する際に、
+
+- REST API向け401レスポンス
+- AuthenticationEntryPoint
+- CSRFトークンの受け渡し
+- Cookie / Session認証
+- CORS
+- React側の401 / 403処理
+
+と合わせて再設計する方針としています。
+
+#### 最終確認
+
+このブランチの完了時には、
+
+`mvn clean compile`
+
+および、
+
+`mvn test`
+
+を実行しました。
+
+その結果、
+コンパイル・全テストともに成功することを確認しました。
+
+これにより、
+
+`feature/like-feature`
+
+では、
+
+AnswerへのLike機能について、
+
+業務ルール・Repository・Service・REST API・DTO・例外処理・テスト・Answer API連携・N+1対策まで含めたバックエンド実装を完了しました。
