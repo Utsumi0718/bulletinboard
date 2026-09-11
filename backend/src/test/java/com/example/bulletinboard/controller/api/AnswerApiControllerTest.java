@@ -1,5 +1,4 @@
 package com.example.bulletinboard.controller.api;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -16,7 +15,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,7 @@ import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.service.AnswerService;
 import com.example.bulletinboard.service.CustomUserDetailsService;
+import com.example.bulletinboard.service.LikeService;
 import com.example.bulletinboard.service.TopicService;
 
 /*
@@ -117,23 +119,34 @@ class AnswerApiControllerTest {
     @MockitoBean
     private CustomUserDetailsService userDetailsService;
 
+    @MockitoBean
+    private LikeService likeService;
+
 
 @Test
-@DisplayName("指定TopicのAnswer一覧を200 OKで取得できること")
+@DisplayName("指定TopicのAnswer一覧をLike情報付きで200 OKで取得できること")
 @WithMockUser(username = "testuser01@example.com")
 void getAnswersByTopicId_ShouldReturnAnswerList() throws Exception {
 
     Topic topic = new Topic();
     topic.setId(1L);
 
-    User user = new User();
-    user.setUsername("testuser01");
-    user.setEmail("testuser01@example.com");
+    // ログインユーザー
+    User currentUser = new User();
+    currentUser.setId(1L);
+    currentUser.setUsername("testuser01");
+    currentUser.setEmail("testuser01@example.com");
+
+    // Answer投稿者
+    User answerUser = new User();
+    answerUser.setId(2L);
+    answerUser.setUsername("answeruser01");
+    answerUser.setEmail("answeruser01@example.com");
 
     Answer answer = new Answer();
     answer.setId(10L);
     answer.setTopic(topic);
-    answer.setUser(user);
+    answer.setUser(answerUser);
     answer.setContent("テスト回答です");
     answer.setCreatedAt(
             LocalDateTime.of(2026, 9, 8, 20, 0)
@@ -147,8 +160,31 @@ void getAnswersByTopicId_ShouldReturnAnswerList() throws Exception {
     ).thenReturn(topic);
 
     when(
+            userDetailsService.findByEmail(
+                    "testuser01@example.com"
+            )
+    ).thenReturn(Optional.of(currentUser));
+
+    when(
             answerService.getAnswersByTopicId(1L)
     ).thenReturn(List.of(answer));
+
+    when(
+            likeService.getLikeCountsByAnswerIds(
+                    List.of(10L)
+            )
+    ).thenReturn(
+            Map.of(10L, 2L)
+    );
+
+    when(
+            likeService.getLikedAnswerIdsByUserId(
+                    1L,
+                    List.of(10L)
+            )
+    ).thenReturn(
+            Set.of(10L)
+    );
 
     mockMvc.perform(
             get("/api/topics/1/answers")
@@ -158,12 +194,31 @@ void getAnswersByTopicId_ShouldReturnAnswerList() throws Exception {
             .andExpect(jsonPath("$[0].content")
                     .value("テスト回答です"))
             .andExpect(jsonPath("$[0].username")
-                    .value("testuser01"));
+                    .value("answeruser01"))
+            .andExpect(jsonPath("$[0].liked")
+                    .value(true))
+            .andExpect(jsonPath("$[0].likeCount")
+                    .value(2));
 
-    verify(topicService).getById(1L);
+    verify(topicService)
+            .getById(1L);
+
+    verify(userDetailsService)
+            .findByEmail("testuser01@example.com");
 
     verify(answerService)
             .getAnswersByTopicId(1L);
+
+    verify(likeService)
+            .getLikeCountsByAnswerIds(
+                    List.of(10L)
+            );
+
+    verify(likeService)
+            .getLikedAnswerIdsByUserId(
+                    1L,
+                    List.of(10L)
+            );
 }
 
 @Test
@@ -174,13 +229,37 @@ void getAnswersByTopicId_NoAnswers_ShouldReturnEmptyList() throws Exception {
     Topic topic = new Topic();
     topic.setId(1L);
 
+    User currentUser = new User();
+    currentUser.setId(1L);
+    currentUser.setUsername("testuser01");
+    currentUser.setEmail("testuser01@example.com");
+
     when(
             topicService.getById(1L)
     ).thenReturn(topic);
 
     when(
+            userDetailsService.findByEmail(
+                    "testuser01@example.com"
+            )
+    ).thenReturn(Optional.of(currentUser));
+
+    when(
             answerService.getAnswersByTopicId(1L)
     ).thenReturn(List.of());
+
+    when(
+            likeService.getLikeCountsByAnswerIds(
+                    List.of()
+            )
+    ).thenReturn(Map.of());
+
+    when(
+            likeService.getLikedAnswerIdsByUserId(
+                    1L,
+                    List.of()
+            )
+    ).thenReturn(Set.of());
 
     mockMvc.perform(
             get("/api/topics/1/answers")
@@ -189,10 +268,25 @@ void getAnswersByTopicId_NoAnswers_ShouldReturnEmptyList() throws Exception {
             .andExpect(jsonPath("$").isArray())
             .andExpect(jsonPath("$").isEmpty());
 
-    verify(topicService).getById(1L);
+    verify(topicService)
+            .getById(1L);
+
+    verify(userDetailsService)
+            .findByEmail("testuser01@example.com");
 
     verify(answerService)
             .getAnswersByTopicId(1L);
+
+    verify(likeService)
+            .getLikeCountsByAnswerIds(
+                    List.of()
+            );
+
+    verify(likeService)
+            .getLikedAnswerIdsByUserId(
+                    1L,
+                    List.of()
+            );
 }
 
 @Test
