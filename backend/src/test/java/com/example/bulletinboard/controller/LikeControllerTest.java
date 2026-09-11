@@ -1,6 +1,7 @@
 package com.example.bulletinboard.controller;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -11,8 +12,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.util.Optional;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,40 +21,26 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.example.bulletinboard.model.Answer;
-import com.example.bulletinboard.model.User;
-import com.example.bulletinboard.service.AnswerService;
-import com.example.bulletinboard.service.CustomUserDetailsService;
+import com.example.bulletinboard.dto.like.LikeResponse;
 import com.example.bulletinboard.service.LikeService;
 
 /**
  * 【クラスの役割】
- * LikeController（いいね非同期API）のWebレイヤーテストクラスです。
+ * LikeControllerのWebレイヤーを検証するテストクラスです。
  *
- * 擬似的なHTTP POSTリクエスト
- * （/answers/{answerId}/like）を発行し、
- * 回答へのいいね処理とJSONレスポンス、
- * 未ログイン時の制御、
- * CSRFトークン検証を確認します。
+ * 現段階では、LikeServiceの新しいメソッド仕様へ追従し、
+ * LikeControllerが正常にコンパイル・動作できることを確認します。
  *
- * 【主な検証内容】
- * - ログインユーザーが回答へいいねできること
- * - LikeService.toggleLike()が実行されること
- * - LikeService.getLikeCount()で最新のいいね件数を取得すること
- * - いいね状態をlikedとしてJSONへ返すこと
- * - いいね件数をcountとしてJSONへ返すこと
- * - 正常時に200 OKを返すこと
- * - 未ログイン時に401 Unauthorizedとなること
- * - CSRFトークンがない場合に403 Forbiddenとなること
- * - 認証・CSRFエラー時にいいね処理を実行しないこと
+ * 【現在の主な検証内容】
+ * - 認証済みユーザーがLike操作を実行できること
+ * - answerIdとloginEmailがLikeServiceへ渡されること
+ * - LikeResponseのlikedとlikeCountがJSONとして返ること
+ * - 正常時に200 OKとなること
+ * - 未ログイン時にLike処理が実行されないこと
+ * - CSRFトークンがない場合にLike処理が実行されないこと
  *
- * 【設計上のポイント】
- * - 旧Postへのいいね処理をAnswerへのいいね仕様へ移行しています。
- * - ログインユーザーはPrincipalのemailを基準に取得します。
- * - 対象AnswerはAnswerServiceから取得します。
- * - 自分自身の回答へのいいね禁止や、
- *   論理削除済みAnswerへのいいね禁止などの詳細ルールは、
- *   feature/like-featureで追加実装・テストします。
+ * ※ 正式なREST API仕様に合わせたController Testの拡充は、
+ *    H. Like Controller Testで行います。
  */
 @WebMvcTest(LikeController.class)
 public class LikeControllerTest {
@@ -66,78 +51,90 @@ public class LikeControllerTest {
     @MockitoBean
     private LikeService likeService;
 
-    // 変更：PostServiceではなくAnswerServiceをモック化
-    @MockitoBean
-    private AnswerService answerService;
-
-    @MockitoBean
-    private CustomUserDetailsService userDetailsService;
-
     @Test
     @WithMockUser(username = "testuser@example.com")
-    @DisplayName("非同期通信: ログインユーザーが回答へいいねすると、200 OKとJSONデータが返ること")
-    void toggleLike_Async_AuthenticatedUser_ShouldReturnJson() throws Exception {
+    @DisplayName("ログインユーザーがLike操作を行うと200 OKとLikeResponseが返ること")
+    void toggleLike_AuthenticatedUser_ShouldReturnJson() throws Exception {
 
         // Given
-        User mockUser = new User();
-        mockUser.setUsername("testuser");
-        mockUser.setEmail("testuser@example.com");
+        LikeResponse response =
+                new LikeResponse(
+                        true,
+                        1L
+                );
 
-        // 変更：PostではなくAnswerを用意
-        Answer mockAnswer = new Answer();
-        mockAnswer.setId(1L);
-
-       when(userDetailsService.findByEmail("testuser@example.com"))
-        .thenReturn(Optional.of(mockUser));
-
-        when(answerService.getAnswerById(1L))
-                .thenReturn(Optional.of(mockAnswer));
-
-        when(likeService.toggleLike(mockUser, mockAnswer))
-                .thenReturn(true);
-
-        when(likeService.getLikeCount(mockAnswer))
-                .thenReturn(1L);
+        when(
+                likeService.toggleLike(
+                        1L,
+                        "testuser@example.com"
+                )
+        ).thenReturn(response);
 
         // When & Then
-        mockMvc.perform(post("/answers/1/like")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(csrf()))
+        mockMvc.perform(
+                post("/answers/1/like")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .with(csrf())
+        )
                 .andExpect(status().isOk())
-                .andExpect(content()
-                        .contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.liked").value(true))
-                .andExpect(jsonPath("$.count").value(1));
+                .andExpect(
+                        content().contentTypeCompatibleWith(
+                                MediaType.APPLICATION_JSON
+                        )
+                )
+                .andExpect(
+                        jsonPath("$.liked").value(true)
+                )
+                .andExpect(
+                        jsonPath("$.likeCount").value(1)
+                );
 
-        verify(likeService, times(1))
-                .toggleLike(mockUser, mockAnswer);
-
-        verify(likeService,times(1)).getLikeCount(mockAnswer);
+        verify(
+                likeService,
+                times(1)
+        ).toggleLike(
+                1L,
+                "testuser@example.com"
+        );
     }
 
     @Test
-    @DisplayName("非同期通信: 未ログイン状態でリクエストを送ると401 Unauthorizedになること")
+    @DisplayName("未ログイン状態ではLike処理が実行されないこと")
     void toggleLike_UnauthenticatedUser_ShouldReturnUnauthorized()
             throws Exception {
 
-        mockMvc.perform(post("/answers/1/like")
-                .with(csrf()))
+        mockMvc.perform(
+                post("/answers/1/like")
+                        .with(csrf())
+        )
                 .andExpect(status().isUnauthorized());
 
-        verify(likeService, never())
-                .toggleLike(any(), any());
+        verify(
+                likeService,
+                never()
+        ).toggleLike(
+                anyLong(),
+                anyString()
+        );
     }
 
     @Test
     @WithMockUser(username = "testuser@example.com")
-    @DisplayName("セキュリティ: CSRFトークンがないPOSTリクエストは403 Forbiddenになること")
+    @DisplayName("CSRFトークンがないPOSTリクエストは403 Forbiddenになること")
     void toggleLike_WithoutCsrf_ShouldReturnForbidden()
             throws Exception {
 
-        mockMvc.perform(post("/answers/1/like"))
+        mockMvc.perform(
+                post("/answers/1/like")
+        )
                 .andExpect(status().isForbidden());
 
-        verify(likeService, never())
-                .toggleLike(any(), any());
+        verify(
+                likeService,
+                never()
+        ).toggleLike(
+                anyLong(),
+                anyString()
+        );
     }
 }
