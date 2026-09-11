@@ -1,7 +1,11 @@
 package com.example.bulletinboard.service;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -15,6 +19,7 @@ import com.example.bulletinboard.exception.UserNotFoundException;
 import com.example.bulletinboard.model.Answer;
 import com.example.bulletinboard.model.Like;
 import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.repository.AnswerLikeCount;
 import com.example.bulletinboard.repository.AnswerRepository;
 import com.example.bulletinboard.repository.LikeRepository;
 
@@ -163,5 +168,79 @@ public class LikeService {
 public long getLikeCount(Answer answer) {
 
     return likeRepository.countByAnswer(answer);
+}
+
+
+/*
+ * 指定された複数のAnswerについて、
+ * AnswerごとのLike件数を一括取得します。
+ *
+ * Repositoryの集計結果にはLikeが0件のAnswerが含まれないため、
+ * 指定されたすべてのAnswer IDを0件で初期化したうえで、
+ * 実際の集計結果を上書きします。
+ *
+ * Answer一覧表示時に、
+ * Answerごとにcountクエリを実行することを避けるために使用します。
+ */
+public Map<Long, Long> getLikeCountsByAnswerIds(
+        List<Long> answerIds) {
+
+    if (answerIds.isEmpty()) {
+        return Map.of();
+    }
+
+    Map<Long, Long> likeCounts = new HashMap<>();
+
+    /*
+     * Likeが0件のAnswerもResponseへ0として返せるよう、
+     * すべてのAnswer IDを0件で初期化します。
+     */
+    for (Long answerId : answerIds) {
+        likeCounts.put(answerId, 0L);
+    }
+
+    List<AnswerLikeCount> results =
+            likeRepository.countLikesByAnswerIds(answerIds);
+
+    /*
+     * Likeが存在するAnswerについて、
+     * Repositoryから取得した実際の件数で上書きします。
+     */
+    for (AnswerLikeCount result : results) {
+        likeCounts.put(
+                result.getAnswerId(),
+                result.getLikeCount()
+        );
+    }
+
+    return likeCounts;
+}
+
+/*
+ * 指定されたユーザーがLike済みのAnswer IDを
+ * 一括取得します。
+ *
+ * Answer一覧表示時に、
+ * Answerごとにexistsクエリを実行することを避けるために使用します。
+ *
+ * 戻り値をSetとすることで、
+ * 各AnswerがLike済みかをcontains()で判定できます。
+ */
+public Set<Long> getLikedAnswerIdsByUserId(
+        Long userId,
+        List<Long> answerIds) {
+
+    if (answerIds.isEmpty()) {
+        return Set.of();
+    }
+
+    List<Long> likedAnswerIds =
+            likeRepository
+                    .findLikedAnswerIdsByUserIdAndAnswerIds(
+                            userId,
+                            answerIds
+                    );
+
+    return Set.copyOf(likedAnswerIds);
 }
 }
