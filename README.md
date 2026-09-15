@@ -1933,3 +1933,430 @@ Like APIへの未認証アクセスも現時点では
 AnswerへのLike機能について、
 
 業務ルール・Repository・Service・REST API・DTO・例外処理・テスト・Answer API連携・N+1対策まで含めたバックエンド実装を完了しました。
+
+
+### 6. ランキング判定・王者実績・自動判定機能の実装
+
+`feature/like-feature` でAnswer単位のLike機能が完成した後、
+Like数を利用して大喜利の王者を決定するランキング機能を実装しました。
+
+このブランチでは、
+
+- DAY_7 / DAY_14 / DAY_21 のランキング判定
+- 同率1位への対応
+- RankingJudgment / RankingResultによる判定履歴の保存
+- WinnerAchievementによる王者実績の保存
+- 同一Userの複数王者Answerに対する代表Answer決定
+- 二重判定・Achievement重複作成の防止
+- Spring Schedulerによる自動王者判定
+- サーバー停止時の未実行checkpoint補完
+- RankingService / Schedulerのテスト
+- FlywayによるランキングDB構造のMigration
+
+まで対応しています。
+
+#### ランキング業務ルール
+
+ランキングはTopicごとに独立して判定します。
+
+判定タイミングは、
+Topicの作成日時 `createdAt` を基準として、
+
+- DAY_7：作成から7日後
+- DAY_14：作成から14日後
+- DAY_21：作成から21日後
+
+の最大3回としています。
+
+Like数はcheckpointごとにリセットせず、
+その時点でAnswerに付いている累積Like数を使用します。
+
+ランキング対象は論理削除されていないAnswerのみです。
+
+判定時には、
+対象AnswerのLike数を集計し、
+最もLike数が多いAnswerを王者とします。
+
+同率1位が存在する場合は、
+1件に絞らず、
+同率1位となったAnswerをすべて王者として扱います。
+
+Answerが1件も存在しない場合、
+またはすべてのAnswerが0Likeの場合は、
+王者なしとして扱います。
+
+この場合も
+「そのcheckpointの判定自体は完了した」
+という履歴を残すため、
+RankingJudgmentは保存しますが、
+RankingResult / WinnerAchievementは作成しません。
+
+DAY_21の判定を最終判定とし、
+以降は新しいランキング判定を行いません。
+
+#### RankingJudgment
+
+ランキング判定そのものの履歴を保存するため、
+`RankingJudgment` を実装しました。
+
+1レコードは、
+
+`1 Topic × 1 checkpoint`
+
+の判定を表します。
+
+主な情報：
+
+- Topic
+- checkpoint
+- 実際に判定した日時 `judgedAt`
+
+checkpointには、
+
+- `DAY_7`
+- `DAY_14`
+- `DAY_21`
+
+を持つ `RankingCheckpoint` Enumを使用しています。
+
+DBでは、
+
+`UNIQUE(topic_id, checkpoint)`
+
+を設定し、
+同一Topic・同一checkpointの判定が重複して保存されないようにしています。
+
+Service側でも既存のRankingJudgmentを確認し、
+判定済みの場合は処理を終了することで二重判定を防止しています。
+
+#### RankingResult
+
+各checkpointで王者になったAnswerを保存するため、
+`RankingResult` を実装しました。
+
+1レコードは、
+
+`1回のランキング判定における1つの王者Answer`
+
+を表します。
+
+主な情報：
+
+- RankingJudgment
+- 王者Answer
+- 判定時点のLike数
+
+Like数はリアルタイム値ではなく、
+ランキング判定を行った時点の値を
+スナップショットとして保存します。
+
+同率1位が3Answer存在した場合は、
+
+- RankingJudgment：1件
+- RankingResult：3件
+
+という形で保存します。
+
+これにより、
+同率王者をすべて履歴として保持できる構成にしています。
+
+#### WinnerAchievement
+
+ユーザーがTopicで初めて王者になった実績を保存するため、
+`WinnerAchievement` を実装しました。
+
+Achievementの単位は、
+
+`1 User × 1 Topic`
+
+です。
+
+同じUserが同じTopicで、
+
+- DAY_7
+- DAY_14
+- DAY_21
+
+と複数回王者になった場合でも、
+WinnerAchievementは1件だけ保持します。
+
+DBでは、
+
+`UNIQUE(user_id, topic_id)`
+
+を設定しています。
+
+Achievementには、
+初めて王者になった時点の、
+
+- User
+- Topic
+- 代表Answer
+- Like数
+- 達成日時
+
+を保存します。
+
+一度作成されたAchievementについては、
+後続checkpointで再び王者になっても、
+
+- answer_id
+- like_count
+- achieved_at
+
+を更新しません。
+
+そのためWinnerAchievementは、
+「そのTopicで初めて王者になった瞬間の実績」
+として保持されます。
+
+#### 同一Userが複数Answerで同率1位になった場合
+
+同じUserが投稿した複数Answerが、
+同じcheckpointで同率1位になるケースにも対応しました。
+
+RankingResultはAnswer単位の判定履歴であるため、
+王者となったAnswerをすべて保存します。
+
+一方、
+WinnerAchievementは `User × Topic` で1件のため、
+代表Answerを1つ決定します。
+
+代表Answerは、
+
+1. `createdAt` が最も早いAnswer
+2. `createdAt` も同じ場合はAnswer.idが最も小さいもの
+
+というルールで決定します。
+
+#### Like数の一括集計
+
+ランキング判定時には、
+対象Topicに紐づくAnswer ID一覧を取得し、
+LikeRepositoryでAnswerごとのLike数を一括集計します。
+
+Likeが1件も付いていないAnswerは
+集計結果に含まれないため、
+Service側では、
+
+`getOrDefault(answerId, 0L)`
+
+を使用し、
+集計結果に存在しないAnswerを0Likeとして扱います。
+
+これにより、
+AnswerごとにLike件数を個別問い合わせする構造を避けています。
+
+#### トランザクション管理
+
+ランキング判定では、
+
+- RankingJudgment
+- RankingResult
+- WinnerAchievement
+
+を一連の処理として保存します。
+
+途中だけ保存された状態を避けるため、
+`RankingService#judgeRanking()`
+へ `@Transactional` を付与しています。
+
+これにより、
+ランキング判定に必要なDB更新を
+1つのトランザクションとして扱う構成にしています。
+
+#### FlywayによるランキングDB構造の変更
+
+ランキング仕様の再設計に合わせて、
+既存のDB構造も整理しました。
+
+Flywayでは、
+
+`V2__refactor_ranking_schema.sql`
+
+を追加し、
+
+- `ranking_judgments`
+- `ranking_results`
+- `winner_achievements`
+
+を現在のランキング仕様へ対応させています。
+
+既に適用済みのV1 Migrationを直接書き換えるのではなく、
+新しいMigrationとしてV2を追加することで、
+DB変更履歴を維持する構成にしています。
+
+#### 自動王者判定Scheduler
+
+DAY_7 / DAY_14 / DAY_21の判定を
+ユーザー操作に依存せず自動実行するため、
+SpringのSchedulerを導入しました。
+
+`RankingJudgmentScheduler`
+が1分ごとに起動し、
+
+「判定基準時刻を過ぎていて、
+まだそのcheckpointを判定していないTopicが存在するか」
+
+を確認します。
+
+Scheduler自体では王者判定ロジックを持たず、
+
+`RankingService#judgeRanking()`
+
+を呼び出すだけの構成としています。
+
+役割は、
+
+`RankingJudgmentScheduler`
+
+→ いつ・どのTopicを判定するか
+
+`TopicRepository`
+
+→ 判定対象Topicを取得する
+
+`RankingService`
+
+→ 実際に王者を判定する
+
+という形で分離しています。
+
+#### 自動判定対象Topicの取得
+
+TopicRepositoryへ、
+自動ランキング判定対象Topicを取得する処理を追加しました。
+
+取得条件は、
+
+- 論理削除されていない
+- checkpointの基準時刻をすでに迎えている
+- そのcheckpointのRankingJudgmentがまだ存在しない
+
+ことです。
+
+これにより、
+すでに判定済みの古いTopicを
+Schedulerが毎分不要に再判定しない構成にしています。
+
+DAY_7の場合は、
+
+`現在時刻 - 7日`
+
+を基準日時として、
+
+その日時以前に作成された未判定Topicを取得します。
+
+DAY_14 / DAY_21についても
+同じ仕組みを利用しています。
+
+#### 判定時刻とLike数の扱い
+
+Likeは解除時にレコード自体を削除する仕様のため、
+過去の任意時点におけるLike数を
+後から完全に復元することはできません。
+
+そのため、
+DAY_7 / DAY_14 / DAY_21の基準時刻ぴったりのLike数を
+保存する仕様にはしていません。
+
+判定基準時刻を過ぎた後、
+Schedulerが最初に実行された時点のLike数を集計し、
+その値でランキング判定を行います。
+
+つまり、
+
+- 判定前のLike増減履歴は保存しない
+- Scheduler実行時点のLike状態を使用する
+- 判定後はそのLike数をRankingResultへスナップショット保存する
+
+という設計です。
+
+#### サーバー停止時の未判定checkpoint補完
+
+判定基準時刻にサーバーが停止していた場合でも、
+ランキング判定が永久に抜け落ちないようにしています。
+
+たとえば、
+DAY_7とDAY_14の両方を跨いだ状態でサーバーが復旧した場合は、
+
+`DAY_7 → DAY_14`
+
+の順で未実行checkpointを補完します。
+
+DAY_21まで未判定の場合も、
+
+`DAY_7 → DAY_14 → DAY_21`
+
+の順で処理します。
+
+ただし、
+過去時点のLike数は復元しないため、
+補完判定でも実際にSchedulerが動いた時点のLike数を使用します。
+
+#### RankingService Test
+
+RankingServiceについて、
+Mockitoを利用した単体テストを追加しました。
+
+主な確認内容：
+
+- Topicが存在しない場合は何も保存しない
+- 論理削除済みTopicは判定しない
+- 同一Topic × checkpointの二重判定を防止
+- Answer 0件の場合はRankingJudgmentのみ保存
+- 全Answer 0Likeの場合はRankingJudgmentのみ保存
+- 単独1位のRankingResult / WinnerAchievement保存
+- 複数Answer同率1位をすべてRankingResultへ保存
+- 同率1位が複数Userの場合は各UserへAchievementを作成
+- 同一Userの複数Answerが王者の場合はAchievementを1件だけ作成
+- 代表AnswerはcreatedAtが最も早いものを選択
+- createdAtも同一の場合はAnswer.idが小さいものを選択
+- 既存Achievementを新規作成・更新しない
+- DAY_14で初王者になった場合のAchievement作成
+- DAY_21で初王者になった場合のAchievement作成
+
+#### Scheduler Test
+
+自動王者判定Schedulerについてもテストを追加しました。
+
+固定した現在時刻を利用し、
+
+- DAY_7の基準日時計算
+- DAY_14の基準日時計算
+- DAY_21の基準日時計算
+- checkpointをDAY_7 → DAY_14 → DAY_21の順で処理すること
+- 判定対象TopicごとにRankingServiceが呼び出されること
+- 対象Topicが存在しない場合に不要な判定を行わないこと
+
+などを確認しています。
+
+#### 最終確認
+
+このブランチの完了時には、
+
+`mvn clean test`
+
+および、
+
+`mvn clean compile`
+
+を実行しました。
+
+その結果、
+ランキング関連を含む全テスト・コンパイルが
+正常に完了することを確認しました。
+
+これにより、
+`feature/ranking-feature`
+では、
+
+Topic作成後のDAY_7 / DAY_14 / DAY_21における王者判定、
+同率王者、判定履歴、初回王者実績、
+Like数スナップショット、
+自動Scheduler、
+停止期間中の未判定checkpoint補完まで含めた
+ランキング判定基盤のバックエンド実装を完了しました。
+
+ランキング結果の画面表示やプロフィールへの王者実績表示などについては、
+後続のフロントエンド・API連携フェーズで実装する予定です。
