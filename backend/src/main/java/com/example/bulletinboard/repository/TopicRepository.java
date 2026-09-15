@@ -1,12 +1,17 @@
 package com.example.bulletinboard.repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.example.bulletinboard.model.RankingCheckpoint;
 import com.example.bulletinboard.model.Topic;
 
 /*
@@ -51,4 +56,22 @@ public interface TopicRepository extends JpaRepository<Topic, Long> {
         String title,
         Pageable pageable
     );
+
+    @Query("""
+    SELECT t
+    FROM Topic t
+    WHERE t.deletedAt IS NULL
+      AND t.createdAt <= :threshold
+      AND NOT EXISTS (
+          SELECT rj.id
+          FROM RankingJudgment rj
+          WHERE rj.topic = t
+            AND rj.checkpoint = :checkpoint
+      )
+    ORDER BY t.createdAt ASC
+    """)
+List<Topic> findTopicsDueForRanking(
+        @Param("threshold") LocalDateTime threshold,
+        @Param("checkpoint") RankingCheckpoint checkpoint
+);
 }
