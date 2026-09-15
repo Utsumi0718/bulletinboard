@@ -25,6 +25,7 @@ import com.example.bulletinboard.repository.TopicRepository;
 import com.example.bulletinboard.repository.WinnerAchievementRepository;
 
 /**
+ * 【クラスの役割】
  * Topicごとのランキング判定を担当するService。
  *
  * <p>ランキング対象のAnswerとLike数をもとに王者を判定し、
