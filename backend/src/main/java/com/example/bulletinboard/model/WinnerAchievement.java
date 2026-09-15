@@ -10,8 +10,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
@@ -22,34 +20,59 @@ import lombok.Setter;
  * 【クラス全体の役割】
  * データベースの「winner_achievements」テーブルと対応するJPAエンティティクラスです。
  *
- * このクラスでは、大喜利のお題においてユーザーが「王者」になった実績を管理します。
+ * このクラスでは、ユーザーがあるTopicで初めて王者になった実績を保持します。
  *
- * RankingResultが各判定時点（7日目・14日目・21日目）の
- * ランキング履歴を保存するためのテーブルであるのに対し、
- * WinnerAchievementは「そのユーザーがそのお題で王者になった」という
- * ユーザー単位の実績を保持するために使用します。
+ * RankingResultがDAY_7 / DAY_14 / DAY_21それぞれの
+ * 王者判定結果を履歴として保存するのに対し、
+ *
+ * WinnerAchievementは
+ * 「このユーザーが、このTopicで王者実績を獲得した」
+ * というUser × Topic単位の実績を保存します。
+ *
+ * 【1レコードの意味】
+ * 1人のUserが、1つのTopicで獲得した王者実績1件を表します。
+ *
+ * 同じUserが同じTopicで複数回王者になった場合でも、
+ * WinnerAchievementは1件のみ保持します。
+ *
+ * 別のTopicで王者になった場合は、
+ * 新しいWinnerAchievementを作成します。
  *
  * 【主な役割】
- * - 王者になったユーザーを保持する
- * - 王者実績の対象となったお題を保持する
- * - 実績として現在記録している王者回答を保持する
- * - 王者判定時点のいいね数を保持する
- * - 初めて王者になった日時を保持する
- * - 実績内容が更新された日時を保持する
+ * - 王者実績を獲得したUserを保持する
+ * - 王者実績の対象となったTopicを保持する
+ * - 初めて王者実績を獲得したときの代表Answerを保持する
+ * - 初回王者判定時点のLike数を保持する
+ * - 初めて王者実績を獲得した日時を保持する
  *
  * 【設計上のポイント】
  * - user_idとtopic_idの組み合わせにはUNIQUE制約を設定し、
- *   同じユーザーが同じお題で複数の実績レコードを持たないようにします。
- * - 7日目に王者になったユーザーが14日目や21日目でも王者になった場合、
- *   新しいレコードを追加するのではなく、既存の実績を更新する想定です。
- * - answer_idとlike_countは、その時点で実績として採用されている回答と
- *   いいね数に更新します。
- * - achievedAtは「初めて王者になった日時」を保持するため、
- *   後のランキング判定で再び王者になっても変更しません。
- * - updatedAtは実績内容が更新されるたびに更新します。
+ *   同じUser × Topicの王者実績が重複登録されることを防ぎます。
+ *
+ * - DAY_7で王者になったUserが、
+ *   DAY_14やDAY_21でも同じTopicで再び王者になった場合でも、
+ *   新しいWinnerAchievementは作成しません。
+ *
+ * - 一度作成したWinnerAchievementの
+ *   answer、likeCount、achievedAtは基本的に更新しません。
+ *
+ * - answerには、
+ *   そのUserがそのTopicで初めて王者実績を獲得したときの
+ *   代表王者回答を保持します。
+ *
+ * - 初回王者判定で同一Userの複数Answerが同率王者になった場合は、
+ *   最も先に投稿されたAnswerを代表として保存します。
+ *
+ * - likeCountには、
+ *   初めて王者実績を獲得した判定時点のLike数を保存します。
+ *
+ * - achievedAtには、
+ *   初めて王者実績を獲得した日時を保存します。
+ *
  * - TopicやAnswerが後から論理削除されても、
- *   過去に獲得した王者実績そのものは保持する設計です。
- * - User、Topic、Answerの削除に連動して実績を消さないため、
+ *   過去に獲得した王者実績そのものは保持します。
+ *
+ * - User、Topic、Answerの削除に連動して実績を削除しないため、
  *   CascadeType.ALLやorphanRemoval=trueは使用しません。
  */
 @Entity
@@ -69,6 +92,7 @@ public class WinnerAchievement {
 
     /*
      * 王者実績ID。
+     *
      * winner_achievementsテーブルの主キーで、
      * MySQLのAUTO_INCREMENTによって自動採番されます。
      */
@@ -78,33 +102,42 @@ public class WinnerAchievement {
 
     /*
      * 王者実績を獲得したユーザー。
+     *
+     * WinnerAchievementはUser × Topic単位の実績なので、
+     * 実績の所有者となるUserを直接保持します。
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     /*
-     * 王者実績の対象となったお題。
+     * 王者実績を獲得した対象のお題。
+     *
+     * 同じUserでも別のTopicで王者になった場合は、
+     * それぞれ別のWinnerAchievementを作成します。
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "topic_id", nullable = false)
     private Topic topic;
 
     /*
-     * 実績として現在記録されている王者回答。
+     * 初めて王者実績を獲得したときの代表王者回答。
      *
-     * 同じユーザーが後の判定時点でも王者になった場合は、
-     * 必要に応じてこのAnswerを更新します。
+     * 後のcheckpointで同じUserの別Answerが王者になっても、
+     * このAnswerは更新しません。
+     *
+     * 初回王者判定で同一Userの複数Answerが同率王者の場合は、
+     * 最も先に投稿されたAnswerを代表として保存します。
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "answer_id", nullable = false)
     private Answer answer;
 
     /*
-     * 王者判定時点で回答が獲得していたいいね数。
+     * 初めて王者実績を獲得した判定時点のいいね数。
      *
-     * 後の判定で実績が更新された場合は、
-     * 新しい判定時点のいいね数へ更新します。
+     * 後からLike数が増減した場合や、
+     * 後のcheckpointで再び王者になった場合でも更新しません。
      */
     @Column(name = "like_count", nullable = false)
     private int likeCount;
@@ -112,44 +145,12 @@ public class WinnerAchievement {
     /*
      * 初めて王者実績を獲得した日時。
      *
-     * 同じお題で後から再び王者になった場合でも変更しません。
+     * 単なるレコード作成日時ではなく、
+     * 初回王者獲得時の日時として保持します。
+     *
+     * 値は王者判定を行うService側から明示的に設定し、
+     * 保存後は更新しません。
      */
     @Column(name = "achieved_at", nullable = false, updatable = false)
     private LocalDateTime achievedAt;
-
-    /*
-     * 王者実績の最終更新日時。
-     */
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
-    /*
-     * WinnerAchievementを初めてDBへ保存する直前に呼び出されます。
-     *
-     * achievedAtとupdatedAtが未設定の場合、
-     * 現在日時を設定します。
-     */
-    @PrePersist
-    protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
-
-        if (achievedAt == null) {
-            achievedAt = now;
-        }
-
-        if (updatedAt == null) {
-            updatedAt = now;
-        }
-    }
-
-    /*
-     * WinnerAchievementを更新する直前に呼び出され、
-     * updatedAtを現在日時に更新します。
-     *
-     * achievedAtは初回王者獲得日時として保持するため更新しません。
-     */
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }
