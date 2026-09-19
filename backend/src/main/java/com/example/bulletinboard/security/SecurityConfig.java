@@ -1,5 +1,7 @@
 package com.example.bulletinboard.security;
 
+import java.nio.charset.StandardCharsets;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.DisabledException;
@@ -10,7 +12,14 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.access.AccessDeniedHandlerImpl;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 
+
+import com.example.bulletinboard.dto.error.ErrorResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.bulletinboard.model.AccountStatus;
 import com.example.bulletinboard.repository.UserRepository;
 
@@ -52,7 +61,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            UserRepository userRepository) throws Exception {
+            UserRepository userRepository,
+            ObjectMapper objectMapper) throws Exception {
 
         http
 
@@ -63,7 +73,26 @@ public class SecurityConfig {
                  * お題一覧・ログイン・新規登録・パスワード再設定・
                  * 静的リソースなどは、未ログインユーザーにも公開します。
                  */
-                .requestMatchers(
+
+                 /*
+                  * お問い合わせの新規受付は、
+                  * 未ログイン・ログイン済みのどちらでも利用可能にします。
+                  *
+                  * 許可するのはPOST /api/contactsのみです。
+                  * CSRF保護は引き続き適用されます。
+                  */
+                  .requestMatchers(HttpMethod.POST, "/api/contacts")
+                  .permitAll()
+
+                  // CSRFトークンは未ログインでも取得可能
+                  .requestMatchers(HttpMethod.GET, "/api/csrf")
+                  .permitAll()
+
+                  // 管理APIは管理者のみ利用可能
+                  .requestMatchers("/api/admin/**")
+                  .hasRole("ADMIN")
+
+                  .requestMatchers(
 
                     "/login",
                     "/register",
@@ -256,16 +285,86 @@ public class SecurityConfig {
                 .permitAll()
             )
 
-            /*
-             * 未ログイン状態で認証必須ページへ
-             * アクセスした場合の処理。
-             */
+           /*
+           * Securityで拒否されたリクエストの応答を設定します。
+           *
+           * API：
+           * - 未ログインによる認証拒否は401の共通JSON
+           * - 権限不足・CSRF拒否は403の共通JSON
+           *
+           * 旧MVC：
+           * - 未ログイン時は既存の誘導先へリダイレクト
+           * - 権限不足・CSRF拒否は標準の403処理
+           */
+ 
             .exceptionHandling(exception -> exception
-                .authenticationEntryPoint(
-                    new LoginUrlAuthenticationEntryPoint(
-                        "/posts?error=unauthorized"
-                    )
-                )
+                .authenticationEntryPoint( (request, response, authException) -> {              
+                
+                    //アプリのコンテキストパスを除いて判定
+                    String path = request.getRequestURI()
+                        .substring(request.getContextPath().length());
+
+                    if (path.equals("/api") || path.startsWith("/api/")) {
+
+                      ErrorResponse errorResponse = new ErrorResponse(
+                      HttpStatus.UNAUTHORIZED.value(),
+                      HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                      "ログインが必要です。",
+                       request.getRequestURI()
+                    );
+
+                     response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                     response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+
+                    objectMapper.writeValue(
+                        response.getWriter(),
+                        errorResponse
+                    );
+                } else {
+
+                  // 旧MVCのリダイレクト先を維持します。
+                 new LoginUrlAuthenticationEntryPoint(
+                    "/posts?error=unauthorized"
+                  ).commence(request, response, authException);
+               }
+            
+             })
+
+            
+          // 403：権限不足・CSRFによる拒否
+         .accessDeniedHandler((request, response, accessDeniedException) -> {
+
+        String path = request.getRequestURI()
+                .substring(request.getContextPath().length());
+
+        if (path.equals("/api") || path.startsWith("/api/")) {
+
+            ErrorResponse errorResponse = new ErrorResponse(
+                    HttpStatus.FORBIDDEN.value(),
+                    HttpStatus.FORBIDDEN.getReasonPhrase(),
+                    "このリクエストは許可されていません。",
+                    request.getRequestURI()
+            );
+
+            response.setStatus(HttpStatus.FORBIDDEN.value());
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    errorResponse
+            );
+
+        } else {
+
+            new AccessDeniedHandlerImpl().handle(
+                    request,
+                    response,
+                    accessDeniedException
+              );
+          }
+        })
             )
 
             // 3. ログアウト処理

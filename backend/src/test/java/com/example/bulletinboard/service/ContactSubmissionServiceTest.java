@@ -20,7 +20,7 @@ import org.springframework.mail.MailSendException;
 
 import com.example.bulletinboard.dto.contact.ContactRequest;
 import com.example.bulletinboard.model.Contact;
-
+import com.example.bulletinboard.exception.ContactSaveException;
 /**
  * 【クラスの役割】
  * ContactSubmissionServiceによるお問い合わせ受付の
@@ -88,8 +88,9 @@ class ContactSubmissionServiceTest {
                 .thenThrow(failure);
 
         assertThatThrownBy(
-                () -> submissionService.submitContact(request)
-        ).isSameAs(failure);
+          () -> submissionService.submitContact(request)
+           ).isInstanceOf(ContactSaveException.class)
+            .hasCause(failure);
 
         verify(contactService).createContact(request);
 

@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.example.bulletinboard.dto.error.ErrorResponse;
 import com.example.bulletinboard.dto.error.ValidationErrorResponse;
@@ -18,7 +20,7 @@ import com.example.bulletinboard.exception.LikeConflictException;
 import com.example.bulletinboard.exception.TopicEditConflictException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.exception.UserNotFoundException;
-
+import com.example.bulletinboard.exception.ContactSaveException;
 import jakarta.servlet.http.HttpServletRequest;
 
 /**
@@ -72,8 +74,19 @@ import jakarta.servlet.http.HttpServletRequest;
  *
  * ※ 旧Thymeleaf ControllerのFlashMessage処理とは分離し、
  *    REST API専用の例外処理として使用します。
+ *
+ * 【適用範囲】
+ * @RestControllerを付けたAPI Controllerのみを対象とします。
+ *
+ * Thymeleafの画面を返す旧@Controllerには適用しません。
+ * URLの先頭が/apiかどうかではなく、
+ * Controllerのアノテーションによって対象を判定します。
+ *
+ * Spring Securityのフィルタで発生する認証・認可エラーは、
+ * Security側で別途処理します。
+ * 
  */
-@RestControllerAdvice
+@RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
 
     /**
@@ -326,6 +339,54 @@ public ResponseEntity<ErrorResponse> handleLikeConflictException(
 
     return ResponseEntity
             .status(HttpStatus.CONFLICT)
+            .body(response);
+}
+
+/**
+ * JSONの構文不正など、リクエスト本文を読み取れない場合に
+ * 400 Bad Requestと共通エラーレスポンスを返します。
+ *
+ * 解析例外の詳細や入力本文は返さず、
+ * 公開用の固定メッセージを使用します。
+ */
+@ExceptionHandler(HttpMessageNotReadableException.class)
+public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(
+        HttpMessageNotReadableException ex,
+        HttpServletRequest request) {
+
+    ErrorResponse response = new ErrorResponse(
+            HttpStatus.BAD_REQUEST.value(),
+            HttpStatus.BAD_REQUEST.getReasonPhrase(),
+            "リクエストの形式が正しくありません。",
+            request.getRequestURI()
+    );
+
+    return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(response);
+}
+
+/**
+ * お問い合わせの保存失敗を500の共通エラーレスポンスへ変換します。
+ *
+ * 原因例外のメッセージやSQLなどの内部情報は返しません。
+ * 保存失敗のログはContactSubmissionService側で記録します。
+ */
+@ExceptionHandler(ContactSaveException.class)
+public ResponseEntity<ErrorResponse> handleContactSaveException(
+        ContactSaveException ex,
+        HttpServletRequest request) {
+
+    ErrorResponse response = new ErrorResponse(
+            HttpStatus.INTERNAL_SERVER_ERROR.value(),
+            HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+            "お問い合わせを受け付けられませんでした。"
+                    + "時間をおいて再度お試しください。",
+            request.getRequestURI()
+    );
+
+    return ResponseEntity
+            .status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(response);
 }
 

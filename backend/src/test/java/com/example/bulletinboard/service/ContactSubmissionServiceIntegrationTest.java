@@ -30,6 +30,7 @@ import org.springframework.transaction.IllegalTransactionStateException;
 import com.example.bulletinboard.dto.contact.ContactRequest;
 import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.repository.ContactRepository;
+import com.example.bulletinboard.exception.ContactSaveException;
 
 /**
  * 【クラスの役割】
@@ -236,9 +237,10 @@ void submitContact_whenDatabaseSaveFails_shouldNotPersistOrNotify() {
     request.setSubject("保存失敗の確認");
     request.setMessage("DB保存に失敗した場合の動作を確認します。");
 
-    assertThatThrownBy(
-            () -> submissionService.submitContact(request)
-    ).isInstanceOf(DataIntegrityViolationException.class);
+     assertThatThrownBy(
+        () -> submissionService.submitContact(request)
+        ).isInstanceOf(ContactSaveException.class)
+       .hasCauseInstanceOf(DataIntegrityViolationException.class);
 
     // 保存処理終了後、別トランザクションでDB件数を確認する
     TransactionTemplate readTransaction =

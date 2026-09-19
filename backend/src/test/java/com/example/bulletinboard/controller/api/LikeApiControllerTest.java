@@ -6,12 +6,17 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import org.springframework.http.MediaType;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -153,27 +158,26 @@ class LikeApiControllerTest {
 }
 
 @Test
-@DisplayName("未認証でLike APIへアクセスするとログイン要求へリダイレクトされLikeServiceは実行されないこと")
-void toggleLike_Unauthenticated_ShouldRedirectAndNotCallService()
+@DisplayName("未認証でLike APIへアクセスすると401と共通JSONを返し、LikeServiceを実行しない")
+void toggleLike_Unauthenticated_ShouldReturnUnauthorizedAndNotCallService()
         throws Exception {
 
     mockMvc.perform(
             post("/api/answers/10/like")
                     .with(csrf())
     )
-            .andExpect(status().is3xxRedirection())
-            .andExpect(
-               redirectedUrl(
-                "http://localhost/posts?error=unauthorized"
-            )
-);
-    verify(
-            likeService,
-            never()
-    ).toggleLike(
-            anyLong(),
-            anyString()
-    );
+            .andExpect(status().isUnauthorized())
+            .andExpect(content()
+                    .contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(header().doesNotExist("Location"))
+            .andExpect(jsonPath("$.status").value(401))
+            .andExpect(jsonPath("$.error").value("Unauthorized"))
+            .andExpect(jsonPath("$.message")
+                    .value("ログインが必要です。"))
+            .andExpect(jsonPath("$.path")
+                    .value("/api/answers/10/like"));
+
+    verifyNoInteractions(likeService);
 }
 
 @Test
