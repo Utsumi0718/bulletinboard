@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import com.example.bulletinboard.model.Contact;
-
+import com.example.bulletinboard.model.ContactStatus;
 /*
  * 【クラス（インターフェース）の役割】
  * データベースの「contacts」テーブルに対するデータ操作を担当する
@@ -41,7 +41,7 @@ public interface ContactRepository extends JpaRepository<Contact, Long> {
      * ページネーションやcreatedAtによる並び替えにも対応できます。
      */
     Page<Contact> findByStatus(
-        String status,
+        ContactStatus status,
         Pageable pageable
-    );
+   );
 }

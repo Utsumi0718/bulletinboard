@@ -18,6 +18,7 @@ import org.springframework.dao.DataAccessResourceFailureException;
 import com.example.bulletinboard.dto.contact.ContactRequest;
 import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.repository.ContactRepository;
+import com.example.bulletinboard.model.ContactStatus;
 
 /**
  * 【クラスの役割】
@@ -72,8 +73,7 @@ class ContactServiceTest {
         assertThat(capturedContact.getMessage())
                 .isEqualTo("お問い合わせ本文です。");
         assertThat(capturedContact.getStatus())
-                .isEqualTo("UNANSWERED");
-
+        .isEqualTo(ContactStatus.UNANSWERED);
         // Repositoryから返された保存結果を、そのまま返しているか確認
         assertThat(result).isSameAs(savedContact);
     }

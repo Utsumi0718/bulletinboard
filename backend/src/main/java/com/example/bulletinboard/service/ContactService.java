@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.bulletinboard.dto.contact.ContactRequest;
 import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.repository.ContactRepository;
+import com.example.bulletinboard.model.ContactStatus;
 
 /**
  * 【クラスの役割】
@@ -38,7 +39,7 @@ public class ContactService {
         contact.setMessage(request.getMessage());
 
         // 対応状況は、利用者の入力によらず未対応にする
-        contact.setStatus("UNANSWERED");
+       contact.setStatus(ContactStatus.UNANSWERED);
 
         return contactRepository.save(contact);
     }

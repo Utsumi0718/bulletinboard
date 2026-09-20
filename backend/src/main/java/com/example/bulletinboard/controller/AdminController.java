@@ -18,6 +18,7 @@ import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.ContactRepository;
 import com.example.bulletinboard.repository.UserRepository;
+import com.example.bulletinboard.model.ContactStatus;
 
 
 
@@ -180,21 +181,43 @@ public String showUserActivities(
         return "admin/contacts";
     }
 
-    /*
-     * 【追記：お問い合わせステータス更新処理】
-     */
-    @PostMapping("/contacts/{id}/status")
-    public String updateContactStatus(@PathVariable Long id,
-                                      @RequestParam String status,
-                                      RedirectAttributes redirectAttributes) {
-        Contact contact = contactRepository.findById(id).orElse(null);
-        if (contact != null) {
-            contact.setStatus(status);
-            contactRepository.save(contact);
-            redirectAttributes.addFlashAttribute("successMessage", "ステータスを更新しました。");
+     /*
+      * お問い合わせステータス更新処理。
+      * 画面から受け取った文字列をContactStatusへ変換します。
+      */
+@PostMapping("/contacts/{id}/status")
+public String updateContactStatus(
+        @PathVariable Long id,
+        @RequestParam String status,
+        RedirectAttributes redirectAttributes) {
+
+    Contact contact = contactRepository.findById(id).orElse(null);
+
+    if (contact != null) {
+
+        ContactStatus contactStatus;
+
+        try {
+            contactStatus = ContactStatus.valueOf(status);
+        } catch (IllegalArgumentException ex) {
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage",
+                    "指定されたステータスは無効です。"
+            );
+            return "redirect:/admin/contacts";
         }
-        return "redirect:/admin/contacts";
+
+        contact.setStatus(contactStatus);
+        contactRepository.save(contact);
+
+        redirectAttributes.addFlashAttribute(
+                "successMessage",
+                "ステータスを更新しました。"
+        );
     }
+
+    return "redirect:/admin/contacts";
+}
 
     /*
      * 【追記：お問い合わせ削除処理】

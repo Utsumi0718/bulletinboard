@@ -31,6 +31,7 @@ import com.example.bulletinboard.dto.contact.ContactRequest;
 import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.repository.ContactRepository;
 import com.example.bulletinboard.exception.ContactSaveException;
+import com.example.bulletinboard.model.ContactStatus;
 
 /**
  * 【クラスの役割】
@@ -141,7 +142,7 @@ class ContactSubmissionServiceIntegrationTest {
                         .isEqualTo(request.getMessage());
 
                 assertThat(storedContact.getStatus())
-                        .isEqualTo("UNANSWERED");
+                       .isEqualTo(ContactStatus.UNANSWERED);
             });
 
             return null;
@@ -219,7 +220,7 @@ void submitContact_whenNotificationFails_shouldKeepSavedContact() {
                 .isEqualTo(request.getMessage());
 
         assertThat(storedContact.getStatus())
-                .isEqualTo("UNANSWERED");
+               .isEqualTo(ContactStatus.UNANSWERED);
     });
 }
 

@@ -10,6 +10,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
@@ -42,8 +44,7 @@ import lombok.Setter;
  *   同じメールアドレスから複数回お問い合わせできます。
  * - statusでは管理者による対応状況を管理します。
  * - statusの初期値はUNANSWEREDです。
- * - statusは現段階ではStringとして保持し、
- *   後ほどEnumとして定義する予定です。
+ * - statusはContactStatusで管理し、DBにはEnum名を文字列として保存します。
  */
 @Entity
 @Getter
@@ -94,16 +95,15 @@ public class Contact {
     private String message;
 
     /*
-     * 管理者による対応状況。
+     * 管理者によるお問い合わせ対応状況。
      *
-     * 想定する値：
-     * UNANSWERED  : 未対応
-     * IN_PROGRESS : 対応中
-     * RESOLVED    : 対応済み
+     * Enum名を文字列としてDBへ保存します。
+     * 新規受付時はUNANSWERED（未対応）です。
      */
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
-    private String status = "UNANSWERED";
-
+    private ContactStatus status = ContactStatus.UNANSWERED;
+    
     /*
      * お問い合わせが作成された日時。
      */
@@ -128,9 +128,9 @@ public class Contact {
     public void prePersist() {
         LocalDateTime now = LocalDateTime.now();
 
-        if (status == null) {
-            status = "UNANSWERED";
-        }
+       if (status == null) {
+        status = ContactStatus.UNANSWERED;
+       }
 
         if (createdAt == null) {
             createdAt = now;

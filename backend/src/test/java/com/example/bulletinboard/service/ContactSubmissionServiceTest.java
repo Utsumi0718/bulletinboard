@@ -21,6 +21,7 @@ import org.springframework.mail.MailSendException;
 import com.example.bulletinboard.dto.contact.ContactRequest;
 import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.exception.ContactSaveException;
+import com.example.bulletinboard.model.ContactStatus;
 /**
  * 【クラスの役割】
  * ContactSubmissionServiceによるお問い合わせ受付の
@@ -146,7 +147,7 @@ class ContactSubmissionServiceTest {
         contact.setEmail(request.getEmail());
         contact.setSubject(request.getSubject());
         contact.setMessage(request.getMessage());
-        contact.setStatus("UNANSWERED");
+        contact.setStatus(ContactStatus.UNANSWERED);
 
         return contact;
     }
