@@ -56,6 +56,7 @@ import com.example.bulletinboard.exception.ForbiddenOperationException;
  * - 操作するユーザーが存在しない場合は、お問い合わせの処理と履歴追加を行わないこと  
  * - 一般ユーザーによる状態変更を拒否し、お問い合わせの処理と履歴追加を行わないこと
  * - 状態変更の保存失敗時は例外を伝え、操作履歴を追加しないこと   
+ * - 操作履歴の保存失敗時に例外を呼び出し元へ伝えること
  *
  * 【テストの範囲】
  * ContactRepositoryはモックに置き換えます。
@@ -515,5 +516,53 @@ void updateStatus_whenSaveFails_shouldThrowAndNotAddLog() {
 
     // 保存に失敗したため、成功の操作履歴を追加しない。
     verifyNoInteractions(adminOperationLogRepository);
+}
+
+/**
+ * 操作履歴の保存に失敗した場合は、
+ * 例外を呼び出し元へ伝えることを確認します。
+ *
+ * お問い合わせの変更もロールバックされることは、
+ * SpringとDBを使う統合テストで別途確認します。
+ */
+@Test
+@DisplayName("操作履歴の保存に失敗した場合は例外を呼び出し元へ伝える")
+void updateStatus_whenLogSaveFails_shouldPropagateException() {
+
+    User adminUser = new User();
+    adminUser.setId(10L);
+    adminUser.setEmail("admin@example.com");
+    adminUser.setRole("ROLE_ADMIN");
+
+    Contact contact = new Contact();
+    contact.setId(1L);
+    contact.setStatus(ContactStatus.UNANSWERED);
+
+    DataAccessResourceFailureException failure =
+            new DataAccessResourceFailureException(
+                    "テスト用の操作履歴保存失敗"
+            );
+
+    when(userRepository.findByEmail("admin@example.com"))
+            .thenReturn(Optional.of(adminUser));
+
+    when(contactRepository.findById(1L))
+            .thenReturn(Optional.of(contact));
+
+    when(contactRepository.saveAndFlush(contact))
+            .thenReturn(contact);
+
+    when(adminOperationLogRepository.save(any(AdminOperationLog.class)))
+            .thenThrow(failure);
+
+    assertThatThrownBy(() -> adminContactService.updateStatus(
+            1L,
+            ContactStatus.IN_PROGRESS,
+            "admin@example.com"
+    ))
+            .isSameAs(failure);
+
+    verify(contactRepository).saveAndFlush(contact);
+    verify(adminOperationLogRepository).save(any(AdminOperationLog.class));
 }
 }
