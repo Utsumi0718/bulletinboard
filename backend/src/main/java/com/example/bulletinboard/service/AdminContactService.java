@@ -46,10 +46,9 @@ import com.example.bulletinboard.repository.UserRepository;
  * DTOへの変換、HTTP応答はControllerで行います。
  * 管理APIへのアクセスはSecurityConfigでROLE_ADMINに制限します。
  *
- * 状態変更・削除APIへの接続は実装済みです。
- * 失敗時の運営用ログは、後続の作業で追加します。
- * 状態変更・削除と履歴保存の呼び出しは単体テストで検証し、
- * 実DBでの同時コミット・ロールバックは今後の統合テストで検証します。
+ * 管理APIからの呼び出しで発生したDB・トランザクション障害は、
+ * Controllerで管理操作専用例外へ変換し、
+ * GlobalExceptionHandlerで安全なログと共通エラー応答を生成します。
  */
 
 @Service

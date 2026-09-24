@@ -1,5 +1,6 @@
 package com.example.bulletinboard.controller.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
@@ -22,9 +23,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -34,6 +37,8 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.transaction.TransactionSystemException;
+import org.springframework.transaction.UnexpectedRollbackException;
 
 import com.example.bulletinboard.exception.ContactNotFoundException;
 import com.example.bulletinboard.exception.handler.GlobalExceptionHandler;
@@ -42,6 +47,11 @@ import com.example.bulletinboard.model.ContactStatus;
 import com.example.bulletinboard.repository.UserRepository;
 import com.example.bulletinboard.security.SecurityConfig;
 import com.example.bulletinboard.service.AdminContactService;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 
 /**
  * 【クラスの役割】
@@ -86,6 +96,9 @@ import com.example.bulletinboard.service.AdminContactService;
  * - 削除への匿名・一般ユーザーアクセスを拒否すること
  * - 削除時のCSRFなし・不正CSRFを拒否すること
  * - 認証・認可・CSRFで拒否した場合はServiceを呼ばないこと
+ * - 状態変更・削除のDB／トランザクション障害を500へ変換すること
+ * - 応答と管理操作ログへ例外詳細・SQL・メールアドレスを含めないこと
+ * - 運営用ログへ操作名・対象ID・例外の型を記録すること
  *
  *
  * 【テストの構成】
@@ -1205,5 +1218,167 @@ void deleteContact_whenCsrfMissingOrInvalid_shouldReturnForbidden(
             ));
 
     verifyNoInteractions(adminContactService);
+}
+
+/**
+ * 状態変更・削除のDB／トランザクション障害について、
+ * 共通500応答と安全な運営用ログを確認します。
+ *
+ * Serviceのモックから例外を送出します。
+ * 実際のコミット通信障害を再現するテストではありません。
+ */
+@ParameterizedTest(name = "{0}: {1}")
+@CsvSource({
+        "STATUS_CHANGE, DATA_ACCESS",
+        "STATUS_CHANGE, TRANSACTION_SYSTEM",
+        "STATUS_CHANGE, UNEXPECTED_ROLLBACK",
+        "DELETE, DATA_ACCESS",
+        "DELETE, TRANSACTION_SYSTEM",
+        "DELETE, UNEXPECTED_ROLLBACK"
+})
+@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@DisplayName("管理操作のDB障害は安全な500応答と運営用ログに変換する")
+void adminOperation_whenDatabaseFailure_shouldReturnSafeErrorAndLog(
+        String operation,
+        String failureType) throws Exception {
+
+    // 例外詳細が応答・運営用ログへ漏れないことを確認するための固定値。
+    String internalDetail =
+            "SQL_SECRET SELECT * FROM contacts "
+                    + "private@example.com PASSWORD_SECRET";
+
+    RuntimeException failure = switch (failureType) {
+        case "DATA_ACCESS" ->
+                new DataAccessResourceFailureException(internalDetail);
+        case "TRANSACTION_SYSTEM" ->
+                new TransactionSystemException(
+                        internalDetail,
+                        new IllegalStateException("CAUSE_SECRET")
+                );
+        case "UNEXPECTED_ROLLBACK" ->
+                new UnexpectedRollbackException(internalDetail);
+        default ->
+                throw new IllegalArgumentException("未知のテスト条件");
+    };
+
+    String path;
+    MockHttpServletRequestBuilder request;
+
+    if ("STATUS_CHANGE".equals(operation)) {
+
+        when(adminContactService.updateStatus(
+                1L,
+                ContactStatus.IN_PROGRESS,
+                "admin@example.com"
+        )).thenThrow(failure);
+
+        path = "/api/admin/contacts/1/status";
+
+        request = patch(path)
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                            "status": "IN_PROGRESS"
+                        }
+                        """);
+
+    } else {
+
+        doThrow(failure)
+                .when(adminContactService)
+                .deleteContact(1L, "admin@example.com");
+
+        path = "/api/admin/contacts/1";
+        request = delete(path).with(csrf());
+    }
+
+    // 今回追加するHandlerのログイベントを直接収集する。
+    Logger logger = (Logger) LoggerFactory.getLogger(
+            GlobalExceptionHandler.class
+    );
+
+    Level originalLevel = logger.getLevel();
+
+    ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    appender.setContext(logger.getLoggerContext());
+    appender.start();
+
+    logger.addAppender(appender);
+    logger.setLevel(Level.ERROR);
+
+    try {
+        var result = mockMvc.perform(request)
+                .andExpect(status().isInternalServerError())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.length()").value(4))
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.error").value(
+                        "Internal Server Error"
+                ))
+                .andExpect(jsonPath("$.message").value(
+                        "お問い合わせの管理処理でエラーが発生しました。"
+                                + "画面を再読み込みして状態を確認してください。"
+                ))
+                .andExpect(jsonPath("$.path").value(path))
+                .andReturn();
+
+        String responseBody =
+                result.getResponse().getContentAsString();
+
+        assertThat(responseBody).doesNotContain(
+                "SQL_SECRET",
+                "SELECT *",
+                "private@example.com",
+                "PASSWORD_SECRET",
+                "CAUSE_SECRET",
+                "admin@example.com"
+        );
+
+        assertThat(appender.list)
+                .singleElement()
+                .satisfies(event -> {
+
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+
+                    assertThat(event.getFormattedMessage()).isEqualTo(
+                            "admin_contact_operation_error operation="
+                                    + operation
+                                    + " contactId=1 errorType="
+                                    + failure.getClass().getSimpleName()
+                    );
+
+                    // Throwableをロガーへ渡していないことを確認する。
+                    assertThat(event.getThrowableProxy()).isNull();
+
+                    assertThat(event.getFormattedMessage())
+                            .doesNotContain(
+                                    "SQL_SECRET",
+                                    "SELECT *",
+                                    "private@example.com",
+                                    "PASSWORD_SECRET",
+                                    "CAUSE_SECRET",
+                                    "admin@example.com"
+                            );
+                });
+
+        if ("STATUS_CHANGE".equals(operation)) {
+            verify(adminContactService).updateStatus(
+                    1L,
+                    ContactStatus.IN_PROGRESS,
+                    "admin@example.com"
+            );
+        } else {
+            verify(adminContactService)
+                    .deleteContact(1L, "admin@example.com");
+        }
+
+    } finally {
+        logger.detachAppender(appender);
+        appender.stop();
+        logger.setLevel(originalLevel);
+    }
 }
 }

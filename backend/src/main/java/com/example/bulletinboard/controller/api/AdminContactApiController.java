@@ -1,8 +1,10 @@
 package com.example.bulletinboard.controller.api;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.TransactionException;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -16,6 +18,8 @@ import com.example.bulletinboard.dto.common.PageResponse;
 import com.example.bulletinboard.dto.contact.AdminContactListResponse;
 import com.example.bulletinboard.dto.contact.AdminContactResponse;
 import com.example.bulletinboard.dto.contact.AdminContactStatusRequest;
+import com.example.bulletinboard.exception.AdminContactOperationException;
+import com.example.bulletinboard.exception.AdminContactOperationException.Operation;
 import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.model.ContactStatus;
 import com.example.bulletinboard.service.AdminContactService;
@@ -129,13 +133,8 @@ return ResponseEntity.ok(PageResponse.from(responsePage));
 /**
  * お問い合わせの対応状態を変更します。
  *
- * 操作する管理者は、サーバー側の認証情報から特定します。
- * 状態変更と操作履歴の保存はServiceへ委譲します。
- *
- * @param id お問い合わせID
- * @param request 変更先の状態
- * @param authentication 操作するユーザーの認証情報
- * @return 変更後、または変更不要だった現在の詳細情報と200 OK
+ * Service呼び出しを囲むことで、
+ * 処理中とトランザクション終了時のDB障害を管理操作専用例外へ変換します。
  */
 @PatchMapping("/{id}/status")
 public ResponseEntity<AdminContactResponse> updateContactStatus(
@@ -143,37 +142,49 @@ public ResponseEntity<AdminContactResponse> updateContactStatus(
         @Valid @RequestBody AdminContactStatusRequest request,
         Authentication authentication) {
 
-    Contact contact = adminContactService.updateStatus(
-            id,
-            request.status(),
-            authentication.getName()
-    );
+    Contact contact;
 
-    return ResponseEntity.ok(
-            AdminContactResponse.from(contact)
-    );
+    try {
+        contact = adminContactService.updateStatus(
+                id,
+                request.status(),
+                authentication.getName()
+        );
+    } catch (DataAccessException | TransactionException ex) {
+        throw new AdminContactOperationException(
+                Operation.STATUS_CHANGE,
+                id,
+                ex
+        );
+    }
+
+    return ResponseEntity.ok(AdminContactResponse.from(contact));
 }
 
 /**
  * お問い合わせを物理削除します。
  *
- * 操作者はサーバー側の認証情報から特定します。
- * 削除と操作履歴保存はServiceへ委譲します。
- *
- * @param id お問い合わせID
- * @param authentication 操作するユーザーの認証情報
- * @return 本文なしの204 No Content
+ * Serviceのトランザクションが正常終了した場合に204を返します。
  */
 @DeleteMapping("/{id}")
 public ResponseEntity<Void> deleteContact(
         @PathVariable Long id,
         Authentication authentication) {
 
-    adminContactService.deleteContact(
-            id,
-            authentication.getName()
-    );
+    try {
+        adminContactService.deleteContact(
+                id,
+                authentication.getName()
+        );
+    } catch (DataAccessException | TransactionException ex) {
+        throw new AdminContactOperationException(
+                Operation.DELETE,
+                id,
+                ex
+        );
+    }
 
     return ResponseEntity.noContent().build();
 }
+
 }

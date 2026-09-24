@@ -3,26 +3,30 @@ package com.example.bulletinboard.exception.handler;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.bind.annotation.RestController;
 
 import com.example.bulletinboard.dto.error.ErrorResponse;
 import com.example.bulletinboard.dto.error.ValidationErrorResponse;
+import com.example.bulletinboard.exception.AdminContactOperationException;
 import com.example.bulletinboard.exception.AnswerEditConflictException;
 import com.example.bulletinboard.exception.AnswerNotFoundException;
+import com.example.bulletinboard.exception.ContactNotFoundException;
+import com.example.bulletinboard.exception.ContactSaveException;
 import com.example.bulletinboard.exception.ForbiddenOperationException;
 import com.example.bulletinboard.exception.LikeConflictException;
 import com.example.bulletinboard.exception.TopicEditConflictException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.exception.UserNotFoundException;
-import com.example.bulletinboard.exception.ContactSaveException;
-import com.example.bulletinboard.exception.ContactNotFoundException;
+
 import jakarta.servlet.http.HttpServletRequest;
 /**
  * 【クラスの役割】
@@ -61,6 +65,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * - 500 Internal Server Error
  *   UserNotFoundException
  *   ContactSaveException
+ *   AdminContactOperationException
  *   → ErrorResponseを返却
  *
  * 【公開するメッセージ】
@@ -82,6 +87,12 @@ import jakarta.servlet.http.HttpServletRequest;
  * その他の対応例外では例外メッセージを返すため、
  * 例外を生成する側で公開可能な文言を設定します。
  *
+ * 管理操作のDB・トランザクション障害には固定メッセージを返します。
+ * 運営用ログには操作名・対象ID・例外の型のみを記録します。
+ * 原因例外の詳細やスタックトレースは出力しません。
+ * エラー時のDB最終状態やロールバック完了を断定しません。
+ *   AdminContactOperationException
+ *
  * 【適用範囲】
  * @RestControllerを付けたControllerのみを対象とします。
  * Thymeleafの画面を返す旧@Controllerには適用しません。
@@ -98,6 +109,9 @@ import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
+
+     private static final Logger log =
+        LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
      * Topicが存在しない、または論理削除済みの場合の
@@ -449,6 +463,45 @@ public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(
 
     return ResponseEntity
             .status(HttpStatus.BAD_REQUEST)
+            .body(response);
+}
+
+/**
+ * お問い合わせの管理操作に関するDB障害を処理します。
+ *
+ * ログには操作名・対象ID・例外の型だけを記録します。
+ * 原因例外のメッセージ・スタックトレース・認証メール・本文は出しません。
+ *
+ * コミット時の通信障害などではDBの最終状態を断定できないため、
+ * ロールバック済みとは記録せず、操作エラーとして扱います。
+ */
+@ExceptionHandler(AdminContactOperationException.class)
+public ResponseEntity<ErrorResponse> handleAdminContactOperation(
+        AdminContactOperationException ex,
+        HttpServletRequest request) {
+
+    String errorType = ex.getCause() == null
+            ? "Unknown"
+            : ex.getCause().getClass().getSimpleName();
+
+    // 最後の引数にもThrowableを渡さない。
+    log.error(
+            "admin_contact_operation_error operation={} contactId={} errorType={}",
+            ex.getOperation(),
+            ex.getContactId(),
+            errorType
+    );
+
+    ErrorResponse response = new ErrorResponse(
+            HttpStatus.INTERNAL_SERVER_ERROR.value(),
+            HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+            "お問い合わせの管理処理でエラーが発生しました。"
+                    + "画面を再読み込みして状態を確認してください。",
+            request.getRequestURI()
+    );
+
+    return ResponseEntity
+            .status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(response);
 }
 }
