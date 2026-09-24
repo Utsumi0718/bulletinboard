@@ -612,4 +612,33 @@ void getContacts_whenAnonymous_shouldReturnUnauthorized(
 
     verifyNoInteractions(adminContactService);
 }
+
+/**
+ * 一般ユーザーは管理用の一覧・詳細を取得できず、
+ * 共通の403応答を返すことを確認します。
+ */
+@ParameterizedTest
+@ValueSource(strings = {
+        "/api/admin/contacts",
+        "/api/admin/contacts/1"
+})
+@WithMockUser(username = "user@example.com", roles = "USER")
+@DisplayName("一般ユーザーは403で拒否し管理Serviceを呼ばない")
+void getContacts_whenRegularUser_shouldReturnForbidden(
+        String path) throws Exception {
+
+    mockMvc.perform(get(path))
+            .andExpect(status().isForbidden())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.status").value(403))
+            .andExpect(jsonPath("$.error").value("Forbidden"))
+            .andExpect(jsonPath("$.message").value(
+                    "このリクエストは許可されていません。"
+            ))
+            .andExpect(jsonPath("$.path").value(path));
+
+    verifyNoInteractions(adminContactService);
+}
 }
