@@ -64,6 +64,7 @@ import com.example.bulletinboard.service.AdminContactService;
  *   200と変更後の詳細情報8項目を返すこと
  * - 状態変更のID・変更先の状態・認証情報のメールアドレスを
  *   Serviceへ渡すこと
+ * - 状態変更の対象不存在時に404と共通エラーJSONを返すこと   
  *
  * 【テストの構成】
  * - Controller・SecurityConfig・GlobalExceptionHandlerは実物を使用します。
@@ -715,6 +716,52 @@ void updateContactStatus_whenAdminWithCsrf_shouldReturnUpdatedContact()
     // 管理者のメールアドレスは認証情報から取得して渡す。
     verify(adminContactService).updateStatus(
             1L,
+            ContactStatus.IN_PROGRESS,
+            "admin@example.com"
+    );
+}
+
+/**
+ * 管理者が存在しないお問い合わせの状態を変更しようとした場合に、
+ * 404と共通エラーJSONを返すことを確認します。
+ */
+@Test
+@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@DisplayName("状態変更の対象が存在しない場合は404と共通JSONを返す")
+void updateContactStatus_whenContactNotFound_shouldReturnNotFound()
+        throws Exception {
+
+    when(adminContactService.updateStatus(
+            999L,
+            ContactStatus.IN_PROGRESS,
+            "admin@example.com"
+    )).thenThrow(new ContactNotFoundException());
+
+    mockMvc.perform(
+            patch("/api/admin/contacts/{id}/status", 999L)
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                                "status": "IN_PROGRESS"
+                            }
+                            """)
+    )
+            .andExpect(status().isNotFound())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.error").value("Not Found"))
+            .andExpect(jsonPath("$.message").value(
+                    "指定されたお問い合わせが見つかりません。"
+            ))
+            .andExpect(jsonPath("$.path").value(
+                    "/api/admin/contacts/999/status"
+            ));
+
+    verify(adminContactService).updateStatus(
+            999L,
             ContactStatus.IN_PROGRESS,
             "admin@example.com"
     );
