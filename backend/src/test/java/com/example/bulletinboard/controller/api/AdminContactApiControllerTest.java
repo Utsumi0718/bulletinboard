@@ -108,7 +108,7 @@ class AdminContactApiControllerTest {
                 .andExpect(jsonPath("$.error").value("Not Found"))
                 .andExpect(
                         jsonPath("$.message").value(
-                                "指定されたお問い合わせが見つかりません。"
+                               "指定されたお問い合わせが見つかりません。"
                         )
                 )
                 .andExpect(
