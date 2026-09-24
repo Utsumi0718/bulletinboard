@@ -31,6 +31,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.dao.DataAccessResourceFailureException;
 
 import com.example.bulletinboard.exception.ContactNotFoundException;
 import com.example.bulletinboard.model.Contact;
@@ -54,6 +55,7 @@ import com.example.bulletinboard.exception.ForbiddenOperationException;
  * - 状態変更の対象が存在しない場合は例外を返し、保存・履歴追加を行わないこと
  * - 操作するユーザーが存在しない場合は、お問い合わせの処理と履歴追加を行わないこと  
  * - 一般ユーザーによる状態変更を拒否し、お問い合わせの処理と履歴追加を行わないこと
+ * - 状態変更の保存失敗時は例外を伝え、操作履歴を追加しないこと   
  *
  * 【テストの範囲】
  * ContactRepositoryはモックに置き換えます。
@@ -467,5 +469,51 @@ void updateStatus_whenUserIsNotAdmin_shouldThrowAndNotSave() {
             contactRepository,
             adminOperationLogRepository
     );
+}
+
+/**
+ * お問い合わせの保存に失敗した場合は、
+ * 例外を呼び出し元へ伝え、操作履歴を追加しないことを確認します。
+ *
+ * 実DBのロールバックは統合テストで別途確認します。
+ */
+@Test
+@DisplayName("状態変更の保存に失敗した場合は例外を伝え履歴を追加しない")
+void updateStatus_whenSaveFails_shouldThrowAndNotAddLog() {
+
+    User adminUser = new User();
+    adminUser.setId(10L);
+    adminUser.setEmail("admin@example.com");
+    adminUser.setRole("ROLE_ADMIN");
+
+    Contact contact = new Contact();
+    contact.setId(1L);
+    contact.setStatus(ContactStatus.UNANSWERED);
+
+    DataAccessResourceFailureException failure =
+            new DataAccessResourceFailureException(
+                    "テスト用のDB接続失敗"
+            );
+
+    when(userRepository.findByEmail("admin@example.com"))
+            .thenReturn(Optional.of(adminUser));
+
+    when(contactRepository.findById(1L))
+            .thenReturn(Optional.of(contact));
+
+    when(contactRepository.saveAndFlush(contact))
+            .thenThrow(failure);
+
+    assertThatThrownBy(() -> adminContactService.updateStatus(
+            1L,
+            ContactStatus.IN_PROGRESS,
+            "admin@example.com"
+    ))
+            .isSameAs(failure);
+
+    verify(contactRepository).saveAndFlush(contact);
+
+    // 保存に失敗したため、成功の操作履歴を追加しない。
+    verifyNoInteractions(adminOperationLogRepository);
 }
 }
