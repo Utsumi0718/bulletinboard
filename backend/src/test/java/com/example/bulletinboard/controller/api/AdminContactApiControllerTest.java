@@ -64,7 +64,9 @@ import com.example.bulletinboard.service.AdminContactService;
  *   200と変更後の詳細情報8項目を返すこと
  * - 状態変更のID・変更先の状態・認証情報のメールアドレスを
  *   Serviceへ渡すこと
- * - 状態変更の対象不存在時に404と共通エラーJSONを返すこと   
+ * - 状態変更の対象不存在時に404と共通エラーJSONを返すこと
+ * - 状態変更のstatusが未指定・nullの場合は400とフィールドエラーを返し、
+ *   Serviceを呼ばないこと      
  *
  * 【テストの構成】
  * - Controller・SecurityConfig・GlobalExceptionHandlerは実物を使用します。
@@ -765,5 +767,44 @@ void updateContactStatus_whenContactNotFound_shouldReturnNotFound()
             ContactStatus.IN_PROGRESS,
             "admin@example.com"
     );
+}
+
+/**
+ * 変更先の状態が未指定またはnullの場合は、
+ * 入力検証で拒否し、Serviceを呼ばないことを確認します。
+ */
+@ParameterizedTest
+@ValueSource(strings = {
+        "{}",
+        "{\"status\":null}"
+})
+@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@DisplayName("変更先の状態が未指定またはnullの場合は400を返す")
+void updateContactStatus_whenStatusIsMissingOrNull_shouldReturnBadRequest(
+        String requestBody) throws Exception {
+
+    mockMvc.perform(
+            patch("/api/admin/contacts/{id}/status", 1L)
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody)
+    )
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.error").value("Bad Request"))
+            .andExpect(jsonPath("$.message").value(
+                    "入力内容に誤りがあります。"
+            ))
+            .andExpect(jsonPath("$.path").value(
+                    "/api/admin/contacts/1/status"
+            ))
+            .andExpect(jsonPath("$.fieldErrors.status").value(
+                    "ステータスを指定してください。"
+            ));
+
+    verifyNoInteractions(adminContactService);
 }
 }
