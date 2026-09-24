@@ -48,6 +48,7 @@ import com.example.bulletinboard.repository.UserRepository;
  * - 対象が存在する場合、Repositoryの取得結果を返すこと
  * - 対象が存在しない場合、ContactNotFoundExceptionを発生させること
  * - 同じ状態への指定では保存・日時変更・操作履歴追加を行わないこと   
+ * - 状態変更の対象が存在しない場合は例外を返し、保存・履歴追加を行わないこと
  *
  * 【テストの範囲】
  * ContactRepositoryはモックに置き換えます。
@@ -364,6 +365,41 @@ void updateStatus_whenSameStatus_shouldNotSaveOrAddLog() {
     verifyNoMoreInteractions(contactRepository);
 
     // 同じ状態への指定では操作履歴を追加しない。
+    verifyNoInteractions(adminOperationLogRepository);
+}
+
+/**
+ * お問い合わせが存在しない場合は専用例外を返し、
+ * 保存処理と操作履歴の追加を行わないことを確認します。
+ */
+@Test
+@DisplayName("状態変更の対象が存在しない場合は例外を返し保存と履歴追加を行わない")
+void updateStatus_whenContactNotFound_shouldThrowAndNotSave() {
+
+    User adminUser = new User();
+    adminUser.setId(10L);
+    adminUser.setEmail("admin@example.com");
+    adminUser.setRole("ROLE_ADMIN");
+
+    when(userRepository.findByEmail("admin@example.com"))
+            .thenReturn(Optional.of(adminUser));
+
+    when(contactRepository.findById(999L))
+            .thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> adminContactService.updateStatus(
+            999L,
+            ContactStatus.IN_PROGRESS,
+            "admin@example.com"
+    ))
+            .isInstanceOf(ContactNotFoundException.class)
+            .hasMessage("指定されたお問い合わせが見つかりません。");
+
+    // 対象の検索だけを行い、保存処理へ進まない。
+    verify(contactRepository).findById(999L);
+    verifyNoMoreInteractions(contactRepository);
+
+    // 存在しないお問い合わせの操作履歴を追加しない。
     verifyNoInteractions(adminOperationLogRepository);
 }
 }
