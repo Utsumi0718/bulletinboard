@@ -40,6 +40,8 @@ import com.example.bulletinboard.model.AdminOperationLog;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.AdminOperationLogRepository;
 import com.example.bulletinboard.repository.UserRepository;
+import com.example.bulletinboard.exception.UserNotFoundException;
+
 /**
  * 【クラスの役割】
  * 管理者向けお問い合わせServiceの処理を検証する単体テストです。
@@ -49,6 +51,7 @@ import com.example.bulletinboard.repository.UserRepository;
  * - 対象が存在しない場合、ContactNotFoundExceptionを発生させること
  * - 同じ状態への指定では保存・日時変更・操作履歴追加を行わないこと   
  * - 状態変更の対象が存在しない場合は例外を返し、保存・履歴追加を行わないこと
+ * - 操作するユーザーが存在しない場合は、お問い合わせの処理と履歴追加を行わないこと  
  *
  * 【テストの範囲】
  * ContactRepositoryはモックに置き換えます。
@@ -401,5 +404,33 @@ void updateStatus_whenContactNotFound_shouldThrowAndNotSave() {
 
     // 存在しないお問い合わせの操作履歴を追加しない。
     verifyNoInteractions(adminOperationLogRepository);
+}
+
+/**
+ * 操作するユーザーが取得できない場合は、
+ * お問い合わせの検索・更新と履歴追加を行わないことを確認します。
+ */
+@Test
+@DisplayName("操作するユーザーが存在しない場合は状態変更と履歴追加を行わない")
+void updateStatus_whenUserNotFound_shouldThrowAndNotSave() {
+
+    when(userRepository.findByEmail("admin@example.com"))
+            .thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> adminContactService.updateStatus(
+            1L,
+            ContactStatus.IN_PROGRESS,
+            "admin@example.com"
+    ))
+            .isInstanceOf(UserNotFoundException.class)
+            .hasMessage("ログインユーザー情報を取得できませんでした。");
+
+    verify(userRepository).findByEmail("admin@example.com");
+
+    // 操作者を特定できないため、お問い合わせの処理には進まない。
+    verifyNoInteractions(
+            contactRepository,
+            adminOperationLogRepository
+    );
 }
 }
