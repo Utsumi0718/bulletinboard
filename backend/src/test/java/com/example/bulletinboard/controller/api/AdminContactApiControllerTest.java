@@ -66,7 +66,9 @@ import com.example.bulletinboard.service.AdminContactService;
  *   Serviceへ渡すこと
  * - 状態変更の対象不存在時に404と共通エラーJSONを返すこと
  * - 状態変更のstatusが未指定・nullの場合は400とフィールドエラーを返し、
- *   Serviceを呼ばないこと      
+ *   Serviceを呼ばないこと
+ * - 状態変更のstatusが空文字・空白のみ・未知の値・小文字の場合は、
+ *   400を返し、Serviceを呼ばないこと         
  *
  * 【テストの構成】
  * - Controller・SecurityConfig・GlobalExceptionHandlerは実物を使用します。
@@ -803,6 +805,50 @@ void updateContactStatus_whenStatusIsMissingOrNull_shouldReturnBadRequest(
             ))
             .andExpect(jsonPath("$.fieldErrors.status").value(
                     "ステータスを指定してください。"
+            ));
+
+    verifyNoInteractions(adminContactService);
+}
+
+/**
+ * 不正な状態文字列を指定した場合は400で拒否し、
+ * Serviceを呼ばないことを確認します。
+ *
+ * 空文字などは、JSON変換設定によって
+ * 型変換または必須検証で拒否されるため、
+ * このテストでは共通項目と処理の中断を確認します。
+ */
+@ParameterizedTest
+@ValueSource(strings = {
+        "",
+        "   ",
+        "UNKNOWN",
+        "in_progress"
+})
+@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@DisplayName("不正な状態文字列は400で拒否しServiceを呼ばない")
+void updateContactStatus_whenStatusIsInvalid_shouldReturnBadRequest(
+        String invalidStatus) throws Exception {
+
+    // このテストの固定値にはJSONのエスケープが必要な文字を含まない。
+    String requestBody =
+            "{\"status\":\"" + invalidStatus + "\"}";
+
+    mockMvc.perform(
+            patch("/api/admin/contacts/{id}/status", 1L)
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody)
+    )
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.error").value("Bad Request"))
+            .andExpect(jsonPath("$.message").isNotEmpty())
+            .andExpect(jsonPath("$.path").value(
+                    "/api/admin/contacts/1/status"
             ));
 
     verifyNoInteractions(adminContactService);
