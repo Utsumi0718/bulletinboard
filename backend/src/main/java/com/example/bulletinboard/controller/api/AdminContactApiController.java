@@ -7,12 +7,19 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
 import com.example.bulletinboard.dto.contact.AdminContactResponse;
 import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.service.AdminContactService;
 import com.example.bulletinboard.dto.common.PageResponse;
 import com.example.bulletinboard.dto.contact.AdminContactListResponse;
 import com.example.bulletinboard.model.ContactStatus;
+import com.example.bulletinboard.dto.contact.AdminContactStatusRequest;
+
+import jakarta.validation.Valid;
 
 /**
  * 【クラスの役割】
@@ -23,6 +30,13 @@ import com.example.bulletinboard.model.ContactStatus;
  * - 正常時は詳細情報を200 OKで返します。
  * - 対象不存在時はGlobalExceptionHandlerを通して
  *   404 Not FoundとErrorResponseを返します。
+ * 
+ * - PATCH /api/admin/contacts/{id}/status
+ *   → お問い合わせの状態変更
+ *   → 認証情報から操作する管理者を特定
+ *   → 状態変更と操作履歴保存をServiceへ委譲
+ *   → 正常時は200と詳細情報を返却
+ *   → 同じ状態の場合は更新せず、現在の詳細情報を返却   
  *
  * 【役割分担】
  * - お問い合わせの取得はAdminContactServiceへ委譲します。
@@ -105,4 +119,32 @@ public ResponseEntity<PageResponse<AdminContactListResponse>> getContacts(
 
 return ResponseEntity.ok(PageResponse.from(responsePage));
  }
+
+/**
+ * お問い合わせの対応状態を変更します。
+ *
+ * 操作する管理者は、サーバー側の認証情報から特定します。
+ * 状態変更と操作履歴の保存はServiceへ委譲します。
+ *
+ * @param id お問い合わせID
+ * @param request 変更先の状態
+ * @param authentication 操作するユーザーの認証情報
+ * @return 変更後、または変更不要だった現在の詳細情報と200 OK
+ */
+@PatchMapping("/{id}/status")
+public ResponseEntity<AdminContactResponse> updateContactStatus(
+        @PathVariable Long id,
+        @Valid @RequestBody AdminContactStatusRequest request,
+        Authentication authentication) {
+
+    Contact contact = adminContactService.updateStatus(
+            id,
+            request.status(),
+            authentication.getName()
+    );
+
+    return ResponseEntity.ok(
+            AdminContactResponse.from(contact)
+    );
+}
 }
