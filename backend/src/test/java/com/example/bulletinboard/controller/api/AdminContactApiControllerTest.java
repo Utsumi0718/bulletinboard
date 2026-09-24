@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -58,6 +60,10 @@ import com.example.bulletinboard.service.AdminContactService;
  *   Serviceを呼ばないこと
  * - 一覧・詳細への一般ユーザーのアクセスを403と共通エラーJSONで拒否し、
  *   Serviceを呼ばないこと
+  * - 管理者が有効なCSRFトークン付きで状態変更すると、
+ *   200と変更後の詳細情報8項目を返すこと
+ * - 状態変更のID・変更先の状態・認証情報のメールアドレスを
+ *   Serviceへ渡すこと
  *
  * 【テストの構成】
  * - Controller・SecurityConfig・GlobalExceptionHandlerは実物を使用します。
@@ -73,8 +79,9 @@ import com.example.bulletinboard.service.AdminContactService;
  * ContactRepositoryTestで別途確認します。
  *
  * 【今後の検証】
- * 状態変更・削除APIの認可とCSRF保護は、
- * それらのAPIを実装した後に検証します。
+ * 状態変更APIの不正入力・対象不存在・匿名／一般ユーザーの拒否、
+ * CSRFなし・不正トークンによる拒否を確認します。
+ * 削除APIは実装後に検証します。 
  */
 @WebMvcTest(AdminContactApiController.class)
 @Import({
@@ -641,5 +648,75 @@ void getContacts_whenRegularUser_shouldReturnForbidden(
             .andExpect(jsonPath("$.path").value(path));
 
     verifyNoInteractions(adminContactService);
+}
+
+/**
+ * 管理者が有効なCSRFトークン付きで状態変更した場合に、
+ * 200と変更後の詳細情報を返すことを確認します。
+ *
+ * Serviceはモック化し、HTTP応答と引数の受け渡しを検証します。
+ */
+@Test
+@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@DisplayName("管理者がCSRF付きで状態変更すると200と変更後の詳細情報を返す")
+void updateContactStatus_whenAdminWithCsrf_shouldReturnUpdatedContact()
+        throws Exception {
+
+    Contact updatedContact = new Contact();
+    updatedContact.setId(1L);
+    updatedContact.setName("テスト太郎");
+    updatedContact.setEmail("user@example.com");
+    updatedContact.setSubject("ログインについて");
+    updatedContact.setMessage("ログイン方法を教えてください。");
+    updatedContact.setStatus(ContactStatus.IN_PROGRESS);
+    updatedContact.setCreatedAt(
+            LocalDateTime.of(2026, 9, 20, 10, 0)
+    );
+    updatedContact.setUpdatedAt(
+            LocalDateTime.of(2026, 9, 24, 15, 0)
+    );
+
+    when(adminContactService.updateStatus(
+            1L,
+            ContactStatus.IN_PROGRESS,
+            "admin@example.com"
+    )).thenReturn(updatedContact);
+
+    mockMvc.perform(
+            patch("/api/admin/contacts/{id}/status", 1L)
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                                "status": "IN_PROGRESS"
+                            }
+                            """)
+    )
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.length()").value(8))
+            .andExpect(jsonPath("$.id").value(1))
+            .andExpect(jsonPath("$.name").value("テスト太郎"))
+            .andExpect(jsonPath("$.email").value("user@example.com"))
+            .andExpect(jsonPath("$.subject").value("ログインについて"))
+            .andExpect(jsonPath("$.message").value(
+                    "ログイン方法を教えてください。"
+            ))
+            .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+            .andExpect(jsonPath("$.createdAt").value(
+                    "2026-09-20T10:00:00"
+            ))
+            .andExpect(jsonPath("$.updatedAt").value(
+                    "2026-09-24T15:00:00"
+            ));
+
+    // 管理者のメールアドレスは認証情報から取得して渡す。
+    verify(adminContactService).updateStatus(
+            1L,
+            ContactStatus.IN_PROGRESS,
+            "admin@example.com"
+    );
 }
 }
