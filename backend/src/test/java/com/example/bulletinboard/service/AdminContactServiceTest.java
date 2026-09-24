@@ -41,6 +41,7 @@ import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.AdminOperationLogRepository;
 import com.example.bulletinboard.repository.UserRepository;
 import com.example.bulletinboard.exception.UserNotFoundException;
+import com.example.bulletinboard.exception.ForbiddenOperationException;
 
 /**
  * 【クラスの役割】
@@ -52,6 +53,7 @@ import com.example.bulletinboard.exception.UserNotFoundException;
  * - 同じ状態への指定では保存・日時変更・操作履歴追加を行わないこと   
  * - 状態変更の対象が存在しない場合は例外を返し、保存・履歴追加を行わないこと
  * - 操作するユーザーが存在しない場合は、お問い合わせの処理と履歴追加を行わないこと  
+ * - 一般ユーザーによる状態変更を拒否し、お問い合わせの処理と履歴追加を行わないこと
  *
  * 【テストの範囲】
  * ContactRepositoryはモックに置き換えます。
@@ -428,6 +430,39 @@ void updateStatus_whenUserNotFound_shouldThrowAndNotSave() {
     verify(userRepository).findByEmail("admin@example.com");
 
     // 操作者を特定できないため、お問い合わせの処理には進まない。
+    verifyNoInteractions(
+            contactRepository,
+            adminOperationLogRepository
+    );
+}
+
+/**
+ * 操作するユーザーが管理者でない場合は、
+ * お問い合わせの検索・更新と履歴追加を行わないことを確認します。
+ */
+@Test
+@DisplayName("一般ユーザーによる状態変更を拒否し履歴も追加しない")
+void updateStatus_whenUserIsNotAdmin_shouldThrowAndNotSave() {
+
+    User user = new User();
+    user.setId(20L);
+    user.setEmail("user@example.com");
+    user.setRole("ROLE_USER");
+
+    when(userRepository.findByEmail("user@example.com"))
+            .thenReturn(Optional.of(user));
+
+    assertThatThrownBy(() -> adminContactService.updateStatus(
+            1L,
+            ContactStatus.IN_PROGRESS,
+            "user@example.com"
+    ))
+            .isInstanceOf(ForbiddenOperationException.class)
+            .hasMessage("この操作は管理者のみ実行できます。");
+
+    verify(userRepository).findByEmail("user@example.com");
+
+    // 管理者ではないため、お問い合わせの処理へ進まない。
     verifyNoInteractions(
             contactRepository,
             adminOperationLogRepository
