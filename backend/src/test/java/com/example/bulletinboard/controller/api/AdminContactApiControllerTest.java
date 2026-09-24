@@ -56,11 +56,13 @@ import com.example.bulletinboard.service.AdminContactService;
  *   Serviceを呼ばないこと
  * - 一覧・詳細への匿名アクセスを401と共通エラーJSONで拒否し、
  *   Serviceを呼ばないこと
+ * - 一覧・詳細への一般ユーザーのアクセスを403と共通エラーJSONで拒否し、
+ *   Serviceを呼ばないこと
  *
  * 【テストの構成】
  * - Controller・SecurityConfig・GlobalExceptionHandlerは実物を使用します。
  * - AdminContactServiceとUserRepositoryはモックに置き換えます。
- * - @WithMockUserで管理者の認証状態を再現します。
+ * - @WithMockUserで管理者・一般ユーザーの認証状態を再現します。
  * - @WithAnonymousUserで未ログイン状態を再現します。
  *
  * 【テストの範囲】
@@ -71,7 +73,6 @@ import com.example.bulletinboard.service.AdminContactService;
  * ContactRepositoryTestで別途確認します。
  *
  * 【今後の検証】
- * 一覧・詳細への一般ユーザーのアクセス拒否は未検証です。
  * 状態変更・削除APIの認可とCSRF保護は、
  * それらのAPIを実装した後に検証します。
  */
