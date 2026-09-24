@@ -57,6 +57,7 @@ import com.example.bulletinboard.exception.ForbiddenOperationException;
  * - 一般ユーザーによる状態変更を拒否し、お問い合わせの処理と履歴追加を行わないこと
  * - 状態変更の保存失敗時は例外を伝え、操作履歴を追加しないこと   
  * - 操作履歴の保存失敗時に例外を呼び出し元へ伝えること
+ * - 全6通りの状態変更を許可し、管理者と変更前後の状態を履歴へ渡すこと   
  *
  * 【テストの範囲】
  * ContactRepositoryはモックに置き換えます。
@@ -517,17 +518,23 @@ void updateStatus_whenSaveFails_shouldThrowAndNotAddLog() {
     // 保存に失敗したため、成功の操作履歴を追加しない。
     verifyNoInteractions(adminOperationLogRepository);
 }
-
 /**
- * 操作履歴の保存に失敗した場合は、
- * 例外を呼び出し元へ伝えることを確認します。
- *
- * お問い合わせの変更もロールバックされることは、
- * SpringとDBを使う統合テストで別途確認します。
+ * 異なる状態への全6通りの変更を許可し、
+ * 管理者と変更前後の状態を履歴へ渡すことを確認します。
  */
-@Test
-@DisplayName("操作履歴の保存に失敗した場合は例外を呼び出し元へ伝える")
-void updateStatus_whenLogSaveFails_shouldPropagateException() {
+@ParameterizedTest
+@CsvSource({
+        "UNANSWERED, IN_PROGRESS",
+        "UNANSWERED, RESOLVED",
+        "IN_PROGRESS, UNANSWERED",
+        "IN_PROGRESS, RESOLVED",
+        "RESOLVED, UNANSWERED",
+        "RESOLVED, IN_PROGRESS"
+})
+@DisplayName("全方向の状態変更を許可し変更前後の状態を履歴へ保存する")
+void updateStatus_shouldUpdateContactAndSaveOperationLog(
+        ContactStatus beforeStatus,
+        ContactStatus afterStatus) {
 
     User adminUser = new User();
     adminUser.setId(10L);
@@ -536,12 +543,7 @@ void updateStatus_whenLogSaveFails_shouldPropagateException() {
 
     Contact contact = new Contact();
     contact.setId(1L);
-    contact.setStatus(ContactStatus.UNANSWERED);
-
-    DataAccessResourceFailureException failure =
-            new DataAccessResourceFailureException(
-                    "テスト用の操作履歴保存失敗"
-            );
+    contact.setStatus(beforeStatus);
 
     when(userRepository.findByEmail("admin@example.com"))
             .thenReturn(Optional.of(adminUser));
@@ -552,17 +554,34 @@ void updateStatus_whenLogSaveFails_shouldPropagateException() {
     when(contactRepository.saveAndFlush(contact))
             .thenReturn(contact);
 
-    when(adminOperationLogRepository.save(any(AdminOperationLog.class)))
-            .thenThrow(failure);
-
-    assertThatThrownBy(() -> adminContactService.updateStatus(
+    Contact result = adminContactService.updateStatus(
             1L,
-            ContactStatus.IN_PROGRESS,
+            afterStatus,
             "admin@example.com"
-    ))
-            .isSameAs(failure);
+    );
 
+    assertThat(result).isSameAs(contact);
+    assertThat(result.getStatus()).isEqualTo(afterStatus);
+
+    verify(userRepository).findByEmail("admin@example.com");
+    verify(contactRepository).findById(1L);
     verify(contactRepository).saveAndFlush(contact);
-    verify(adminOperationLogRepository).save(any(AdminOperationLog.class));
+
+    ArgumentCaptor<AdminOperationLog> logCaptor =
+            ArgumentCaptor.forClass(AdminOperationLog.class);
+
+    verify(adminOperationLogRepository).save(logCaptor.capture());
+
+    AdminOperationLog operationLog = logCaptor.getValue();
+
+    assertThat(operationLog.getAdminUser()).isSameAs(adminUser);
+    assertThat(operationLog.getTargetType()).isEqualTo("CONTACT");
+    assertThat(operationLog.getTargetId()).isEqualTo(1L);
+    assertThat(operationLog.getAction()).isEqualTo("STATUS_CHANGE");
+    assertThat(operationLog.getBeforeStatus())
+            .isEqualTo(beforeStatus.name());
+    assertThat(operationLog.getAfterStatus())
+            .isEqualTo(afterStatus.name());
+    assertThat(operationLog.getResult()).isEqualTo("SUCCESS");
 }
 }
