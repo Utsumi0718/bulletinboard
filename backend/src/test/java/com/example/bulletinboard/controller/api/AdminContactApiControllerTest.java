@@ -69,6 +69,9 @@ import com.example.bulletinboard.service.AdminContactService;
  *   Serviceを呼ばないこと
  * - 状態変更のstatusが空文字・空白のみ・未知の値・小文字の場合は、
  *   400を返し、Serviceを呼ばないこと         
+ * - 状態変更への匿名アクセスは、有効なCSRFトークンがあっても
+ *   401で拒否し、Serviceを呼ばないこと
+ *
  *
  * 【テストの構成】
  * - Controller・SecurityConfig・GlobalExceptionHandlerは実物を使用します。
@@ -883,6 +886,42 @@ void updateContactStatus_whenStatusIsNumber_shouldReturnBadRequest(
             .andExpect(jsonPath("$.error").value("Bad Request"))
             .andExpect(jsonPath("$.message").value(
                     "リクエストの形式が正しくありません。"
+            ))
+            .andExpect(jsonPath("$.path").value(
+                    "/api/admin/contacts/1/status"
+            ));
+
+    verifyNoInteractions(adminContactService);
+}
+
+/**
+ * 未ログインで状態変更を要求した場合は、
+ * 有効なCSRFトークンがあっても401で拒否することを確認します。
+ */
+@Test
+@WithAnonymousUser
+@DisplayName("匿名による状態変更は401で拒否しServiceを呼ばない")
+void updateContactStatus_whenAnonymous_shouldReturnUnauthorized()
+        throws Exception {
+
+    mockMvc.perform(
+            patch("/api/admin/contacts/{id}/status", 1L)
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                                "status": "IN_PROGRESS"
+                            }
+                            """)
+    )
+            .andExpect(status().isUnauthorized())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.status").value(401))
+            .andExpect(jsonPath("$.error").value("Unauthorized"))
+            .andExpect(jsonPath("$.message").value(
+                    "ログインが必要です。"
             ))
             .andExpect(jsonPath("$.path").value(
                     "/api/admin/contacts/1/status"
