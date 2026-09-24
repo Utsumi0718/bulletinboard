@@ -3,12 +3,12 @@ package com.example.bulletinboard.controller.api;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -68,9 +68,13 @@ import com.example.bulletinboard.service.AdminContactService;
  * - 状態変更のstatusが未指定・nullの場合は400とフィールドエラーを返し、
  *   Serviceを呼ばないこと
  * - 状態変更のstatusが空文字・空白のみ・未知の値・小文字の場合は、
- *   400を返し、Serviceを呼ばないこと         
+ *   400を返し、Serviceを呼ばないこと
  * - 状態変更への匿名アクセスは、有効なCSRFトークンがあっても
  *   401で拒否し、Serviceを呼ばないこと
+ * - 状態変更への一般ユーザーアクセスは、有効なCSRFトークンがあっても
+ *   403で拒否し、Serviceを呼ばないこと
+ * - 状態変更は管理者でもCSRFトークンなし・不正トークンの場合は
+ *   403で拒否し、Serviceを呼ばないこと
  *
  *
  * 【テストの構成】
@@ -86,10 +90,10 @@ import com.example.bulletinboard.service.AdminContactService;
  * DB検索時の絞り込み・ページング・並び順は、
  * ContactRepositoryTestで別途確認します。
  *
- * 【今後の検証】
- * 状態変更APIの不正入力・対象不存在・匿名／一般ユーザーの拒否、
- * CSRFなし・不正トークンによる拒否を確認します。
- * 削除APIは実装後に検証します。 
+* 【今後の検証】
+ * 削除APIは実装後に検証します。
+ * 管理操作のDB障害に対する共通エラー応答は、
+ * エラー処理の整備後に検証します。
  */
 @WebMvcTest(AdminContactApiController.class)
 @Import({
@@ -923,6 +927,109 @@ void updateContactStatus_whenAnonymous_shouldReturnUnauthorized()
             .andExpect(jsonPath("$.message").value(
                     "ログインが必要です。"
             ))
+            .andExpect(jsonPath("$.path").value(
+                    "/api/admin/contacts/1/status"
+            ));
+
+    verifyNoInteractions(adminContactService);
+}
+
+/**
+ * 一般ユーザーは、有効なCSRFトークンがあっても
+ * 状態変更できないことを確認します。
+ */
+@Test
+@WithMockUser(username = "user@example.com", roles = "USER")
+@DisplayName("一般ユーザーによる状態変更は403で拒否しServiceを呼ばない")
+void updateContactStatus_whenRegularUser_shouldReturnForbidden()
+        throws Exception {
+
+    mockMvc.perform(
+            patch("/api/admin/contacts/{id}/status", 1L)
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                                "status": "IN_PROGRESS"
+                            }
+                            """)
+    )
+            .andExpect(status().isForbidden())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.status").value(403))
+            .andExpect(jsonPath("$.error").value("Forbidden"))
+            .andExpect(jsonPath("$.message").value(
+                    "このリクエストは許可されていません。"
+            ))
+            .andExpect(jsonPath("$.path").value(
+                    "/api/admin/contacts/1/status"
+            ));
+
+    verifyNoInteractions(adminContactService);
+}
+
+/**
+ * 管理者でもCSRFトークンがない場合は、
+ * 状態変更できないことを確認します。
+ */
+@Test
+@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@DisplayName("状態変更はCSRFトークンなしなら403で拒否しServiceを呼ばない")
+void updateContactStatus_withoutCsrf_shouldReturnForbidden()
+        throws Exception {
+
+    mockMvc.perform(
+            patch("/api/admin/contacts/{id}/status", 1L)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                                "status": "IN_PROGRESS"
+                            }
+                            """)
+    )
+            .andExpect(status().isForbidden())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.status").value(403))
+            .andExpect(jsonPath("$.error").value("Forbidden"))
+            .andExpect(jsonPath("$.message").isNotEmpty())
+            .andExpect(jsonPath("$.path").value(
+                    "/api/admin/contacts/1/status"
+            ));
+
+    verifyNoInteractions(adminContactService);
+}
+
+/**
+ * 管理者でもCSRFトークンが不正な場合は、
+ * 状態変更できないことを確認します。
+ */
+@Test
+@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@DisplayName("状態変更は不正CSRFトークンなら403で拒否しServiceを呼ばない")
+void updateContactStatus_withInvalidCsrf_shouldReturnForbidden()
+        throws Exception {
+
+    mockMvc.perform(
+            patch("/api/admin/contacts/{id}/status", 1L)
+                    .with(csrf().useInvalidToken())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                                "status": "IN_PROGRESS"
+                            }
+                            """)
+    )
+            .andExpect(status().isForbidden())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.status").value(403))
+            .andExpect(jsonPath("$.error").value("Forbidden"))
+            .andExpect(jsonPath("$.message").isNotEmpty())
             .andExpect(jsonPath("$.path").value(
                     "/api/admin/contacts/1/status"
             ));

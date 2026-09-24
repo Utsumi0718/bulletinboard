@@ -2,47 +2,45 @@ package com.example.bulletinboard.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
-import java.util.Optional;
-import java.util.List;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.ArgumentCaptor;
-
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.dao.DataAccessResourceFailureException;
 
 import com.example.bulletinboard.exception.ContactNotFoundException;
-import com.example.bulletinboard.model.Contact;
-import com.example.bulletinboard.repository.ContactRepository;
-import com.example.bulletinboard.model.ContactStatus;
+import com.example.bulletinboard.exception.ForbiddenOperationException;
+import com.example.bulletinboard.exception.UserNotFoundException;
 import com.example.bulletinboard.model.AdminOperationLog;
+import com.example.bulletinboard.model.Contact;
+import com.example.bulletinboard.model.ContactStatus;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.AdminOperationLogRepository;
+import com.example.bulletinboard.repository.ContactRepository;
 import com.example.bulletinboard.repository.UserRepository;
-import com.example.bulletinboard.exception.UserNotFoundException;
-import com.example.bulletinboard.exception.ForbiddenOperationException;
 
 /**
  * 【クラスの役割】
@@ -51,17 +49,22 @@ import com.example.bulletinboard.exception.ForbiddenOperationException;
  * 【現在の検証内容】
  * - 対象が存在する場合、Repositoryの取得結果を返すこと
  * - 対象が存在しない場合、ContactNotFoundExceptionを発生させること
- * - 同じ状態への指定では保存・日時変更・操作履歴追加を行わないこと   
+ * - 同じ状態への指定では保存・日時変更・操作履歴追加を行わないこと
  * - 状態変更の対象が存在しない場合は例外を返し、保存・履歴追加を行わないこと
- * - 操作するユーザーが存在しない場合は、お問い合わせの処理と履歴追加を行わないこと  
+ * - 操作するユーザーが存在しない場合は、お問い合わせの処理と履歴追加を行わないこと
  * - 一般ユーザーによる状態変更を拒否し、お問い合わせの処理と履歴追加を行わないこと
- * - 状態変更の保存失敗時は例外を伝え、操作履歴を追加しないこと   
+ * - 状態変更の保存失敗時は例外を伝え、操作履歴を追加しないこと
  * - 操作履歴の保存失敗時に例外を呼び出し元へ伝えること
- * - 全6通りの状態変更を許可し、管理者と変更前後の状態を履歴へ渡すこと   
+ * - 全6通りの状態変更を許可し、管理者と変更前後の状態を履歴へ渡すこと
+ * - 変更先の状態がnullの場合は、Repositoryを呼ばず拒否すること
+ * - 認証メールがnull・空文字・空白の場合は、
+ *   Repositoryを呼ばず拒否すること
  *
  * 【テストの範囲】
- * ContactRepositoryはモックに置き換えます。
- * 実DBへの接続、HTTP応答、管理者認可、
+ * ContactRepository・UserRepository・AdminOperationLogRepositoryを
+ * モックに置き換えます。
+ * Service内の入力検証・管理者権限確認・Repository呼び出しを検証します。
+ * 実DBへの接続、HTTP応答、SecurityFilterChainによる認証・認可、
  * Springのトランザクション制御は検証しません。
  */
 @ExtendWith(MockitoExtension.class)
@@ -69,7 +72,7 @@ class AdminContactServiceTest {
 
     @Mock
     private ContactRepository contactRepository;
-    
+
     @Mock
     private AdminOperationLogRepository adminOperationLogRepository;
 
@@ -583,5 +586,54 @@ void updateStatus_shouldUpdateContactAndSaveOperationLog(
     assertThat(operationLog.getAfterStatus())
             .isEqualTo(afterStatus.name());
     assertThat(operationLog.getResult()).isEqualTo("SUCCESS");
+}
+
+/**
+ * 変更先の状態がnullの場合は、
+ * Repositoryを呼ぶ前に拒否することを確認します。
+ */
+@Test
+@DisplayName("変更先の状態がnullの場合は拒否しRepositoryを呼ばない")
+void updateStatus_whenNewStatusIsNull_shouldRejectWithoutRepositoryAccess() {
+
+    assertThatThrownBy(() -> adminContactService.updateStatus(
+            1L,
+            null,
+            "admin@example.com"
+    ))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("ステータスを指定してください。");
+
+    verifyNoInteractions(
+            userRepository,
+            contactRepository,
+            adminOperationLogRepository
+    );
+}
+
+/**
+ * 認証メールがnull・空文字・空白の場合は、
+ * 操作者を検索せず、お問い合わせの処理と履歴追加も行わないことを確認します。
+ */
+@ParameterizedTest
+@NullAndEmptySource
+@ValueSource(strings = {"   "})
+@DisplayName("認証メールがnull・空文字・空白の場合はRepositoryを呼ばない")
+void updateStatus_whenLoginEmailIsMissingOrBlank_shouldRejectWithoutRepositoryAccess(
+        String loginEmail) {
+
+    assertThatThrownBy(() -> adminContactService.updateStatus(
+            1L,
+            ContactStatus.IN_PROGRESS,
+            loginEmail
+    ))
+            .isInstanceOf(UserNotFoundException.class)
+            .hasMessage("ログインユーザー情報を取得できませんでした。");
+
+    verifyNoInteractions(
+            userRepository,
+            contactRepository,
+            adminOperationLogRepository
+    );
 }
 }
