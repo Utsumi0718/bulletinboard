@@ -853,4 +853,41 @@ void updateContactStatus_whenStatusIsInvalid_shouldReturnBadRequest(
 
     verifyNoInteractions(adminContactService);
 }
+
+/**
+ * 状態名の代わりにJSONの数値を指定した場合は、
+ * 400で拒否し、Serviceを呼ばないことを確認します。
+ */
+@ParameterizedTest
+@ValueSource(strings = {
+        "{\"status\":0}",
+        "{\"status\":1}",
+        "{\"status\":2}"
+})
+@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@DisplayName("数値のstatusは400で拒否しServiceを呼ばない")
+void updateContactStatus_whenStatusIsNumber_shouldReturnBadRequest(
+        String requestBody) throws Exception {
+
+    mockMvc.perform(
+            patch("/api/admin/contacts/{id}/status", 1L)
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody)
+    )
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.error").value("Bad Request"))
+            .andExpect(jsonPath("$.message").value(
+                    "リクエストの形式が正しくありません。"
+            ))
+            .andExpect(jsonPath("$.path").value(
+                    "/api/admin/contacts/1/status"
+            ));
+
+    verifyNoInteractions(adminContactService);
+}
 }
