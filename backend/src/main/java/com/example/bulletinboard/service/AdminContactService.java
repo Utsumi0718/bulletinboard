@@ -1,16 +1,16 @@
 package com.example.bulletinboard.service;
 
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.bulletinboard.exception.ContactNotFoundException;
 import com.example.bulletinboard.model.Contact;
-import com.example.bulletinboard.repository.ContactRepository;
 import com.example.bulletinboard.model.ContactStatus;
+import com.example.bulletinboard.repository.ContactRepository;
 
 /**
  * 【クラスの役割】
@@ -47,7 +47,7 @@ public class AdminContactService {
      * 一覧で指定できる最大ページサイズ。
      */
     public static final int MAX_PAGE_SIZE = 100;
-    
+
     public AdminContactService(ContactRepository contactRepository) {
         this.contactRepository = contactRepository;
     }
@@ -113,5 +113,5 @@ public class AdminContactService {
     }
 
     return contactRepository.findByStatus(status, pageable);
-}  
+}
 }
