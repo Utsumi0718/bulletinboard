@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,71 +22,80 @@ import com.example.bulletinboard.exception.TopicEditConflictException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.exception.UserNotFoundException;
 import com.example.bulletinboard.exception.ContactSaveException;
+import com.example.bulletinboard.exception.ContactNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
-
 /**
  * 【クラスの役割】
- * REST APIで発生した例外を共通で受け取り、
- * HTTP StatusとエラーレスポンスDTOへ変換して
- * フロントエンドへJSON形式で返すクラスです。
+ * REST APIで発生した例外を、HTTPステータスと
+ * 共通エラーレスポンスDTOへ変換するクラスです。
  *
- * 各REST Controllerで個別にtry-catchを書くのではなく、
- * API全体の例外処理をこのクラスへ集約します。
+ * 各Controllerでの例外処理の重複を避け、
+ * フロントエンドへ返すエラー形式を統一します。
  *
  * 【現在の対応内容】
- * - TopicNotFoundException
- *   → 404 Not Found
+ * - 400 Bad Request
+ *   IllegalArgumentException
+ *   HttpMessageNotReadableException
+ *   MethodArgumentTypeMismatchException
  *   → ErrorResponseを返却
  *
- * - IllegalArgumentException
- *   → 400 Bad Request
+ *   MethodArgumentNotValidException
+ *   → フィールドごとのエラーを含むValidationErrorResponseを返却
+ *
+ * - 403 Forbidden
+ *   ForbiddenOperationException
  *   → ErrorResponseを返却
  *
- * - UserNotFoundException
- *   → 500 Internal Server Error
+ * - 404 Not Found
+ *   TopicNotFoundException
+ *   AnswerNotFoundException
+ *   ContactNotFoundException
  *   → ErrorResponseを返却
  *
- * - MethodArgumentNotValidException
- *   → 400 Bad Request
- *   → ValidationErrorResponseを返却
- *
- * - ForbiddenOperationException
- *   → 403 Forbidden
+ * - 409 Conflict
+ *   TopicEditConflictException
+ *   AnswerEditConflictException
+ *   LikeConflictException
  *   → ErrorResponseを返却
  *
- * - TopicEditConflictException
- *   → 409 Conflict
+ * - 500 Internal Server Error
+ *   UserNotFoundException
+ *   ContactSaveException
  *   → ErrorResponseを返却
  *
- * - AnswerNotFoundException
- *   → 404 Not Found
- *   → ErrorResponseを返却
+ * 【公開するメッセージ】
+ * JSON読み取り失敗、パラメータの型変換失敗、
+ * お問い合わせ受付の保存失敗には、
+ * 公開用の固定メッセージを使用します。
+ * これらの応答には、原因例外の詳細・SQL・入力本文を含めません。
  *
- * - AnswerEditConflictException
- *   → 409 Conflict
- *   → ErrorResponseを返却
+ * ページ番号・件数・IDなどを指定された型へ変換できない場合は、
+ * MethodArgumentTypeMismatchExceptionを処理し、
+ * 400 Bad RequestとErrorResponseを返します。
+ * メッセージは「リクエストのパラメータ形式が正しくありません。」
+ * に統一します。
  *
- *  - LikeConflictException
- *   → 409 Conflict
- *   → ErrorResponseを返却
+ * 入力検証エラーでは、共通メッセージと
+ * フィールドごとの検証メッセージを返します。
+ * 検証メッセージにも公開可能な文言を設定します。
  *
- * 【今後の拡張予定】
- * - 必要に応じて他の業務例外も追加
- *
- * ※ 旧Thymeleaf ControllerのFlashMessage処理とは分離し、
- *    REST API専用の例外処理として使用します。
+ * その他の対応例外では例外メッセージを返すため、
+ * 例外を生成する側で公開可能な文言を設定します。
  *
  * 【適用範囲】
- * @RestControllerを付けたAPI Controllerのみを対象とします。
- *
+ * @RestControllerを付けたControllerのみを対象とします。
  * Thymeleafの画面を返す旧@Controllerには適用しません。
- * URLの先頭が/apiかどうかではなく、
- * Controllerのアノテーションによって対象を判定します。
+ * URLではなく、Controllerのアノテーションで対象を判定します。
  *
  * Spring Securityのフィルタで発生する認証・認可エラーは、
  * Security側で別途処理します。
- * 
+ *
+ * 【お問い合わせ関連の区別】
+ * ContactNotFoundExceptionは対象不存在を404へ変換します。
+ * ContactSaveExceptionはお問い合わせ受付の保存失敗専用です。
+ * 管理機能の更新・削除失敗には流用しません。
  */
+
 @RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
 
@@ -390,4 +400,55 @@ public ResponseEntity<ErrorResponse> handleContactSaveException(
             .body(response);
 }
 
+/**
+ * 指定されたお問い合わせが存在しない場合の例外を処理します。
+ *
+ * @param ex      発生したContactNotFoundException
+ * @param request エラーが発生したHTTPリクエスト
+ * @return 404 Not Foundと共通エラーレスポンス
+ */
+@ExceptionHandler(ContactNotFoundException.class)
+public ResponseEntity<ErrorResponse> handleContactNotFound(
+        ContactNotFoundException ex,
+        HttpServletRequest request) {
+
+    ErrorResponse response = new ErrorResponse(
+            HttpStatus.NOT_FOUND.value(),
+            HttpStatus.NOT_FOUND.getReasonPhrase(),
+            ex.getMessage(),
+            request.getRequestURI()
+    );
+
+    return ResponseEntity
+            .status(HttpStatus.NOT_FOUND)
+            .body(response);
+}
+/**
+ * リクエストパラメータやパス変数を、
+ * 指定された型へ変換できない場合に400を返します。
+ *
+ * 入力値や内部の例外詳細をメッセージへ含めず、
+ * 公開用の固定メッセージを使用します。
+ * pathにはリクエストURIを設定します。
+ *
+ * @param ex      型変換に失敗した例外
+ * @param request エラーが発生したHTTPリクエスト
+ * @return 400 Bad Requestと共通エラーレスポンス
+ */
+@ExceptionHandler(MethodArgumentTypeMismatchException.class)
+public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(
+        MethodArgumentTypeMismatchException ex,
+        HttpServletRequest request) {
+
+    ErrorResponse response = new ErrorResponse(
+            HttpStatus.BAD_REQUEST.value(),
+            HttpStatus.BAD_REQUEST.getReasonPhrase(),
+            "リクエストのパラメータ形式が正しくありません。",
+            request.getRequestURI()
+    );
+
+    return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(response);
+}
 }
