@@ -11,6 +11,12 @@ import com.example.bulletinboard.exception.ContactNotFoundException;
 import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.model.ContactStatus;
 import com.example.bulletinboard.repository.ContactRepository;
+import com.example.bulletinboard.exception.ForbiddenOperationException;
+import com.example.bulletinboard.exception.UserNotFoundException;
+import com.example.bulletinboard.model.AdminOperationLog;
+import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.repository.AdminOperationLogRepository;
+import com.example.bulletinboard.repository.UserRepository;
 
 /**
  * 【クラスの役割】
@@ -22,6 +28,9 @@ import com.example.bulletinboard.repository.ContactRepository;
  * - ページングによるお問い合わせ一覧取得
  * - ステータスによる一覧の絞り込み
  * - ページ番号・取得件数の検証
+ * - お問い合わせの状態変更
+ * - 状態変更と同じトランザクションでの操作履歴保存
+ * - 同じ状態を指定した場合の更新・履歴追加の省略  
  *
  * 【一覧取得のルール】
  * - ページ番号は0以上、取得件数は1～100とします。
@@ -35,21 +44,33 @@ import com.example.bulletinboard.repository.ContactRepository;
  * DTOへの変換、HTTP応答はControllerで行います。
  * 管理APIへのアクセスはSecurityConfigでROLE_ADMINに制限します。
  *
- * 状態変更・削除・操作履歴の保存は、後続の作業で追加します。
+ * 状態変更APIへの接続、削除処理、失敗時の運営用ログは、
+ * 後続の作業で追加します。
+ * 状態変更と履歴保存の整合性は、単体・統合テストで別途検証します。
  */
 
 @Service
 public class AdminContactService {
 
+
     private final ContactRepository contactRepository;
+    private final UserRepository userRepository;
+    private final AdminOperationLogRepository adminOperationLogRepository;
 
     /**
      * 一覧で指定できる最大ページサイズ。
      */
     public static final int MAX_PAGE_SIZE = 100;
+    
 
-    public AdminContactService(ContactRepository contactRepository) {
-        this.contactRepository = contactRepository;
+    public AdminContactService(
+        ContactRepository contactRepository,
+        UserRepository userRepository,
+        AdminOperationLogRepository adminOperationLogRepository) {
+
+    this.contactRepository = contactRepository;
+    this.userRepository = userRepository;
+    this.adminOperationLogRepository = adminOperationLogRepository;
     }
 
     /**
@@ -113,5 +134,90 @@ public class AdminContactService {
     }
 
     return contactRepository.findByStatus(status, pageable);
+}
+
+/**
+ * お問い合わせの対応状態を変更し、操作履歴を保存します。
+ *
+ * 状態変更と履歴保存は、同じトランザクションで行います。
+ * 途中の保存やコミットに失敗した場合は、
+ * 両方をロールバックします。
+ *
+ * 同じ状態を指定した場合は、
+ * お問い合わせの更新と履歴追加を行いません。
+ *
+ * @param id お問い合わせID
+ * @param newStatus 変更先の状態
+ * @param loginEmail Controllerが認証情報から取得したメールアドレス
+ * @return 変更後、または変更不要だったお問い合わせ
+ * @throws IllegalArgumentException 変更先の状態がnullの場合
+ * @throws UserNotFoundException 操作するユーザーを取得できない場合
+ * @throws ForbiddenOperationException 操作するユーザーが管理者でない場合
+ * @throws ContactNotFoundException お問い合わせが存在しない場合
+ */
+@Transactional
+public Contact updateStatus(
+        Long id,
+        ContactStatus newStatus,
+        String loginEmail) {
+
+    // APIの入力検証に加え、Serviceでもnullを拒否する。
+    if (newStatus == null) {
+        throw new IllegalArgumentException(
+                "ステータスを指定してください。"
+        );
+    }
+
+    // loginEmailには、リクエスト本文の値ではなく
+    // ControllerがAuthenticationから取得した値を渡す。
+    if (loginEmail == null || loginEmail.isBlank()) {
+        throw new UserNotFoundException(
+                "ログインユーザー情報を取得できませんでした。"
+        );
+    }
+
+    User adminUser = userRepository.findByEmail(loginEmail)
+            .orElseThrow(() -> new UserNotFoundException(
+                    "ログインユーザー情報を取得できませんでした。"
+            ));
+
+    // 履歴へ記録するユーザーが管理者であることも確認する。
+    if (!"ROLE_ADMIN".equals(adminUser.getRole())) {
+        throw new ForbiddenOperationException(
+                "この操作は管理者のみ実行できます。"
+        );
+    }
+
+    Contact contact = contactRepository.findById(id)
+            .orElseThrow(ContactNotFoundException::new);
+
+    ContactStatus beforeStatus = contact.getStatus();
+
+    // 同じ状態なら、更新日時も操作履歴も変更しない。
+    if (beforeStatus == newStatus) {
+        return contact;
+    }
+
+    contact.setStatus(newStatus);
+
+    // 更新SQLを実行し、@PreUpdateによる更新日時を
+    // 戻り値へ反映する。この時点ではコミットしない。
+    Contact updatedContact =
+            contactRepository.saveAndFlush(contact);
+
+    AdminOperationLog operationLog = new AdminOperationLog(
+            adminUser,
+            "CONTACT",
+            contact.getId(),
+            "STATUS_CHANGE",
+            beforeStatus.name(),
+            newStatus.name()
+    );
+
+    // 履歴保存に失敗した場合は、
+    // 先にflushしたお問い合わせの変更もロールバックされる。
+    adminOperationLogRepository.save(operationLog);
+
+    return updatedContact;
 }
 }
