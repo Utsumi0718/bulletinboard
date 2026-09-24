@@ -23,6 +23,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -37,22 +38,42 @@ import com.example.bulletinboard.service.AdminContactService;
 
 /**
  * 【クラスの役割】
- * 管理者向けのお問い合わせ詳細取得APIについて、
- * HTTPステータスとJSONレスポンスを検証するテストクラスです。
+ * 管理者向けのお問い合わせ一覧・詳細取得APIについて、
+ * HTTPステータス、JSONレスポンス、Serviceへの委譲、
+ * 匿名アクセスの拒否を検証するテストクラスです。
  *
  * 【現在の検証内容】
+ * - 管理者による詳細取得で200と詳細情報8項目を返すこと
  * - 対象不存在時に404と共通エラーJSONを返すこと
- * - 正常取得時に200と詳細情報8項目を返すこと
+ * - 一覧取得で200と一覧情報5項目・ページ情報を返すこと
+ * - 一覧にメールアドレス・本文・更新日時を含めないこと
+ * - 一覧条件の省略時に既定値をServiceへ渡すこと
+ * - 指定したページ番号・件数・状態をServiceへ渡すこと
+ * - 空一覧・最終ページ超過で200と空配列を返すこと
+ * - 不正な状態を400で拒否し、Serviceを呼ばないこと
+ * - Serviceによるページ番号・件数の範囲エラーを400へ変換すること
+ * - page・size・IDの型変換失敗時に400と固定メッセージを返し、
+ *   Serviceを呼ばないこと
+ * - 一覧・詳細への匿名アクセスを401と共通エラーJSONで拒否し、
+ *   Serviceを呼ばないこと
  *
  * 【テストの構成】
  * - Controller・SecurityConfig・GlobalExceptionHandlerは実物を使用します。
  * - AdminContactServiceとUserRepositoryはモックに置き換えます。
  * - @WithMockUserで管理者の認証状態を再現します。
+ * - @WithAnonymousUserで未ログイン状態を再現します。
  *
  * 【テストの範囲】
- * HTTPリクエストの受付、DTO変換、例外ハンドリングを確認します。
+ * HTTPリクエストの受付、Securityによるアクセス制御、
+ * DTO変換、例外ハンドリング、Serviceへの引数を確認します。
  * 実DBの検索処理や、実際のログイン処理は検証しません。
- * 匿名・一般ユーザーのアクセス拒否は、後続のテストで確認します。
+ * DB検索時の絞り込み・ページング・並び順は、
+ * ContactRepositoryTestで別途確認します。
+ *
+ * 【今後の検証】
+ * 一覧・詳細への一般ユーザーのアクセス拒否は未検証です。
+ * 状態変更・削除APIの認可とCSRF保護は、
+ * それらのAPIを実装した後に検証します。
  */
 @WebMvcTest(AdminContactApiController.class)
 @Import({
@@ -560,6 +581,35 @@ void getContact_whenIdTypeIsInvalid_shouldReturnBadRequest(
             ));
 
     // IDを変換できないため、詳細取得処理には進まない
+    verifyNoInteractions(adminContactService);
+}
+
+/**
+ * 未ログインでは管理用の一覧・詳細を取得できず、
+ * 共通の401応答を返すことを確認します。
+ */
+@ParameterizedTest
+@ValueSource(strings = {
+        "/api/admin/contacts",
+        "/api/admin/contacts/1"
+})
+@WithAnonymousUser
+@DisplayName("匿名アクセスは401で拒否し管理Serviceを呼ばない")
+void getContacts_whenAnonymous_shouldReturnUnauthorized(
+        String path) throws Exception {
+
+    mockMvc.perform(get(path))
+            .andExpect(status().isUnauthorized())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.status").value(401))
+            .andExpect(jsonPath("$.error").value("Unauthorized"))
+            .andExpect(jsonPath("$.message").value(
+                    "ログインが必要です。"
+            ))
+            .andExpect(jsonPath("$.path").value(path));
+
     verifyNoInteractions(adminContactService);
 }
 }
