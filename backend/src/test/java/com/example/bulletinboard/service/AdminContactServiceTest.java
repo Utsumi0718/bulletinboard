@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -18,9 +20,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -59,6 +63,11 @@ import com.example.bulletinboard.repository.UserRepository;
  * - 変更先の状態がnullの場合は、Repositoryを呼ばず拒否すること
  * - 認証メールがnull・空文字・空白の場合は、
  *   Repositoryを呼ばず拒否すること
+ * - 全ステータスのお問い合わせの削除と削除履歴の内容
+ * - 削除時の認証メール不正・操作者不存在・管理者以外の拒否
+ * - 削除対象不存在時に削除・履歴保存を行わないこと
+ * - delete・flush失敗時に履歴保存へ進まないこと
+ * - 削除履歴保存失敗時に例外を呼び出し元へ伝えること
  *
  * 【テストの範囲】
  * ContactRepository・UserRepository・AdminOperationLogRepositoryを
@@ -635,5 +644,257 @@ void updateStatus_whenLoginEmailIsMissingOrBlank_shouldRejectWithoutRepositoryAc
             contactRepository,
             adminOperationLogRepository
     );
+}
+
+/**
+ * 全ステータスで削除でき、削除前の情報を履歴へ渡すことを確認します。
+ */
+@ParameterizedTest
+@EnumSource(ContactStatus.class)
+@DisplayName("全ステータスのお問い合わせを削除し操作履歴を保存する")
+void deleteContact_whenAdmin_shouldDeleteAndSaveLog(
+        ContactStatus contactStatus) {
+
+    User admin = stubDeleteAdmin();
+
+    Contact contact = new Contact();
+    contact.setId(1L);
+    contact.setStatus(contactStatus);
+
+    when(contactRepository.findById(1L))
+            .thenReturn(Optional.of(contact));
+
+    adminContactService.deleteContact(1L, "admin@example.com");
+
+    ArgumentCaptor<AdminOperationLog> logCaptor =
+            ArgumentCaptor.forClass(AdminOperationLog.class);
+
+    InOrder order = inOrder(
+            userRepository,
+            contactRepository,
+            adminOperationLogRepository
+    );
+
+    order.verify(userRepository).findByEmail("admin@example.com");
+    order.verify(contactRepository).findById(1L);
+    order.verify(contactRepository).delete(contact);
+    order.verify(contactRepository).flush();
+    order.verify(adminOperationLogRepository).save(logCaptor.capture());
+
+    AdminOperationLog log = logCaptor.getValue();
+
+    assertThat(log.getAdminUser()).isSameAs(admin);
+    assertThat(log.getTargetType()).isEqualTo("CONTACT");
+    assertThat(log.getTargetId()).isEqualTo(1L);
+    assertThat(log.getAction()).isEqualTo("DELETE");
+    assertThat(log.getBeforeStatus()).isEqualTo(contactStatus.name());
+    assertThat(log.getAfterStatus()).isNull();
+    assertThat(log.getResult()).isEqualTo("SUCCESS");
+}
+
+/**
+ * 認証メールが不正なら、Repositoryへ到達しないことを確認します。
+ */
+@ParameterizedTest
+@NullAndEmptySource
+@ValueSource(strings = {"   "})
+@DisplayName("削除時の認証メールがnull・空文字・空白なら拒否する")
+void deleteContact_whenLoginEmailIsMissingOrBlank_shouldReject(
+        String loginEmail) {
+
+    assertThatThrownBy(
+            () -> adminContactService.deleteContact(1L, loginEmail)
+    )
+            .isInstanceOf(UserNotFoundException.class)
+            .hasMessage("ログインユーザー情報を取得できませんでした。");
+
+    verifyNoInteractions(
+            userRepository,
+            contactRepository,
+            adminOperationLogRepository
+    );
+}
+
+@Test
+@DisplayName("削除の操作者が存在しない場合はお問い合わせを処理しない")
+void deleteContact_whenUserNotFound_shouldReject() {
+
+    when(userRepository.findByEmail("admin@example.com"))
+            .thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () -> adminContactService.deleteContact(
+                    1L, "admin@example.com"
+            )
+    )
+            .isInstanceOf(UserNotFoundException.class)
+            .hasMessage("ログインユーザー情報を取得できませんでした。");
+
+    verify(userRepository).findByEmail("admin@example.com");
+    verifyNoInteractions(
+            contactRepository,
+            adminOperationLogRepository
+    );
+}
+
+@Test
+@DisplayName("一般ユーザーによる削除は拒否しお問い合わせを処理しない")
+void deleteContact_whenRegularUser_shouldReject() {
+
+    User user = new User();
+    user.setId(20L);
+    user.setEmail("user@example.com");
+    user.setRole("ROLE_USER");
+
+    when(userRepository.findByEmail("user@example.com"))
+            .thenReturn(Optional.of(user));
+
+    assertThatThrownBy(
+            () -> adminContactService.deleteContact(
+                    1L, "user@example.com"
+            )
+    )
+            .isInstanceOf(ForbiddenOperationException.class)
+            .hasMessage("この操作は管理者のみ実行できます。");
+
+    verify(userRepository).findByEmail("user@example.com");
+    verifyNoInteractions(
+            contactRepository,
+            adminOperationLogRepository
+    );
+}
+
+@Test
+@DisplayName("削除対象が存在しない場合は削除と履歴保存を行わない")
+void deleteContact_whenContactNotFound_shouldReject() {
+
+    stubDeleteAdmin();
+
+    when(contactRepository.findById(999L))
+            .thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () -> adminContactService.deleteContact(
+                    999L, "admin@example.com"
+            )
+    )
+            .isInstanceOf(ContactNotFoundException.class)
+            .hasMessage("指定されたお問い合わせが見つかりません。");
+
+    verify(contactRepository).findById(999L);
+    verifyNoMoreInteractions(contactRepository);
+    verifyNoInteractions(adminOperationLogRepository);
+}
+
+@Test
+@DisplayName("delete失敗時は例外を伝えflushと履歴保存を行わない")
+void deleteContact_whenDeleteFails_shouldStop() {
+
+    Contact contact = stubDeleteTarget();
+
+    DataAccessResourceFailureException failure =
+            new DataAccessResourceFailureException("delete failed");
+
+    doThrow(failure).when(contactRepository).delete(contact);
+
+    assertThatThrownBy(
+            () -> adminContactService.deleteContact(
+                    1L, "admin@example.com"
+            )
+    ).isSameAs(failure);
+
+    verify(contactRepository).findById(1L);
+    verify(contactRepository).delete(contact);
+    verifyNoMoreInteractions(contactRepository);
+    verifyNoInteractions(adminOperationLogRepository);
+}
+
+@Test
+@DisplayName("削除のflush失敗時は例外を伝え履歴保存を行わない")
+void deleteContact_whenFlushFails_shouldStop() {
+
+    Contact contact = stubDeleteTarget();
+
+    DataAccessResourceFailureException failure =
+            new DataAccessResourceFailureException("flush failed");
+
+    doThrow(failure).when(contactRepository).flush();
+
+    assertThatThrownBy(
+            () -> adminContactService.deleteContact(
+                    1L, "admin@example.com"
+            )
+    ).isSameAs(failure);
+
+    verify(contactRepository).findById(1L);
+    verify(contactRepository).delete(contact);
+    verify(contactRepository).flush();
+    verifyNoMoreInteractions(contactRepository);
+    verifyNoInteractions(adminOperationLogRepository);
+}
+
+@Test
+@DisplayName("削除履歴の保存失敗時は例外を呼び出し元へ伝える")
+void deleteContact_whenLogSaveFails_shouldPropagateException() {
+
+    Contact contact = stubDeleteTarget();
+
+    DataAccessResourceFailureException failure =
+            new DataAccessResourceFailureException("log save failed");
+
+    when(adminOperationLogRepository.save(any(AdminOperationLog.class)))
+            .thenThrow(failure);
+
+    assertThatThrownBy(
+            () -> adminContactService.deleteContact(
+                    1L, "admin@example.com"
+            )
+    ).isSameAs(failure);
+
+    InOrder order = inOrder(
+            contactRepository,
+            adminOperationLogRepository
+    );
+
+    order.verify(contactRepository).findById(1L);
+    order.verify(contactRepository).delete(contact);
+    order.verify(contactRepository).flush();
+    order.verify(adminOperationLogRepository)
+            .save(any(AdminOperationLog.class));
+
+    // 実DBの削除が取り消されることは、統合テストで確認する。
+}
+
+/**
+ * 削除テスト用の管理者を用意します。
+ */
+private User stubDeleteAdmin() {
+
+    User admin = new User();
+    admin.setId(10L);
+    admin.setEmail("admin@example.com");
+    admin.setRole("ROLE_ADMIN");
+
+    when(userRepository.findByEmail("admin@example.com"))
+            .thenReturn(Optional.of(admin));
+
+    return admin;
+}
+
+/**
+ * 削除テスト用の管理者とお問い合わせを用意します。
+ */
+private Contact stubDeleteTarget() {
+
+    stubDeleteAdmin();
+
+    Contact contact = new Contact();
+    contact.setId(1L);
+    contact.setStatus(ContactStatus.UNANSWERED);
+
+    when(contactRepository.findById(1L))
+            .thenReturn(Optional.of(contact));
+
+    return contact;
 }
 }

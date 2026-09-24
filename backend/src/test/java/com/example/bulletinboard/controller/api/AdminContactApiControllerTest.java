@@ -1,9 +1,13 @@
 package com.example.bulletinboard.controller.api;
 
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -29,6 +33,7 @@ import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import com.example.bulletinboard.exception.ContactNotFoundException;
 import com.example.bulletinboard.exception.handler.GlobalExceptionHandler;
@@ -75,6 +80,12 @@ import com.example.bulletinboard.service.AdminContactService;
  *   403で拒否し、Serviceを呼ばないこと
  * - 状態変更は管理者でもCSRFトークンなし・不正トークンの場合は
  *   403で拒否し、Serviceを呼ばないこと
+ * - 管理者による削除は204と空本文を返すこと
+ * - 削除対象不存在・再実行時の対象不存在は404を返すこと
+ * - 削除時に対象IDと認証情報のメールアドレスをServiceへ渡すこと
+ * - 削除への匿名・一般ユーザーアクセスを拒否すること
+ * - 削除時のCSRFなし・不正CSRFを拒否すること
+ * - 認証・認可・CSRFで拒否した場合はServiceを呼ばないこと
  *
  *
  * 【テストの構成】
@@ -90,8 +101,7 @@ import com.example.bulletinboard.service.AdminContactService;
  * DB検索時の絞り込み・ページング・並び順は、
  * ContactRepositoryTestで別途確認します。
  *
-* 【今後の検証】
- * 削除APIは実装後に検証します。
+ * 【今後の検証】
  * 管理操作のDB障害に対する共通エラー応答は、
  * エラー処理の整備後に検証します。
  */
@@ -1032,6 +1042,166 @@ void updateContactStatus_withInvalidCsrf_shouldReturnForbidden()
             .andExpect(jsonPath("$.message").isNotEmpty())
             .andExpect(jsonPath("$.path").value(
                     "/api/admin/contacts/1/status"
+            ));
+
+    verifyNoInteractions(adminContactService);
+}
+
+/**
+ * 初回の成功時は204と空本文を返し、
+ * 再実行でServiceが対象不存在を返した場合は404へ変換することを確認します。
+ *
+ * 実DBからの削除は、このモックテストでは検証しません。
+ */
+@Test
+@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@DisplayName("管理者の削除は204を返し削除済み対象への再実行は404を返す")
+void deleteContact_whenAdmin_thenRepeated_shouldReturnNoContentThenNotFound()
+        throws Exception {
+
+    doNothing()
+            .doThrow(new ContactNotFoundException())
+            .when(adminContactService)
+            .deleteContact(1L, "admin@example.com");
+
+    mockMvc.perform(
+            delete("/api/admin/contacts/{id}", 1L)
+                    .with(csrf())
+    )
+            .andExpect(status().isNoContent())
+            .andExpect(content().string(""));
+
+    mockMvc.perform(
+            delete("/api/admin/contacts/{id}", 1L)
+                    .with(csrf())
+    )
+            .andExpect(status().isNotFound())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.error").value("Not Found"))
+            .andExpect(jsonPath("$.message").value(
+                    "指定されたお問い合わせが見つかりません。"
+            ))
+            .andExpect(jsonPath("$.path").value(
+                    "/api/admin/contacts/1"
+            ));
+
+    verify(adminContactService, times(2))
+            .deleteContact(1L, "admin@example.com");
+}
+
+@Test
+@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@DisplayName("削除対象が存在しない場合は404と共通JSONを返す")
+void deleteContact_whenContactNotFound_shouldReturnNotFound()
+        throws Exception {
+
+    doThrow(new ContactNotFoundException())
+            .when(adminContactService)
+            .deleteContact(999L, "admin@example.com");
+
+    mockMvc.perform(
+            delete("/api/admin/contacts/{id}", 999L)
+                    .with(csrf())
+    )
+            .andExpect(status().isNotFound())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.error").value("Not Found"))
+            .andExpect(jsonPath("$.message").value(
+                    "指定されたお問い合わせが見つかりません。"
+            ))
+            .andExpect(jsonPath("$.path").value(
+                    "/api/admin/contacts/999"
+            ));
+
+    verify(adminContactService)
+            .deleteContact(999L, "admin@example.com");
+}
+
+@Test
+@WithAnonymousUser
+@DisplayName("匿名による削除は401で拒否しServiceを呼ばない")
+void deleteContact_whenAnonymous_shouldReturnUnauthorized()
+        throws Exception {
+
+    mockMvc.perform(
+            delete("/api/admin/contacts/{id}", 1L)
+                    .with(csrf())
+    )
+            .andExpect(status().isUnauthorized())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.status").value(401))
+            .andExpect(jsonPath("$.error").value("Unauthorized"))
+            .andExpect(jsonPath("$.message").value(
+                    "ログインが必要です。"
+            ))
+            .andExpect(jsonPath("$.path").value(
+                    "/api/admin/contacts/1"
+            ));
+
+    verifyNoInteractions(adminContactService);
+}
+
+@Test
+@WithMockUser(username = "user@example.com", roles = "USER")
+@DisplayName("一般ユーザーによる削除は403で拒否しServiceを呼ばない")
+void deleteContact_whenRegularUser_shouldReturnForbidden()
+        throws Exception {
+
+    mockMvc.perform(
+            delete("/api/admin/contacts/{id}", 1L)
+                    .with(csrf())
+    )
+            .andExpect(status().isForbidden())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.status").value(403))
+            .andExpect(jsonPath("$.error").value("Forbidden"))
+            .andExpect(jsonPath("$.message").value(
+                    "このリクエストは許可されていません。"
+            ))
+            .andExpect(jsonPath("$.path").value(
+                    "/api/admin/contacts/1"
+            ));
+
+    verifyNoInteractions(adminContactService);
+}
+
+/**
+ * falseはCSRFなし、trueは不正CSRFを表します。
+ */
+@ParameterizedTest(name = "不正トークンあり={0}")
+@ValueSource(booleans = {false, true})
+@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@DisplayName("削除はCSRFなし・不正CSRFの場合403で拒否する")
+void deleteContact_whenCsrfMissingOrInvalid_shouldReturnForbidden(
+        boolean invalidToken) throws Exception {
+
+    MockHttpServletRequestBuilder request =
+            delete("/api/admin/contacts/{id}", 1L);
+
+    if (invalidToken) {
+        request.with(csrf().useInvalidToken());
+    }
+
+    mockMvc.perform(request)
+            .andExpect(status().isForbidden())
+            .andExpect(content().contentTypeCompatibleWith(
+                    MediaType.APPLICATION_JSON
+            ))
+            .andExpect(jsonPath("$.status").value(403))
+            .andExpect(jsonPath("$.error").value("Forbidden"))
+            .andExpect(jsonPath("$.message").isNotEmpty())
+            .andExpect(jsonPath("$.path").value(
+                    "/api/admin/contacts/1"
             ));
 
     verifyNoInteractions(adminContactService);

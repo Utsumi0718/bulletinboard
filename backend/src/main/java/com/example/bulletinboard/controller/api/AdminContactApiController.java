@@ -1,23 +1,24 @@
 package com.example.bulletinboard.controller.api;
 
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.data.domain.Page;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import com.example.bulletinboard.dto.contact.AdminContactResponse;
-import com.example.bulletinboard.model.Contact;
-import com.example.bulletinboard.service.AdminContactService;
 import com.example.bulletinboard.dto.common.PageResponse;
 import com.example.bulletinboard.dto.contact.AdminContactListResponse;
-import com.example.bulletinboard.model.ContactStatus;
+import com.example.bulletinboard.dto.contact.AdminContactResponse;
 import com.example.bulletinboard.dto.contact.AdminContactStatusRequest;
+import com.example.bulletinboard.model.Contact;
+import com.example.bulletinboard.model.ContactStatus;
+import com.example.bulletinboard.service.AdminContactService;
 
 import jakarta.validation.Valid;
 
@@ -30,13 +31,18 @@ import jakarta.validation.Valid;
  * - 正常時は詳細情報を200 OKで返します。
  * - 対象不存在時はGlobalExceptionHandlerを通して
  *   404 Not FoundとErrorResponseを返します。
- * 
+ *
  * - PATCH /api/admin/contacts/{id}/status
  *   → お問い合わせの状態変更
  *   → 認証情報から操作する管理者を特定
  *   → 状態変更と操作履歴保存をServiceへ委譲
  *   → 正常時は200と詳細情報を返却
- *   → 同じ状態の場合は更新せず、現在の詳細情報を返却   
+ *   → 同じ状態の場合は更新せず、現在の詳細情報を返却
+ *
+* - DELETE /api/admin/contacts/{id}
+ *   → お問い合わせの物理削除と操作履歴保存
+ *   → 正常時は204 No Content
+ *   → 対象不存在・削除済みIDへの再実行は404 Not Found
  *
  * 【役割分担】
  * - お問い合わせの取得はAdminContactServiceへ委譲します。
@@ -48,7 +54,7 @@ import jakarta.validation.Valid;
  * - 作成日時の降順、同じ日時の場合はIDの降順で取得します。
  * - 一覧用DTOとページ情報を200 OKで返します。
  * - ページ番号・件数の範囲外、ステータス不正は400になります。
- *   
+ *
  */
 @RestController
 @RequestMapping("/api/admin/contacts")
@@ -77,7 +83,7 @@ public class AdminContactApiController {
                 AdminContactResponse.from(contact);
 
         return ResponseEntity.ok(response);
-    
+
 	    }
     /**
      * 管理者向けのお問い合わせ一覧を取得します。
@@ -146,5 +152,28 @@ public ResponseEntity<AdminContactResponse> updateContactStatus(
     return ResponseEntity.ok(
             AdminContactResponse.from(contact)
     );
+}
+
+/**
+ * お問い合わせを物理削除します。
+ *
+ * 操作者はサーバー側の認証情報から特定します。
+ * 削除と操作履歴保存はServiceへ委譲します。
+ *
+ * @param id お問い合わせID
+ * @param authentication 操作するユーザーの認証情報
+ * @return 本文なしの204 No Content
+ */
+@DeleteMapping("/{id}")
+public ResponseEntity<Void> deleteContact(
+        @PathVariable Long id,
+        Authentication authentication) {
+
+    adminContactService.deleteContact(
+            id,
+            authentication.getName()
+    );
+
+    return ResponseEntity.noContent().build();
 }
 }

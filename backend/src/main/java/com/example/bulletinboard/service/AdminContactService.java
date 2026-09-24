@@ -8,14 +8,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.bulletinboard.exception.ContactNotFoundException;
-import com.example.bulletinboard.model.Contact;
-import com.example.bulletinboard.model.ContactStatus;
-import com.example.bulletinboard.repository.ContactRepository;
 import com.example.bulletinboard.exception.ForbiddenOperationException;
 import com.example.bulletinboard.exception.UserNotFoundException;
 import com.example.bulletinboard.model.AdminOperationLog;
+import com.example.bulletinboard.model.Contact;
+import com.example.bulletinboard.model.ContactStatus;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.AdminOperationLogRepository;
+import com.example.bulletinboard.repository.ContactRepository;
 import com.example.bulletinboard.repository.UserRepository;
 
 /**
@@ -30,7 +30,9 @@ import com.example.bulletinboard.repository.UserRepository;
  * - ページ番号・取得件数の検証
  * - お問い合わせの状態変更
  * - 状態変更と同じトランザクションでの操作履歴保存
- * - 同じ状態を指定した場合の更新・履歴追加の省略  
+ * - 同じ状態を指定した場合の更新・履歴追加の省略
+ * - お問い合わせの物理削除
+ * - 削除と同じトランザクションでの操作履歴保存
  *
  * 【一覧取得のルール】
  * - ページ番号は0以上、取得件数は1～100とします。
@@ -44,9 +46,10 @@ import com.example.bulletinboard.repository.UserRepository;
  * DTOへの変換、HTTP応答はControllerで行います。
  * 管理APIへのアクセスはSecurityConfigでROLE_ADMINに制限します。
  *
- * 状態変更APIへの接続、削除処理、失敗時の運営用ログは、
- * 後続の作業で追加します。
- * 状態変更と履歴保存の整合性は、単体・統合テストで別途検証します。
+ * 状態変更・削除APIへの接続は実装済みです。
+ * 失敗時の運営用ログは、後続の作業で追加します。
+ * 状態変更・削除と履歴保存の呼び出しは単体テストで検証し、
+ * 実DBでの同時コミット・ロールバックは今後の統合テストで検証します。
  */
 
 @Service
@@ -61,7 +64,7 @@ public class AdminContactService {
      * 一覧で指定できる最大ページサイズ。
      */
     public static final int MAX_PAGE_SIZE = 100;
-    
+
 
     public AdminContactService(
         ContactRepository contactRepository,
@@ -219,5 +222,62 @@ public Contact updateStatus(
     adminOperationLogRepository.save(operationLog);
 
     return updatedContact;
+}
+
+/**
+ * お問い合わせを物理削除し、操作履歴を保存します。
+ *
+ * すべてのステータスを削除対象とします。
+ * 削除と履歴保存は同じトランザクションで行います。
+ *
+ * @param id お問い合わせID
+ * @param loginEmail Controllerが認証情報から取得したメールアドレス
+ * @throws UserNotFoundException 操作者を取得できない場合
+ * @throws ForbiddenOperationException 操作者が管理者でない場合
+ * @throws ContactNotFoundException お問い合わせが存在しない場合
+ */
+@Transactional
+public void deleteContact(Long id, String loginEmail) {
+
+    if (loginEmail == null || loginEmail.isBlank()) {
+        throw new UserNotFoundException(
+                "ログインユーザー情報を取得できませんでした。"
+        );
+    }
+
+    User adminUser = userRepository.findByEmail(loginEmail)
+            .orElseThrow(() -> new UserNotFoundException(
+                    "ログインユーザー情報を取得できませんでした。"
+            ));
+
+    if (!"ROLE_ADMIN".equals(adminUser.getRole())) {
+        throw new ForbiddenOperationException(
+                "この操作は管理者のみ実行できます。"
+        );
+    }
+
+    Contact contact = contactRepository.findById(id)
+            .orElseThrow(ContactNotFoundException::new);
+
+    // 削除前の情報で履歴を作成する。
+    // この時点では、まだ履歴を保存しない。
+    AdminOperationLog operationLog = new AdminOperationLog(
+            adminUser,
+            "CONTACT",
+            contact.getId(),
+            "DELETE",
+            contact.getStatus().name(),
+            null
+    );
+
+    contactRepository.delete(contact);
+
+    // 削除SQLを実行する。コミットはまだ行われない。
+    // 削除に失敗した場合は、履歴保存へ進まない。
+    contactRepository.flush();
+
+    // 保存やコミットが失敗した場合は、
+    // 同じトランザクション内の削除もロールバックの対象となる。
+    adminOperationLogRepository.save(operationLog);
 }
 }
