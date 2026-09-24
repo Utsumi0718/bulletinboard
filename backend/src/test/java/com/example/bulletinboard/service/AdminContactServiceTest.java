@@ -21,8 +21,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
 import org.mockito.ArgumentCaptor;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -33,6 +33,10 @@ import com.example.bulletinboard.exception.ContactNotFoundException;
 import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.repository.ContactRepository;
 import com.example.bulletinboard.model.ContactStatus;
+import com.example.bulletinboard.model.AdminOperationLog;
+import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.repository.AdminOperationLogRepository;
+import com.example.bulletinboard.repository.UserRepository;
 /**
  * 【クラスの役割】
  * 管理者向けお問い合わせServiceの処理を検証する単体テストです。
@@ -51,6 +55,13 @@ class AdminContactServiceTest {
 
     @Mock
     private ContactRepository contactRepository;
+    
+    @Mock
+    private AdminOperationLogRepository adminOperationLogRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
 
     @InjectMocks
     private AdminContactService adminContactService;
@@ -238,5 +249,66 @@ void findContacts_withInvalidPageOrSize_shouldReject(
             .hasMessage(expectedMessage);
 
     verifyNoInteractions(contactRepository);
+}
+
+/**
+ * 未対応から対応中へ変更し、
+ * 操作した管理者と変更前後の状態を履歴へ渡すことを確認します。
+ *
+ * Repositoryはモックのため、
+ * 実DBのコミットや更新日時の自動設定は検証しません。
+ */
+@Test
+@DisplayName("状態変更時に管理者と変更前後の状態を操作履歴へ保存する")
+void updateStatus_shouldUpdateContactAndSaveOperationLog() {
+
+    User adminUser = new User();
+    adminUser.setId(10L);
+    adminUser.setEmail("admin@example.com");
+    adminUser.setRole("ROLE_ADMIN");
+
+    Contact contact = new Contact();
+    contact.setId(1L);
+    contact.setStatus(ContactStatus.UNANSWERED);
+
+    when(userRepository.findByEmail("admin@example.com"))
+            .thenReturn(Optional.of(adminUser));
+
+    when(contactRepository.findById(1L))
+            .thenReturn(Optional.of(contact));
+
+    when(contactRepository.saveAndFlush(contact))
+            .thenReturn(contact);
+
+    Contact result = adminContactService.updateStatus(
+            1L,
+            ContactStatus.IN_PROGRESS,
+            "admin@example.com"
+    );
+
+    // お問い合わせの状態が変更され、保存結果が返ることを確認。
+    assertThat(result).isSameAs(contact);
+    assertThat(result.getStatus())
+            .isEqualTo(ContactStatus.IN_PROGRESS);
+
+    verify(userRepository).findByEmail("admin@example.com");
+    verify(contactRepository).findById(1L);
+    verify(contactRepository).saveAndFlush(contact);
+
+    // 履歴Repositoryへ渡した内容を取り出して確認。
+    ArgumentCaptor<AdminOperationLog> logCaptor =
+            ArgumentCaptor.forClass(AdminOperationLog.class);
+
+    verify(adminOperationLogRepository).save(logCaptor.capture());
+
+    AdminOperationLog operationLog = logCaptor.getValue();
+
+    assertThat(operationLog.getAdminUser()).isSameAs(adminUser);
+    assertThat(operationLog.getTargetType()).isEqualTo("CONTACT");
+    assertThat(operationLog.getTargetId()).isEqualTo(1L);
+    assertThat(operationLog.getAction()).isEqualTo("STATUS_CHANGE");
+    assertThat(operationLog.getBeforeStatus()).isEqualTo("UNANSWERED");
+    assertThat(operationLog.getAfterStatus()).isEqualTo("IN_PROGRESS");
+    assertThat(operationLog.getResult()).isEqualTo("SUCCESS");
 }
 }
