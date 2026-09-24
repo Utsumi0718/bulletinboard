@@ -84,7 +84,7 @@
         <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
 
-        <!-- 👇 共通レイアウト機能を有効化するために、これを追加します -->
+        <!-- 共通レイアウト機能を有効化するために、これを追加します -->
         <dependency>
             <groupId>nz.net.ultraq.thymeleaf</groupId>
             <artifactId>thymeleaf-layout-dialect</artifactId>
