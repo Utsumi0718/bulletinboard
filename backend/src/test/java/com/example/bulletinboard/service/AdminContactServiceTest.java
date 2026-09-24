@@ -8,9 +8,12 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import java.util.Optional;
 import java.util.List;
+import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -44,6 +47,7 @@ import com.example.bulletinboard.repository.UserRepository;
  * 【現在の検証内容】
  * - 対象が存在する場合、Repositoryの取得結果を返すこと
  * - 対象が存在しない場合、ContactNotFoundExceptionを発生させること
+ * - 同じ状態への指定では保存・日時変更・操作履歴追加を行わないこと   
  *
  * 【テストの範囲】
  * ContactRepositoryはモックに置き換えます。
@@ -310,5 +314,56 @@ void updateStatus_shouldUpdateContactAndSaveOperationLog() {
     assertThat(operationLog.getBeforeStatus()).isEqualTo("UNANSWERED");
     assertThat(operationLog.getAfterStatus()).isEqualTo("IN_PROGRESS");
     assertThat(operationLog.getResult()).isEqualTo("SUCCESS");
+}
+
+/**
+ * 同じ状態を指定した場合は現在の情報を返し、
+ * 保存処理と操作履歴の追加を行わないことを確認します。
+ */
+@Test
+@DisplayName("同じ状態なら保存と履歴追加を行わず更新日時を維持する")
+void updateStatus_whenSameStatus_shouldNotSaveOrAddLog() {
+
+    User adminUser = new User();
+    adminUser.setId(10L);
+    adminUser.setEmail("admin@example.com");
+    adminUser.setRole("ROLE_ADMIN");
+
+    LocalDateTime createdAt =
+            LocalDateTime.of(2026, 9, 20, 10, 0);
+    LocalDateTime updatedAt =
+            LocalDateTime.of(2026, 9, 21, 11, 0);
+
+    Contact contact = new Contact();
+    contact.setId(1L);
+    contact.setStatus(ContactStatus.IN_PROGRESS);
+    contact.setCreatedAt(createdAt);
+    contact.setUpdatedAt(updatedAt);
+
+    when(userRepository.findByEmail("admin@example.com"))
+            .thenReturn(Optional.of(adminUser));
+
+    when(contactRepository.findById(1L))
+            .thenReturn(Optional.of(contact));
+
+    Contact result = adminContactService.updateStatus(
+            1L,
+            ContactStatus.IN_PROGRESS,
+            "admin@example.com"
+    );
+
+    // 現在のEntityを返し、状態・日時を変更しない。
+    assertThat(result).isSameAs(contact);
+    assertThat(result.getStatus())
+            .isEqualTo(ContactStatus.IN_PROGRESS);
+    assertThat(result.getCreatedAt()).isEqualTo(createdAt);
+    assertThat(result.getUpdatedAt()).isEqualTo(updatedAt);
+
+    // お問い合わせの取得以外に、保存などを呼んでいない。
+    verify(contactRepository).findById(1L);
+    verifyNoMoreInteractions(contactRepository);
+
+    // 同じ状態への指定では操作履歴を追加しない。
+    verifyNoInteractions(adminOperationLogRepository);
 }
 }
