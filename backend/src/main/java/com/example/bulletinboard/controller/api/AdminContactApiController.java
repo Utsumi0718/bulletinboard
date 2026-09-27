@@ -60,7 +60,7 @@ import jakarta.validation.Valid;
  * - このクラスではDTOへの変換とHTTP応答を担当します。
  * - /api/admin/**の管理者認可はSecurityConfigで行います。
  *
- * - 状態変更・削除のService呼び出しから伝わるDataAccessException・
+ * - 一覧・詳細取得・状態変更・削除のService呼び出しから伝わるDataAccessException・
  *   TransactionExceptionをAdminContactOperationExceptionへ変換します。
  * - GlobalExceptionHandlerが運営用の失敗ログと共通500応答を生成します。
  * - 対象不存在や入力不正の例外は管理操作専用例外へ変換せず、
@@ -80,6 +80,8 @@ public class AdminContactApiController {
 
     /**
      * 指定されたお問い合わせの詳細を取得します。
+     * DB・トランザクション障害はDETAILと要求されたIDで専用例外へ変換します。
+     * 対象不存在のContactNotFoundExceptionは既存の404処理へ渡します。
      *
      * @param id お問い合わせID
      * @return 管理者向けの詳細情報と200 OK
@@ -88,7 +90,17 @@ public class AdminContactApiController {
     public ResponseEntity<AdminContactResponse> getContact(
             @PathVariable Long id) {
 
-        Contact contact = adminContactService.getById(id);
+        Contact contact;
+
+        try {
+            contact = adminContactService.getById(id);
+        } catch (DataAccessException | TransactionException ex) {
+            throw new AdminContactOperationException(
+                    Operation.DETAIL,
+                    id,
+                    ex
+            );
+        }
 
         AdminContactResponse response =
                 AdminContactResponse.from(contact);
@@ -100,6 +112,8 @@ public class AdminContactApiController {
      * 管理者向けのお問い合わせ一覧を取得します。
      * pageは省略時0、sizeは省略時20です。
      * statusが未指定の場合は全状態を取得します。
+     * DB・トランザクション障害はLISTとcontactId=nullで専用例外へ変換します。
+     * statusの変換とページ条件の入力不正は既存の400処理へ渡します。
      *
      * @param page   ページ番号（0始まり）
      * @param size   1ページあたりの件数（1～100）
@@ -125,11 +139,21 @@ public ResponseEntity<PageResponse<AdminContactListResponse>> getContacts(
         }
     }
 
-    Page<Contact> contacts = adminContactService.findContacts(
-            page,
-            size,
-          contactStatus
-    );
+    Page<Contact> contacts;
+
+    try {
+        contacts = adminContactService.findContacts(
+                page,
+                size,
+                contactStatus
+        );
+    } catch (DataAccessException | TransactionException ex) {
+        throw new AdminContactOperationException(
+                Operation.LIST,
+                null,
+                ex
+        );
+    }
 
     Page<AdminContactListResponse> responsePage =
             contacts.map(AdminContactListResponse::from);

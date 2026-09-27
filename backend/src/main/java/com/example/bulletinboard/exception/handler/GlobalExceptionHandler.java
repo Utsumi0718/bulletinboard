@@ -87,7 +87,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * その他の対応例外では例外メッセージを返すため、
  * 例外を生成する側で公開可能な文言を設定します。
  *
- * 状態変更・削除APIからのAdminContactOperationExceptionには
+ * 一覧・詳細取得・状態変更・削除APIからのAdminContactOperationExceptionには
  * 固定メッセージを返します。
  * 運営用ログには操作名・対象ID・例外の型のみを記録します。
  * 原因例外の詳細やスタックトレースは出力しません。
@@ -468,10 +468,11 @@ public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(
 }
 
 /**
- * お問い合わせの状態変更・削除に関するDB・トランザクション障害を
+ * お問い合わせの一覧・詳細取得・状態変更・削除に関するDB・トランザクション障害を
  * 500と固定メッセージのErrorResponseへ変換します。
  *
  * ログには操作名・対象ID・例外の型だけを記録します。
+ * 一覧取得（LIST）では対象IDはnullです。
  * 原因例外のメッセージ・スタックトレース・認証メール・本文は出しません。
  *
  * コミット時の通信障害などではDBの最終状態を断定できないため、

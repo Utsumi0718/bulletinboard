@@ -46,7 +46,7 @@ import com.example.bulletinboard.repository.UserRepository;
  * DTOへの変換、HTTP応答はControllerで行います。
  * 管理APIへのアクセスはSecurityConfigでROLE_ADMINに制限します。
  *
- * 状態変更・削除APIのService呼び出しから伝わる
+ * 一覧・詳細取得・状態変更・削除APIのService呼び出しから伝わる
  * DataAccessException・TransactionExceptionは、
  * Controllerで管理操作専用例外へ変換し、
  * GlobalExceptionHandlerで安全なログと共通エラー応答を生成します。

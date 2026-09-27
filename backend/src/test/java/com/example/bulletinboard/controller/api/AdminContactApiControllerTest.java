@@ -96,7 +96,7 @@ import ch.qos.logback.core.read.ListAppender;
  * - 削除への匿名・一般ユーザーアクセスを拒否すること
  * - 削除時のCSRFなし・不正CSRFを拒否すること
  * - 認証・認可・CSRFで拒否した場合はServiceを呼ばないこと
- * - 状態変更・削除のDB／トランザクション障害を500へ変換すること
+ * - 一覧・詳細取得・状態変更・削除のDB／トランザクション障害を500へ変換すること
  * - 応答と管理操作ログへ例外詳細・SQL・メールアドレスを含めないこと
  * - 運営用ログへ操作名・対象ID・例外の型を記録すること
  *
@@ -114,7 +114,7 @@ import ch.qos.logback.core.read.ListAppender;
  * DB検索時の絞り込み・ページング・並び順は、
  * ContactRepositoryTestで別途確認します。
  *
- * 状態変更・削除のDB／トランザクション障害はServiceモックの例外で再現し、
+ * 一覧・詳細取得・状態変更・削除のDB／トランザクション障害はServiceモックの例外で再現し、
  * 共通500応答とGlobalExceptionHandlerのログイベントを確認します。
  * 実際のコミット・ロールバック、MySQL固有の動作、通信障害は再現しません。
  * H2上での保存結果と履歴保存の制約違反によるロールバックは、
@@ -1223,14 +1223,21 @@ void deleteContact_whenCsrfMissingOrInvalid_shouldReturnForbidden(
 }
 
 /**
- * 状態変更・削除のDB／トランザクション障害について、
+ * 一覧・詳細取得・状態変更・削除のDB／トランザクション障害について、
  * 共通500応答と安全な運営用ログを確認します。
  *
  * Serviceのモックから例外を送出します。
- * 実際のコミット通信障害を再現するテストではありません。
+ * 一覧取得では対象IDがnull、詳細取得では要求されたIDとなることも確認します。
+ * 実DB接続断・コミット通信障害や、全ライブラリのログ安全性は検証しません。
  */
 @ParameterizedTest(name = "{0}: {1}")
 @CsvSource({
+        "LIST, DATA_ACCESS",
+        "LIST, TRANSACTION_SYSTEM",
+        "LIST, UNEXPECTED_ROLLBACK",
+        "DETAIL, DATA_ACCESS",
+        "DETAIL, TRANSACTION_SYSTEM",
+        "DETAIL, UNEXPECTED_ROLLBACK",
         "STATUS_CHANGE, DATA_ACCESS",
         "STATUS_CHANGE, TRANSACTION_SYSTEM",
         "STATUS_CHANGE, UNEXPECTED_ROLLBACK",
@@ -1264,9 +1271,29 @@ void adminOperation_whenDatabaseFailure_shouldReturnSafeErrorAndLog(
     };
 
     String path;
+    Long contactId = "LIST".equals(operation) ? null : 1L;
     MockHttpServletRequestBuilder request;
 
-    if ("STATUS_CHANGE".equals(operation)) {
+    if ("LIST".equals(operation)) {
+
+        when(adminContactService.findContacts(
+                1, 10, ContactStatus.IN_PROGRESS
+        )).thenThrow(failure);
+
+        path = "/api/admin/contacts";
+        request = get(path)
+                .param("page", "1")
+                .param("size", "10")
+                .param("status", "IN_PROGRESS");
+
+    } else if ("DETAIL".equals(operation)) {
+
+        when(adminContactService.getById(contactId)).thenThrow(failure);
+
+        path = "/api/admin/contacts/" + contactId;
+        request = get(path);
+
+    } else if ("STATUS_CHANGE".equals(operation)) {
 
         when(adminContactService.updateStatus(
                 1L,
@@ -1348,7 +1375,7 @@ void adminOperation_whenDatabaseFailure_shouldReturnSafeErrorAndLog(
                     assertThat(event.getFormattedMessage()).isEqualTo(
                             "admin_contact_operation_error operation="
                                     + operation
-                                    + " contactId=1 errorType="
+                                    + " contactId=" + contactId + " errorType="
                                     + failure.getClass().getSimpleName()
                     );
 
@@ -1366,7 +1393,13 @@ void adminOperation_whenDatabaseFailure_shouldReturnSafeErrorAndLog(
                             );
                 });
 
-        if ("STATUS_CHANGE".equals(operation)) {
+        if ("LIST".equals(operation)) {
+            verify(adminContactService).findContacts(
+                    1, 10, ContactStatus.IN_PROGRESS
+            );
+        } else if ("DETAIL".equals(operation)) {
+            verify(adminContactService).getById(contactId);
+        } else if ("STATUS_CHANGE".equals(operation)) {
             verify(adminContactService).updateStatus(
                     1L,
                     ContactStatus.IN_PROGRESS,
