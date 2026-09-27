@@ -10,15 +10,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.example.bulletinboard.model.AccountStatus;
-import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.model.User;
-import com.example.bulletinboard.repository.ContactRepository;
 import com.example.bulletinboard.repository.UserRepository;
-import com.example.bulletinboard.model.ContactStatus;
 
 
 
@@ -39,12 +35,9 @@ import com.example.bulletinboard.model.ContactStatus;
 public class AdminController {
 
     private final UserRepository userRepository;
-    private final ContactRepository contactRepository; // 追記
 
-    // コンストラクタに ContactRepository を追加
-    public AdminController(UserRepository userRepository, ContactRepository contactRepository) {
+    public AdminController(UserRepository userRepository) {
         this.userRepository = userRepository;
-        this.contactRepository = contactRepository;
     }
 
 
@@ -171,65 +164,4 @@ public String showUserActivities(
 
     return "admin/user_activities";
 }
-   /*
-     * 【追記：お問い合わせ一覧画面表示処理】
-     */
-    @GetMapping("/contacts")
-    public String listContacts(Model model) {
-        List<Contact> contacts = contactRepository.findAll();
-        model.addAttribute("contacts", contacts);
-        return "admin/contacts";
-    }
-
-     /*
-      * お問い合わせステータス更新処理。
-      * 画面から受け取った文字列をContactStatusへ変換します。
-      */
-@PostMapping("/contacts/{id}/status")
-public String updateContactStatus(
-        @PathVariable Long id,
-        @RequestParam String status,
-        RedirectAttributes redirectAttributes) {
-
-    Contact contact = contactRepository.findById(id).orElse(null);
-
-    if (contact != null) {
-
-        ContactStatus contactStatus;
-
-        try {
-            contactStatus = ContactStatus.valueOf(status);
-        } catch (IllegalArgumentException ex) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "指定されたステータスは無効です。"
-            );
-            return "redirect:/admin/contacts";
-        }
-
-        contact.setStatus(contactStatus);
-        contactRepository.save(contact);
-
-        redirectAttributes.addFlashAttribute(
-                "successMessage",
-                "ステータスを更新しました。"
-        );
-    }
-
-    return "redirect:/admin/contacts";
 }
-
-    /*
-     * 【追記：お問い合わせ削除処理】
-     */
-    @PostMapping("/contacts/{id}/delete")
-    public String deleteContact(@PathVariable Long id, RedirectAttributes redirectAttributes) {
-        if (contactRepository.existsById(id)) {
-            contactRepository.deleteById(id);
-            redirectAttributes.addFlashAttribute("successMessage", "お問い合わせを削除しました。");
-        } else {
-            redirectAttributes.addFlashAttribute("errorMessage", "指定されたお問い合わせが見つかりませんでした。");
-        }
-        return "redirect:/admin/contacts";
-    }
-   }

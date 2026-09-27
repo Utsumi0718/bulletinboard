@@ -26,7 +26,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.bulletinboard.model.AccountStatus;
 import com.example.bulletinboard.model.User;
-import com.example.bulletinboard.repository.ContactRepository;
 import com.example.bulletinboard.repository.UserRepository;
 import com.example.bulletinboard.security.SecurityConfig;
 
@@ -55,9 +54,6 @@ public class AdminControllerTest {
 
     @MockitoBean
     private UserRepository userRepository;
-
-    @MockitoBean
-    private ContactRepository contactRepository;
 
     /**
      * ADMIN権限を持つユーザーが

@@ -818,7 +818,7 @@ void adminApi_whenAnonymous_shouldReturnUnauthorizedJson()
 void adminMvc_whenAnonymous_shouldKeepExistingRedirect()
         throws Exception {
 
-    mockMvc.perform(get("/admin/contacts"))
+    mockMvc.perform(get("/admin/users"))
             .andExpect(status().isFound())
             .andExpect(redirectedUrl(
                     "http://localhost/posts?error=unauthorized"
@@ -872,7 +872,7 @@ void adminApi_whenAdminWithCsrf_shouldAllowPost() throws Exception {
 void adminMvc_whenRegularUser_shouldKeepStandardForbidden()
         throws Exception {
 
-    MvcResult result = mockMvc.perform(get("/admin/contacts"))
+    MvcResult result = mockMvc.perform(get("/admin/users"))
             .andExpect(status().isForbidden())
             .andExpect(header().doesNotExist("Location"))
             .andReturn();
