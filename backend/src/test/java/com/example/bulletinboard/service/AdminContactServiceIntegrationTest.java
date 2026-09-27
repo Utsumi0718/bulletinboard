@@ -36,17 +36,20 @@ import com.example.bulletinboard.repository.UserRepository;
  * - 状態変更と履歴のコミット、作成日時の維持、更新日時の更新
  * - 同じ状態では更新日時と履歴件数が変わらないこと
  * - 削除後も履歴が残り、afterStatusがnullであること
- * - 履歴保存失敗時に状態変更・削除がロールバックされること
+ * - H2の履歴INSERTの制約違反時に状態変更・削除がロールバックされること
  *
  * 【テストの構成】
  * - 実際のService・Repository・H2を使用します。
  * - テスト全体を包むトランザクションは無効にします。
  * - データ準備は独立したトランザクションでコミットします。
  * - Service呼び出し後、別のトランザクションでDBを読み直します。
- * - 履歴保存失敗は、一時的なDB制約で再現します。
+ * - 履歴保存失敗は、一時的なCHECK制約でCONTACTの履歴INSERTを拒否して再現します。
+ * - スキーマはHibernateのcreate-dropで生成し、Flywayは無効にします。
  *
  * MySQL固有の動作、FlywayのMigration、
  * コミット時の接続断などは、このテストの検証対象外です。
+ * HTTP応答・認証認可・CSRF・失敗ログはこのテストでは検証せず、
+ * AdminContactApiControllerTestがServiceをモック化して確認します。
  */
 @DataJpaTest(properties = {
         "spring.jpa.hibernate.ddl-auto=create-drop",

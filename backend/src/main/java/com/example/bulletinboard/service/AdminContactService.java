@@ -46,7 +46,8 @@ import com.example.bulletinboard.repository.UserRepository;
  * DTOへの変換、HTTP応答はControllerで行います。
  * 管理APIへのアクセスはSecurityConfigでROLE_ADMINに制限します。
  *
- * 管理APIからの呼び出しで発生したDB・トランザクション障害は、
+ * 状態変更・削除APIのService呼び出しから伝わる
+ * DataAccessException・TransactionExceptionは、
  * Controllerで管理操作専用例外へ変換し、
  * GlobalExceptionHandlerで安全なログと共通エラー応答を生成します。
  */
@@ -142,8 +143,9 @@ public class AdminContactService {
  * お問い合わせの対応状態を変更し、操作履歴を保存します。
  *
  * 状態変更と履歴保存は、同じトランザクションで行います。
- * 途中の保存やコミットに失敗した場合は、
- * 両方をロールバックします。
+ * 処理中の実行時例外では、両方がロールバックの対象となります。
+ * ただし、コミット時の通信障害などではDBの最終状態を断定できません。
+ * 例外が返ったことだけで、ロールバック完了とは判断しません。
  *
  * 同じ状態を指定した場合は、
  * お問い合わせの更新と履歴追加を行いません。
@@ -216,8 +218,8 @@ public Contact updateStatus(
             newStatus.name()
     );
 
-    // 履歴保存に失敗した場合は、
-    // 先にflushしたお問い合わせの変更もロールバックされる。
+    // 履歴保存中の実行時例外では、
+    // 先にflushしたお問い合わせの変更もロールバックの対象となる。
     adminOperationLogRepository.save(operationLog);
 
     return updatedContact;
@@ -228,6 +230,9 @@ public Contact updateStatus(
  *
  * すべてのステータスを削除対象とします。
  * 削除と履歴保存は同じトランザクションで行います。
+ * 履歴には削除前の状態とafterStatus=nullを記録します。
+ * 履歴の対象IDはContactへの外部キーではないため、削除後も履歴が残ります。
+ * コミット時の通信障害などでは、DBの最終状態を断定できません。
  *
  * @param id お問い合わせID
  * @param loginEmail Controllerが認証情報から取得したメールアドレス
@@ -275,8 +280,8 @@ public void deleteContact(Long id, String loginEmail) {
     // 削除に失敗した場合は、履歴保存へ進まない。
     contactRepository.flush();
 
-    // 保存やコミットが失敗した場合は、
-    // 同じトランザクション内の削除もロールバックの対象となる。
+    // 履歴保存中の実行時例外では、削除もロールバックの対象となる。
+    // 履歴の保存だけでは成功は確定せず、同じトランザクションのコミットで確定する。
     adminOperationLogRepository.save(operationLog);
 }
 }

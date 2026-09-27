@@ -31,6 +31,12 @@ import jakarta.validation.Valid;
  * 管理者向けのお問い合わせ管理APIを提供するControllerです。
  *
  * 【現在の対応API】
+ * GET /api/admin/contacts
+ * - ページングとステータスによる絞り込みに対応します。
+ * - 作成日時の降順、同じ日時の場合はIDの降順で取得します。
+ * - 一覧用DTOとページ情報を200 OKで返します。
+ * - ページ番号・件数の範囲外、ステータス不正は400になります。
+ *
  * GET /api/admin/contacts/{id}
  * - 正常時は詳細情報を200 OKで返します。
  * - 対象不存在時はGlobalExceptionHandlerを通して
@@ -43,21 +49,22 @@ import jakarta.validation.Valid;
  *   → 正常時は200と詳細情報を返却
  *   → 同じ状態の場合は更新せず、現在の詳細情報を返却
  *
-* - DELETE /api/admin/contacts/{id}
+ * - DELETE /api/admin/contacts/{id}
  *   → お問い合わせの物理削除と操作履歴保存
  *   → 正常時は204 No Content
  *   → 対象不存在・削除済みIDへの再実行は404 Not Found
  *
  * 【役割分担】
- * - お問い合わせの取得はAdminContactServiceへ委譲します。
+ * - お問い合わせの取得・状態変更・削除と操作履歴保存は
+ *   AdminContactServiceへ委譲します。
  * - このクラスではDTOへの変換とHTTP応答を担当します。
  * - /api/admin/**の管理者認可はSecurityConfigで行います。
  *
- * - GET /api/admin/contacts
- * - ページングとステータスによる絞り込みに対応します。
- * - 作成日時の降順、同じ日時の場合はIDの降順で取得します。
- * - 一覧用DTOとページ情報を200 OKで返します。
- * - ページ番号・件数の範囲外、ステータス不正は400になります。
+ * - 状態変更・削除のService呼び出しから伝わるDataAccessException・
+ *   TransactionExceptionをAdminContactOperationExceptionへ変換します。
+ * - GlobalExceptionHandlerが運営用の失敗ログと共通500応答を生成します。
+ * - 対象不存在や入力不正の例外は管理操作専用例外へ変換せず、
+ *   それぞれの共通エラー処理へ渡します。
  *
  */
 @RestController
@@ -134,7 +141,9 @@ return ResponseEntity.ok(PageResponse.from(responsePage));
  * お問い合わせの対応状態を変更します。
  *
  * Service呼び出しを囲むことで、
- * 処理中とトランザクション終了時のDB障害を管理操作専用例外へ変換します。
+ * 処理中・トランザクション終了時に伝わるDataAccessException・
+ * TransactionExceptionを管理操作専用例外へ変換します。
+ * 例外の発生だけでは、DBの最終状態やロールバック完了を断定しません。
  */
 @PatchMapping("/{id}/status")
 public ResponseEntity<AdminContactResponse> updateContactStatus(
@@ -165,6 +174,8 @@ public ResponseEntity<AdminContactResponse> updateContactStatus(
  * お問い合わせを物理削除します。
  *
  * Serviceのトランザクションが正常終了した場合に204を返します。
+ * 状態変更と同じくDataAccessException・TransactionExceptionを
+ * 管理操作専用例外へ変換し、失敗ログと共通500応答の処理へ渡します。
  */
 @DeleteMapping("/{id}")
 public ResponseEntity<Void> deleteContact(

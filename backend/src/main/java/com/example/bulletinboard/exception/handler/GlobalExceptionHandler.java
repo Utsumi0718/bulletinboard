@@ -70,7 +70,7 @@ import jakarta.servlet.http.HttpServletRequest;
  *
  * 【公開するメッセージ】
  * JSON読み取り失敗、パラメータの型変換失敗、
- * お問い合わせ受付の保存失敗には、
+ * お問い合わせ受付の保存失敗、管理操作のDB・トランザクション障害には、
  * 公開用の固定メッセージを使用します。
  * これらの応答には、原因例外の詳細・SQL・入力本文を含めません。
  *
@@ -87,11 +87,12 @@ import jakarta.servlet.http.HttpServletRequest;
  * その他の対応例外では例外メッセージを返すため、
  * 例外を生成する側で公開可能な文言を設定します。
  *
- * 管理操作のDB・トランザクション障害には固定メッセージを返します。
+ * 状態変更・削除APIからのAdminContactOperationExceptionには
+ * 固定メッセージを返します。
  * 運営用ログには操作名・対象ID・例外の型のみを記録します。
  * 原因例外の詳細やスタックトレースは出力しません。
  * エラー時のDB最終状態やロールバック完了を断定しません。
- *   AdminContactOperationException
+ * この失敗ログはDBに保存する成功操作履歴とは別に出力します。
  *
  * 【適用範囲】
  * @RestControllerを付けたControllerのみを対象とします。
@@ -142,8 +143,8 @@ public class GlobalExceptionHandler {
       * 不正なリクエスト値などによって発生した
       * IllegalArgumentExceptionを処理します。
       *
-      * 現在は主にTopic一覧検索で
-      * keywordが空文字・空白だった場合に使用します。
+      * Topic一覧検索の空のkeywordや、管理者向けお問い合わせ一覧の
+      * ページ番号・件数の範囲外、ステータス不正などに使用します。
       *
       * @param ex      発生したIllegalArgumentException
       * @param request エラーが発生したHTTPリクエスト
@@ -467,7 +468,8 @@ public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(
 }
 
 /**
- * お問い合わせの管理操作に関するDB障害を処理します。
+ * お問い合わせの状態変更・削除に関するDB・トランザクション障害を
+ * 500と固定メッセージのErrorResponseへ変換します。
  *
  * ログには操作名・対象ID・例外の型だけを記録します。
  * 原因例外のメッセージ・スタックトレース・認証メール・本文は出しません。

@@ -58,7 +58,6 @@ import com.example.bulletinboard.repository.UserRepository;
  * - 操作するユーザーが存在しない場合は、お問い合わせの処理と履歴追加を行わないこと
  * - 一般ユーザーによる状態変更を拒否し、お問い合わせの処理と履歴追加を行わないこと
  * - 状態変更の保存失敗時は例外を伝え、操作履歴を追加しないこと
- * - 操作履歴の保存失敗時に例外を呼び出し元へ伝えること
  * - 全6通りの状態変更を許可し、管理者と変更前後の状態を履歴へ渡すこと
  * - 変更先の状態がnullの場合は、Repositoryを呼ばず拒否すること
  * - 認証メールがnull・空文字・空白の場合は、
@@ -75,6 +74,11 @@ import com.example.bulletinboard.repository.UserRepository;
  * Service内の入力検証・管理者権限確認・Repository呼び出しを検証します。
  * 実DBへの接続、HTTP応答、SecurityFilterChainによる認証・認可、
  * Springのトランザクション制御は検証しません。
+ * モックの例外で確認するのは処理の中断と例外の伝播であり、
+ * DBのコミット・ロールバックや更新日時の自動設定ではありません。
+ * H2上の永続化と履歴保存の制約違反時のロールバックは、
+ * AdminContactServiceIntegrationTestで確認します。
+ * MySQL固有の動作やコミット時の通信障害は検証対象外です。
  */
 @ExtendWith(MockitoExtension.class)
 class AdminContactServiceTest {
@@ -489,7 +493,9 @@ void updateStatus_whenUserIsNotAdmin_shouldThrowAndNotSave() {
  * お問い合わせの保存に失敗した場合は、
  * 例外を呼び出し元へ伝え、操作履歴を追加しないことを確認します。
  *
- * 実DBのロールバックは統合テストで別途確認します。
+ * このテストはモックのsaveAndFlushから例外を送出します。
+ * H2統合テストで再現する失敗は履歴INSERTの制約違反であり、
+ * ここで設定したDB接続失敗そのものは再現しません。
  */
 @Test
 @DisplayName("状態変更の保存に失敗した場合は例外を伝え履歴を追加しない")
@@ -862,7 +868,8 @@ void deleteContact_whenLogSaveFails_shouldPropagateException() {
     order.verify(adminOperationLogRepository)
             .save(any(AdminOperationLog.class));
 
-    // 実DBの削除が取り消されることは、統合テストで確認する。
+    // H2で履歴INSERTを制約違反にした場合の削除取消は、
+    // AdminContactServiceIntegrationTestで確認する。通信障害は再現しない。
 }
 
 /**

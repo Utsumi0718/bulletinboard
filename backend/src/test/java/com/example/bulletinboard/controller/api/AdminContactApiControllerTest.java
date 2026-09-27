@@ -55,9 +55,9 @@ import ch.qos.logback.core.read.ListAppender;
 
 /**
  * 【クラスの役割】
- * 管理者向けのお問い合わせ一覧・詳細取得APIについて、
+ * 管理者向けのお問い合わせ一覧・詳細取得・状態変更・削除APIについて、
  * HTTPステータス、JSONレスポンス、Serviceへの委譲、
- * 匿名アクセスの拒否を検証するテストクラスです。
+ * 認証・認可・CSRFによる拒否、失敗ログを検証するWeb層のテストです。
  *
  * 【現在の検証内容】
  * - 管理者による詳細取得で200と詳細情報8項目を返すこと
@@ -75,7 +75,7 @@ import ch.qos.logback.core.read.ListAppender;
  *   Serviceを呼ばないこと
  * - 一覧・詳細への一般ユーザーのアクセスを403と共通エラーJSONで拒否し、
  *   Serviceを呼ばないこと
-  * - 管理者が有効なCSRFトークン付きで状態変更すると、
+ * - 管理者が有効なCSRFトークン付きで状態変更すると、
  *   200と変更後の詳細情報8項目を返すこと
  * - 状態変更のID・変更先の状態・認証情報のメールアドレスを
  *   Serviceへ渡すこと
@@ -110,13 +110,15 @@ import ch.qos.logback.core.read.ListAppender;
  * 【テストの範囲】
  * HTTPリクエストの受付、Securityによるアクセス制御、
  * DTO変換、例外ハンドリング、Serviceへの引数を確認します。
- * 実DBの検索処理や、実際のログイン処理は検証しません。
+ * 実DBの検索・更新・削除・履歴保存や、実際のログイン処理は検証しません。
  * DB検索時の絞り込み・ページング・並び順は、
  * ContactRepositoryTestで別途確認します。
  *
- * 【今後の検証】
- * 管理操作のDB障害に対する共通エラー応答は、
- * エラー処理の整備後に検証します。
+ * 状態変更・削除のDB／トランザクション障害はServiceモックの例外で再現し、
+ * 共通500応答とGlobalExceptionHandlerのログイベントを確認します。
+ * 実際のコミット・ロールバック、MySQL固有の動作、通信障害は再現しません。
+ * H2上での保存結果と履歴保存の制約違反によるロールバックは、
+ * AdminContactServiceIntegrationTestで確認します。
  */
 @WebMvcTest(AdminContactApiController.class)
 @Import({
@@ -1293,7 +1295,7 @@ void adminOperation_whenDatabaseFailure_shouldReturnSafeErrorAndLog(
         request = delete(path).with(csrf());
     }
 
-    // 今回追加するHandlerのログイベントを直接収集する。
+    // GlobalExceptionHandlerのログイベントを直接収集する。
     Logger logger = (Logger) LoggerFactory.getLogger(
             GlobalExceptionHandler.class
     );
