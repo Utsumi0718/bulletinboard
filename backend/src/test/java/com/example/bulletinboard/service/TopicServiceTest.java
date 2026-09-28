@@ -98,6 +98,9 @@ class TopicServiceTest {
    @Mock
    private AnswerRepository answerRepository;
 
+   @Mock
+   private TopicImageService topicImageService;
+
    @InjectMocks
    private TopicService topicService;
 
@@ -576,6 +579,10 @@ void findById_ShouldReturnTopic() {
 void save_ShouldSaveTopic() {
 
     Topic topic = new Topic();
+    User owner = new User();
+    owner.setEmail("owner@example.com");
+    topic.setUser(owner);
+    topic.setImage("/api/topic-images/11111111-1111-1111-1111-111111111111");
 
     when(
         topicRepository.save(topic)
@@ -585,6 +592,8 @@ void save_ShouldSaveTopic() {
         topicService.save(topic);
 
     assertThat(result).isSameAs(topic);
+
+    verify(topicImageService).requireOwnedImage(topic.getImage(), owner.getEmail());
 
     verify(
         topicRepository,

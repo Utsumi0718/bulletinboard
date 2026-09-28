@@ -42,6 +42,8 @@ import com.example.bulletinboard.model.Topic;
 @Repository
 public interface TopicRepository extends JpaRepository<Topic, Long> {
 
+    boolean existsByImageAndDeletedAtIsNull(String image);
+
     /*
      * 削除されていないTopicを一覧取得します。
      */

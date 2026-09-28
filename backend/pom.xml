@@ -173,6 +173,12 @@
     <artifactId>spring-boot-starter-mail</artifactId>
    </dependency>
 
+        <!-- WebPの画像本体をImageIOで検証する。JPEG・PNGはJDKのReaderを使用する。 -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+            <version>3.12.0</version>
+        </dependency>
     </dependencies>
 
     <!-- build: ビルド（パッケージングや実行手順）に関する設定グループ -->
