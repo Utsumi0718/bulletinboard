@@ -1,6 +1,7 @@
 package com.example.bulletinboard.service;
 
 import java.util.regex.Pattern;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +63,18 @@ public class TopicImageService {
         if (!ID.matcher(id).matches() || !images.existsByIdAndOwnerUserId(id, owner.getId())) {
             throw new TopicImageException(Reason.INVALID_REFERENCE);
         }
+    }
+
+    /** 外部URLへアクセスせず、Topic所有者の管理下にある保存済み原本だけを返す。 */
+    @Transactional(readOnly = true)
+    public Optional<TopicImage> findOwnedSource(String url, Long ownerId) {
+        if (url == null || !url.startsWith(URL_PREFIX)) {
+            return Optional.empty();
+        }
+        String id = url.substring(URL_PREFIX.length());
+        return ID.matcher(id).matches()
+                ? images.findByIdAndOwnerUserId(id, ownerId)
+                : Optional.empty();
     }
 
     private User requireActiveUser(String email) {

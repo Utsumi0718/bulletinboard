@@ -27,6 +27,7 @@ import com.example.bulletinboard.exception.TopicEditConflictException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.exception.UserNotFoundException;
 import com.example.bulletinboard.exception.TopicImageException;
+import com.example.bulletinboard.exception.ReportOperationException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
@@ -114,6 +115,20 @@ import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
+
+    /** 通報の公開応答・失敗ログに画像、文章、メール、SQL、Throwableを含めない。 */
+    @ExceptionHandler(ReportOperationException.class)
+    public ResponseEntity<ErrorResponse> handleReportOperation(ReportOperationException ex,
+            HttpServletRequest request) {
+        var reason = ex.getReason();
+        if (reason.status.is5xxServerError()) {
+            log.error("report_operation_error targetId={} errorType={}", ex.getTargetId(),
+                    ex.getCause() == null ? "Unknown" : ex.getCause().getClass().getSimpleName());
+        }
+        return ResponseEntity.status(reason.status).header("Cache-Control", "no-store")
+                .body(new ErrorResponse(reason.status.value(), reason.status.getReasonPhrase(),
+                        reason.message, request.getRequestURI()));
+    }
 
     /** 画像の例外詳細・ファイル名・メール・画像本体を公開応答やログへ含めない。 */
     @ExceptionHandler(TopicImageException.class)

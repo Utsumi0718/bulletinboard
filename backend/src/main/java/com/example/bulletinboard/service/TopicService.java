@@ -192,7 +192,7 @@ public class TopicService {
         boolean isAdmin) {
 
     Topic topic = topicRepository
-        .findByIdAndDeletedAtIsNull(id)
+        .findReportableByIdForUpdate(id)
         .orElseThrow(
          () -> new TopicNotFoundException(
             "このお題は存在しないか、削除されています。"
@@ -303,7 +303,7 @@ public Topic updateTopic(
         String question) {
 
     Topic topic = topicRepository
-            .findByIdAndDeletedAtIsNull(topicId)
+            .findReportableByIdForUpdate(topicId)
             .orElseThrow(() ->
                     new TopicNotFoundException(
                             "このお題は存在しないか、削除されています。"

@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -41,17 +43,16 @@ import lombok.Setter;
  * - targetIdは通報対象によって参照先テーブルが変わるため、
  *   データベース上の外部キー制約は設定しません。
  * - 通報対象が実際に存在するかどうかはService層で確認します。
- * - 自分自身の投稿・回答・プロフィールを通報できないようにする判定も
- *   Service層で行う予定です。
+ * - 自分自身の投稿・回答・プロフィールを通報できないようにする判定は
+ *   対象ごとの受付Serviceで行います。D-2ではTopicを実装します。
  * - 同じユーザーが同じ対象を何度も通報できないように、
  *   reporter_user_id、target_type、target_idの組み合わせに
  *   UNIQUE制約を設定します。
  * - reasonには通報理由を表す値を保存します。
- * - reasonがOTHERの場合にはdetailの入力を必須とするなどのルールは、
- *   Service層またはフォームのバリデーションで処理します。
+ * - reasonがOTHERの場合のdetail必須などは受付Serviceで検証します。
  * - statusでは管理者による対応状況を管理します。
- * - targetType、reason、statusは現段階ではStringとして保持し、
- *   後ほどEnumへ変更する予定です。
+ * - targetType、reason、statusは識別子を維持してEnumType.STRINGで保存します。
+ * - 新規受付では対象所有者IDをサーバー側で確定します。既存行はNULLの可能性があります。
  */
 @Entity
 @Getter
@@ -102,7 +103,8 @@ public class Report {
      * targetIdがどのテーブルのIDを示しているのかを判別するために使用します。
      */
     @Column(name = "target_type", nullable = false, length = 20)
-    private String targetType;
+    @Enumerated(EnumType.STRING)
+    private ReportTargetType targetType;
 
     /*
      * 通報対象となるデータのID。
@@ -120,6 +122,10 @@ public class Report {
     @Column(name = "target_id", nullable = false)
     private Long targetId;
 
+    /** 過去の通報行は未取得のためNULLを許容し、新規受付では必ず設定する。 */
+    @Column(name = "target_owner_user_id")
+    private Long targetOwnerUserId;
+
     /*
      * 通報理由。
      *
@@ -133,13 +139,13 @@ public class Report {
      * OTHER
      */
     @Column(name = "reason", nullable = false, length = 50)
-    private String reason;
+    @Enumerated(EnumType.STRING)
+    private ReportReason reason;
 
     /*
      * 通報内容の詳細。
      *
-     * 任意入力ですが、
-     * reasonがOTHERの場合などはアプリ側で必須入力にする予定です。
+     * OTHERは必須、他の理由では任意。最大500文字を受付時に検証します。
      */
     @Column(name = "detail", length = 500)
     private String detail;
@@ -153,7 +159,8 @@ public class Report {
      * RESOLVED    : 対応済み
      */
     @Column(name = "status", nullable = false, length = 20)
-    private String status = "UNHANDLED";
+    @Enumerated(EnumType.STRING)
+    private ReportStatus status = ReportStatus.UNHANDLED;
 
     /*
      * 通報が作成された日時。

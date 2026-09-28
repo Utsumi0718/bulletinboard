@@ -8,11 +8,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.example.bulletinboard.model.RankingCheckpoint;
 import com.example.bulletinboard.model.Topic;
+import jakarta.persistence.LockModeType;
 
 /*
  * 【クラス（インターフェース）の役割】
@@ -53,6 +55,11 @@ public interface TopicRepository extends JpaRepository<Topic, Long> {
      * 指定されたIDかつ削除されていないTopicを取得します。
      */
     Optional<Topic> findByIdAndDeletedAtIsNull(Long id);
+
+    /** 通報受付と編集・削除が同じお題行を直列に処理する。 */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from Topic t where t.id = :id and t.deletedAt is null")
+    Optional<Topic> findReportableByIdForUpdate(@Param("id") Long id);
 
     /*
      * 削除されていないTopicを対象に、

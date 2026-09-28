@@ -271,7 +271,7 @@ class TopicServiceTest {
 
     when(
         topicRepository
-            .findByIdAndDeletedAtIsNull(1L)
+            .findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(topic));
 
     when(
@@ -310,7 +310,7 @@ void updateTopic_OwnerAndNoAnswer_ShouldUpdateTopic() {
     topic.setQuestion("変更前の問題");
 
     when(
-        topicRepository.findByIdAndDeletedAtIsNull(1L)
+        topicRepository.findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(topic));
 
     when(
@@ -356,7 +356,7 @@ void updateTopic_NotOwner_ShouldThrowException() {
     topic.setUser(topicUser);
 
     when(
-        topicRepository.findByIdAndDeletedAtIsNull(1L)
+        topicRepository.findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(topic));
 
     org.assertj.core.api.Assertions
@@ -390,7 +390,7 @@ void updateTopic_AnswerExists_ShouldThrowException() {
     topic.setUser(topicUser);
 
     when(
-        topicRepository.findByIdAndDeletedAtIsNull(1L)
+        topicRepository.findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(topic));
 
     when(
@@ -420,7 +420,7 @@ void updateTopic_AnswerExists_ShouldThrowException() {
 void updateTopic_TopicNotFound_ShouldThrowException() {
 
     when(
-        topicRepository.findByIdAndDeletedAtIsNull(999L)
+        topicRepository.findReportableByIdForUpdate(999L)
     ).thenReturn(Optional.empty());
 
     org.assertj.core.api.Assertions
@@ -454,7 +454,7 @@ void deleteById_Admin_ShouldSetDeletedAt() {
     topic.setUser(topicUser);
 
     when(
-        topicRepository.findByIdAndDeletedAtIsNull(1L)
+        topicRepository.findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(topic));
 
     when(
@@ -488,7 +488,7 @@ void deleteById_NotOwnerAndNotAdmin_ShouldThrowException() {
     topic.setUser(topicUser);
 
     when(
-        topicRepository.findByIdAndDeletedAtIsNull(1L)
+        topicRepository.findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(topic));
 
     org.assertj.core.api.Assertions
@@ -513,7 +513,7 @@ void deleteById_NotOwnerAndNotAdmin_ShouldThrowException() {
 void deleteById_TopicNotFound_ShouldThrowException() {
 
     when(
-        topicRepository.findByIdAndDeletedAtIsNull(999L)
+        topicRepository.findReportableByIdForUpdate(999L)
     ).thenReturn(Optional.empty());
 
     org.assertj.core.api.Assertions
