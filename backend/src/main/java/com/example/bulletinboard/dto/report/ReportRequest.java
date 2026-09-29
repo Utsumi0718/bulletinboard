@@ -13,7 +13,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /** 対象IDはURL、通報者は認証情報から確定する。所有者IDは受け取らない。 */
-public record TopicReportRequest(
+public record ReportRequest(
         @NotNull(message = "通報理由を指定してください")
         @JsonDeserialize(using = ReasonDeserializer.class) ReportReason reason,
         @Size(max = 500, message = "詳細は500文字以内で入力してください") String detail) {

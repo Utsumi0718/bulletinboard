@@ -24,7 +24,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.TransactionSystemException;
 
-import com.example.bulletinboard.dto.report.TopicReportRequest;
+import com.example.bulletinboard.dto.report.ReportRequest;
 import com.example.bulletinboard.exception.ReportOperationException;
 import com.example.bulletinboard.exception.ReportOperationException.Reason;
 import com.example.bulletinboard.exception.handler.GlobalExceptionHandler;
@@ -43,6 +43,7 @@ import ch.qos.logback.core.read.ListAppender;
 @Import(SecurityConfig.class)
 class ReportApiControllerTest {
     private static final String PATH = "/api/topics/44/reports";
+    private static final String ANSWER_PATH = "/api/answers/44/reports";
     private static final String EMAIL = "reporter@example.com";
     @Autowired MockMvc mvc;
     @MockitoBean ReportSubmissionService submission;
@@ -57,7 +58,7 @@ class ReportApiControllerTest {
                 .andExpect(status().isCreated()).andReturn();
         assertThat(result.getResponse().getContentAsString()).contains("通報を受け付けました。");
         assertThat(result.getResponse().getContentAsString()).doesNotContain("reporter", "ownerId", "説明", "999");
-        verify(submission).submitTopic(eq(44L), eq(EMAIL), eq(new TopicReportRequest(ReportReason.ABUSE, "説明")));
+        verify(submission).submitTopic(eq(44L), eq(EMAIL), eq(new ReportRequest(ReportReason.ABUSE, "説明")));
     }
 
     @ParameterizedTest
@@ -122,6 +123,70 @@ class ReportApiControllerTest {
                     .andExpect(jsonPath("$.path").value(PATH)).andReturn();
             assertThat(response.getResponse().getContentAsString())
                     .doesNotContain("SELECT", "fake_password", "secret@example.com");
+            var errors = appender.list.stream().filter(e -> e.getLevel() == Level.ERROR).toList();
+            assertThat(errors).hasSize(1);
+            assertThat(errors.getFirst().getFormattedMessage())
+                    .isEqualTo("report_operation_error targetId=44 errorType=TransactionSystemException");
+            assertThat(errors.getFirst().getThrowableProxy()).isNull();
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+    }
+
+    @Test
+    void answerSuccessUsesPrincipalAndReturnsOnlyFixedMessage() throws Exception {
+        var response = mvc.perform(post(ANSWER_PATH).with(user(EMAIL)).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"PRIVACY\",\"detail\":\"private text\",\"reporterId\":999}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.message").value("通報を受け付けました。"))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(response).doesNotContain("private text", "reporterId", "999", EMAIL);
+        verify(submission).submitAnswer(44L, EMAIL, new ReportRequest(ReportReason.PRIVACY, "private text"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{\"reason\":\"UNKNOWN\"}", "{\"reason\":2}"})
+    void answerInvalidReasonReturns400(String json) throws Exception {
+        mvc.perform(post(ANSWER_PATH).with(user(EMAIL)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content(json)).andExpect(status().isBadRequest());
+        verifyNoInteractions(submission);
+    }
+
+    @Test
+    void answerUnauthenticatedRequestIsRejected() throws Exception {
+        mvc.perform(post(ANSWER_PATH).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"SPAM\"}"))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(submission);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void answerMissingOrInvalidCsrfIsRejected(boolean invalid) throws Exception {
+        var request = post(ANSWER_PATH).with(user(EMAIL)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"SPAM\"}");
+        if (invalid) request.with(csrf().useInvalidToken());
+        mvc.perform(request).andExpect(status().isForbidden());
+        verifyNoInteractions(submission);
+    }
+
+    @Test
+    void answerDatabaseFailureUsesSafeFixedResponseAndLog() throws Exception {
+        String secret = "SELECT fake_password WHERE email='secret@example.com'";
+        doThrow(new TransactionSystemException(secret)).when(submission).submitAnswer(eq(44L), eq(EMAIL), any());
+        Logger logger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler.class);
+        var appender = new ListAppender<ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            var response = mvc.perform(post(ANSWER_PATH).with(user(EMAIL)).with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"SPAM\"}"))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.message").value(Reason.FAILED.message))
+                    .andExpect(jsonPath("$.path").value(ANSWER_PATH)).andReturn();
+            assertThat(response.getResponse().getContentAsString()).doesNotContain("SELECT", "secret@example.com");
             var errors = appender.list.stream().filter(e -> e.getLevel() == Level.ERROR).toList();
             assertThat(errors).hasSize(1);
             assertThat(errors.getFirst().getFormattedMessage())

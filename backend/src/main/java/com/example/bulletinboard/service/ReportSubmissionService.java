@@ -8,7 +8,7 @@ import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.example.bulletinboard.dto.report.TopicReportRequest;
+import com.example.bulletinboard.dto.report.ReportRequest;
 import com.example.bulletinboard.exception.ReportOperationException;
 import com.example.bulletinboard.exception.ReportOperationException.Reason;
 import com.example.bulletinboard.model.ReportTargetType;
@@ -29,18 +29,27 @@ public class ReportSubmissionService {
     }
 
     @Transactional(propagation = Propagation.NEVER)
-    public void submitTopic(Long topicId, String email, TopicReportRequest request) {
+    public void submitTopic(Long topicId, String email, ReportRequest request) {
+        submit(ReportTargetType.TOPIC, topicId, email, () -> reportService.submitTopic(topicId, email, request));
+    }
+
+    @Transactional(propagation = Propagation.NEVER)
+    public void submitAnswer(Long answerId, String email, ReportRequest request) {
+        submit(ReportTargetType.ANSWER, answerId, email, () -> reportService.submitAnswer(answerId, email, request));
+    }
+
+    private void submit(ReportTargetType targetType, Long targetId, String email, Runnable action) {
         try {
-            reportService.submitTopic(topicId, email, request);
+            action.run();
         } catch (DataAccessException | TransactionException ex) {
             // 失敗した保存トランザクションの外から、確定した行だけを確認する。
             if (isUniqueViolation(ex) && users.findByEmail(email)
                     .map(user -> reports.existsByReporterUserIdAndTargetTypeAndTargetId(
-                            user.getId(), ReportTargetType.TOPIC, topicId))
+                            user.getId(), targetType, targetId))
                     .orElse(false)) {
-                throw new ReportOperationException(Reason.DUPLICATE, topicId);
+                throw new ReportOperationException(Reason.DUPLICATE, targetId);
             }
-            throw new ReportOperationException(Reason.FAILED, topicId, ex);
+            throw new ReportOperationException(Reason.FAILED, targetId, ex);
         }
     }
 

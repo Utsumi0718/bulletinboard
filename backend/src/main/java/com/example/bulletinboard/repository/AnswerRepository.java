@@ -5,7 +5,12 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import jakarta.persistence.LockModeType;
 
 import com.example.bulletinboard.model.Answer;
 
@@ -47,6 +52,15 @@ public interface AnswerRepository extends JpaRepository<Answer, Long> {
      * 指定したIDかつ削除されていない回答を取得します。
      */
     Optional<Answer> findByIdAndDeletedAtIsNull(Long id);
+
+    /** 回答Entityを先読みせず、親Topicのロック取得に必要なIDだけを調べる。 */
+    @Query("select a.topic.id from Answer a where a.id = :id and a.deletedAt is null")
+    Optional<Long> findReportableTopicIdByAnswerId(@Param("id") Long id);
+
+    /** 通報時の内容と編集・削除を直列化する。親Topicの公開状態は別途ロック後に再確認する。 */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from Answer a where a.id = :id and a.deletedAt is null")
+    Optional<Answer> findReportableByIdForUpdate(@Param("id") Long id);
 
     /*
      * 指定したTopicにAnswerが一度でも投稿されたことがあるか確認します。

@@ -44,7 +44,7 @@ import lombok.Setter;
  *   データベース上の外部キー制約は設定しません。
  * - 通報対象が実際に存在するかどうかはService層で確認します。
  * - 自分自身の投稿・回答・プロフィールを通報できないようにする判定は
- *   対象ごとの受付Serviceで行います。D-2ではTopicを実装します。
+ *   対象ごとの受付Serviceで行います。TopicとAnswerで実装済みです。
  * - 同じユーザーが同じ対象を何度も通報できないように、
  *   reporter_user_id、target_type、target_idの組み合わせに
  *   UNIQUE制約を設定します。

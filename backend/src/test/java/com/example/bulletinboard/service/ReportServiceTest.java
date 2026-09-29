@@ -20,7 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.example.bulletinboard.dto.report.TopicReportRequest;
+import com.example.bulletinboard.dto.report.ReportRequest;
 import com.example.bulletinboard.exception.ReportOperationException;
 import com.example.bulletinboard.exception.ReportOperationException.Reason;
 import com.example.bulletinboard.model.AccountStatus;
@@ -53,7 +53,7 @@ class ReportServiceTest {
     @EnumSource(ReportReason.class)
     void acceptsEachReasonAndKeepsEvidencePrivateInDatabase(ReportReason reason) {
         happyCase("ROLE_USER", AccountStatus.ACTIVE);
-        service.submitTopic(TOPIC_ID, EMAIL, new TopicReportRequest(reason, "detail"));
+        service.submitTopic(TOPIC_ID, EMAIL, new ReportRequest(reason, "detail"));
         var saved = ArgumentCaptor.forClass(Report.class);
         verify(reports).saveAndFlush(saved.capture());
         assertThat(saved.getValue().getTargetType()).isEqualTo(ReportTargetType.TOPIC);
@@ -73,26 +73,26 @@ class ReportServiceTest {
     @NullAndEmptySource
     @ValueSource(strings = {"   "})
     void rejectsBlankOtherDetail(String detail) {
-        rejectInput(new TopicReportRequest(ReportReason.OTHER, detail));
+        rejectInput(new ReportRequest(ReportReason.OTHER, detail));
     }
 
     @Test
     void acceptsExactly500Characters() {
         happyCase("ROLE_USER", AccountStatus.ACTIVE);
-        service.submitTopic(TOPIC_ID, EMAIL, new TopicReportRequest(ReportReason.OTHER, "a".repeat(500)));
+        service.submitTopic(TOPIC_ID, EMAIL, new ReportRequest(ReportReason.OTHER, "a".repeat(500)));
         verify(reports).saveAndFlush(any());
     }
 
     @Test
     void rejects501CharactersForAnyReason() {
-        rejectInput(new TopicReportRequest(ReportReason.SPAM, "a".repeat(501)));
+        rejectInput(new ReportRequest(ReportReason.SPAM, "a".repeat(501)));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"ROLE_USER", "ROLE_ADMIN"})
     void activeUserOrAdminCanSubmit(String role) {
         happyCase(role, AccountStatus.ACTIVE);
-        service.submitTopic(TOPIC_ID, EMAIL, new TopicReportRequest(ReportReason.ABUSE, null));
+        service.submitTopic(TOPIC_ID, EMAIL, new ReportRequest(ReportReason.ABUSE, null));
         verify(reports).saveAndFlush(any());
     }
 
@@ -138,11 +138,11 @@ class ReportServiceTest {
     @EnumSource(value = AccountStatus.class, names = {"FROZEN", "WITHDRAWN"})
     void stillAcceptsPublicTopicFromInactiveOwner(AccountStatus ownerStatus) {
         happyCase("ROLE_USER", ownerStatus);
-        service.submitTopic(TOPIC_ID, EMAIL, new TopicReportRequest(ReportReason.SPAM, null));
+        service.submitTopic(TOPIC_ID, EMAIL, new ReportRequest(ReportReason.SPAM, null));
         verify(reports).saveAndFlush(any());
     }
 
-    private void rejectInput(TopicReportRequest request) {
+    private void rejectInput(ReportRequest request) {
         assertThatThrownBy(() -> service.submitTopic(TOPIC_ID, EMAIL, request))
                 .isInstanceOfSatisfying(ReportOperationException.class,
                         ex -> assertThat(ex.getReason()).isEqualTo(Reason.INVALID));
@@ -151,7 +151,7 @@ class ReportServiceTest {
 
     private void expect(Reason reason) {
         assertThatThrownBy(() -> service.submitTopic(TOPIC_ID, EMAIL,
-                new TopicReportRequest(ReportReason.SPAM, null)))
+                new ReportRequest(ReportReason.SPAM, null)))
                 .isInstanceOfSatisfying(ReportOperationException.class,
                         ex -> assertThat(ex.getReason()).isEqualTo(reason));
     }

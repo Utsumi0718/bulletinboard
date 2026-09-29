@@ -18,7 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.dao.DataIntegrityViolationException;
 
-import com.example.bulletinboard.dto.report.TopicReportRequest;
+import com.example.bulletinboard.dto.report.ReportRequest;
 import com.example.bulletinboard.exception.ReportOperationException;
 import com.example.bulletinboard.exception.ReportOperationException.Reason;
 import com.example.bulletinboard.model.ReportReason;
@@ -31,7 +31,7 @@ import com.example.bulletinboard.repository.UserRepository;
 class ReportSubmissionServiceTest {
     private static final long TOPIC_ID = 31L;
     private static final String EMAIL = "reporter@example.com";
-    private static final TopicReportRequest REQUEST = new TopicReportRequest(ReportReason.SPAM, null);
+    private static final ReportRequest REQUEST = new ReportRequest(ReportReason.SPAM, null);
 
     @Mock ReportService reportService;
     @Mock ReportRepository reports;
@@ -86,6 +86,31 @@ class ReportSubmissionServiceTest {
                 .thenReturn(false);
 
         assertThatThrownBy(() -> submission.submitTopic(TOPIC_ID, EMAIL, REQUEST))
+                .isInstanceOfSatisfying(ReportOperationException.class,
+                        ex -> assertThat(ex.getReason()).isEqualTo(Reason.FAILED));
+    }
+
+    @Test
+    void answerUniqueFailureChecksAnswerTargetOnly() {
+        doThrow(failure(new SQLException("fake duplicate", "23505", 0)))
+                .when(reportService).submitAnswer(TOPIC_ID, EMAIL, REQUEST);
+        User reporter = new User();
+        reporter.setId(7L);
+        when(users.findByEmail(EMAIL)).thenReturn(Optional.of(reporter));
+        when(reports.existsByReporterUserIdAndTargetTypeAndTargetId(7L, ReportTargetType.ANSWER, TOPIC_ID))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> submission.submitAnswer(TOPIC_ID, EMAIL, REQUEST))
+                .isInstanceOfSatisfying(ReportOperationException.class,
+                        ex -> assertThat(ex.getReason()).isEqualTo(Reason.DUPLICATE));
+        verify(reports).existsByReporterUserIdAndTargetTypeAndTargetId(7L, ReportTargetType.ANSWER, TOPIC_ID);
+    }
+
+    @Test
+    void answerOtherDatabaseFailureIsServerError() {
+        doThrow(failure(new SQLException("fake database outage", "08006", 0)))
+                .when(reportService).submitAnswer(TOPIC_ID, EMAIL, REQUEST);
+        assertThatThrownBy(() -> submission.submitAnswer(TOPIC_ID, EMAIL, REQUEST))
                 .isInstanceOfSatisfying(ReportOperationException.class,
                         ex -> assertThat(ex.getReason()).isEqualTo(Reason.FAILED));
     }
