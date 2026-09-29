@@ -24,6 +24,8 @@ import com.example.bulletinboard.exception.ContactSaveException;
 import com.example.bulletinboard.exception.ForbiddenOperationException;
 import com.example.bulletinboard.exception.AdminUserNotFoundException;
 import com.example.bulletinboard.exception.AdminUserOperationException;
+import com.example.bulletinboard.exception.AdminContentNotFoundException;
+import com.example.bulletinboard.exception.AdminContentOperationException;
 import com.example.bulletinboard.exception.LikeConflictException;
 import com.example.bulletinboard.exception.TopicEditConflictException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
@@ -118,6 +120,24 @@ import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
+    @ExceptionHandler(AdminContentNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAdminContentNotFound(AdminContentNotFoundException ex,
+            HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(
+                404, HttpStatus.NOT_FOUND.getReasonPhrase(), ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(AdminContentOperationException.class)
+    public ResponseEntity<ErrorResponse> handleAdminContentOperation(AdminContentOperationException ex,
+            HttpServletRequest request) {
+        log.error("admin_content_operation_error operation={} targetType={} targetId={} errorType={}",
+                ex.getOperation(), ex.getTargetType(), ex.getTargetId(),
+                ex.getCause() == null ? "Unknown" : ex.getCause().getClass().getSimpleName());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).header("Cache-Control", "no-store")
+                .body(new ErrorResponse(500, HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+                        "コンテンツの管理処理でエラーが発生しました。画面を再読み込みして状態を確認してください。",
+                        request.getRequestURI()));
+    }
     @ExceptionHandler(AdminUserOperationException.class)
     public ResponseEntity<ErrorResponse> handleAdminUserOperation(AdminUserOperationException ex,
             HttpServletRequest request) {

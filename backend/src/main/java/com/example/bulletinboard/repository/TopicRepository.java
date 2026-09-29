@@ -52,6 +52,8 @@ public interface TopicRepository extends JpaRepository<Topic, Long> {
      */
     Page<Topic> findByDeletedAtIsNull(Pageable pageable);
 
+    Page<Topic> findByDeletedAtIsNotNull(Pageable pageable);
+
     /*
      * 指定されたIDかつ削除されていないTopicを取得します。
      */

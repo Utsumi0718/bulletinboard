@@ -3,9 +3,9 @@ package com.example.bulletinboard.repository;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -38,6 +38,11 @@ import com.example.bulletinboard.model.Answer;
  */
 @Repository
 public interface AnswerRepository extends JpaRepository<Answer, Long> {
+    @Query("select a from Answer a where a.deletedAt is null and a.topic.deletedAt is null")
+    Page<Answer> findPublic(Pageable pageable);
+
+    @Query("select a from Answer a where a.deletedAt is not null or a.topic.deletedAt is not null")
+    Page<Answer> findNotPublic(Pageable pageable);
     Page<Answer> findByUserId(Long userId, Pageable pageable);
 
     /*
