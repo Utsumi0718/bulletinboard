@@ -10,8 +10,10 @@ import com.example.bulletinboard.exception.ReportOperationException;
 import com.example.bulletinboard.exception.ReportOperationException.Reason;
 import com.example.bulletinboard.model.AccountStatus;
 import com.example.bulletinboard.model.Answer;
+import com.example.bulletinboard.model.Profile;
 import com.example.bulletinboard.model.Report;
 import com.example.bulletinboard.model.ReportAnswerSnapshot;
+import com.example.bulletinboard.model.ReportProfileSnapshot;
 import com.example.bulletinboard.model.ReportReason;
 import com.example.bulletinboard.model.ReportTargetType;
 import com.example.bulletinboard.model.ReportTopicSnapshot;
@@ -20,32 +22,40 @@ import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.ReportRepository;
 import com.example.bulletinboard.repository.ReportAnswerSnapshotRepository;
+import com.example.bulletinboard.repository.ReportProfileSnapshotRepository;
 import com.example.bulletinboard.repository.ReportTopicSnapshotRepository;
 import com.example.bulletinboard.repository.AnswerRepository;
+import com.example.bulletinboard.repository.ProfileRepository;
 import com.example.bulletinboard.repository.TopicRepository;
 import com.example.bulletinboard.repository.UserRepository;
 
-/** お題・回答の通報判定と、通報情報・証拠の原子的な保存を担当する。 */
+/** お題・回答・プロフィールの通報判定と、通報情報・証拠の原子的な保存を担当する。 */
 @Service
 public class ReportService {
     private final UserRepository users;
     private final TopicRepository topics;
     private final AnswerRepository answers;
+    private final ProfileRepository profiles;
     private final TopicImageService images;
     private final ReportRepository reports;
     private final ReportTopicSnapshotRepository snapshots;
     private final ReportAnswerSnapshotRepository answerSnapshots;
+    private final ReportProfileSnapshotRepository profileSnapshots;
 
     public ReportService(UserRepository users, TopicRepository topics, AnswerRepository answers,
+            ProfileRepository profiles,
             TopicImageService images, ReportRepository reports,
-            ReportTopicSnapshotRepository snapshots, ReportAnswerSnapshotRepository answerSnapshots) {
+            ReportTopicSnapshotRepository snapshots, ReportAnswerSnapshotRepository answerSnapshots,
+            ReportProfileSnapshotRepository profileSnapshots) {
         this.users = users;
         this.topics = topics;
         this.answers = answers;
+        this.profiles = profiles;
         this.images = images;
         this.reports = reports;
         this.snapshots = snapshots;
         this.answerSnapshots = answerSnapshots;
+        this.profileSnapshots = profileSnapshots;
     }
 
     @Transactional
@@ -113,6 +123,38 @@ public class ReportService {
         report.setDetail(request.detail());
         report = reports.saveAndFlush(report);
         answerSnapshots.saveAndFlush(new ReportAnswerSnapshot(report, answer, topic, image));
+    }
+
+    @Transactional
+    public void submitProfile(Long profileId, String reporterEmail, ReportRequest request) {
+        validate(request, profileId);
+        User reporter = requireActiveReporter(reporterEmail, profileId);
+        Profile profile = profiles.findByIdForReport(profileId)
+                .orElseThrow(() -> new ReportOperationException(Reason.NOT_FOUND, profileId));
+        User owner = profile.getUser();
+        if (owner.getAccountStatus() == AccountStatus.WITHDRAWN) {
+            throw new ReportOperationException(Reason.NOT_FOUND, profileId);
+        }
+        if (owner.getId().equals(reporter.getId())) {
+            throw new ReportOperationException(Reason.FORBIDDEN, profileId);
+        }
+        if (reports.existsByReporterUserIdAndTargetTypeAndTargetId(
+                reporter.getId(), ReportTargetType.PROFILE, profileId)) {
+            throw new ReportOperationException(Reason.DUPLICATE, profileId);
+        }
+        // 現在のProfile.iconはURL/パスのみで原本を取得できない。証拠を欠いた受付を防ぐ。
+        if (profile.getIcon() != null) {
+            throw new ReportOperationException(Reason.FAILED, profileId);
+        }
+        Report report = new Report();
+        report.setReporterUser(reporter);
+        report.setTargetType(ReportTargetType.PROFILE);
+        report.setTargetId(profileId);
+        report.setTargetOwnerUserId(owner.getId());
+        report.setReason(request.reason());
+        report.setDetail(request.detail());
+        report = reports.saveAndFlush(report);
+        profileSnapshots.saveAndFlush(new ReportProfileSnapshot(report, profile));
     }
 
     /** 保持内容は管理者だけが参照する。画像取得時にもDB上のACTIVEを再確認する。 */

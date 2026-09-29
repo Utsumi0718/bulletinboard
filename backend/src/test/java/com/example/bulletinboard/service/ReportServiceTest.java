@@ -43,10 +43,14 @@ class ReportServiceTest {
     private static final String EMAIL = "reporter@example.com";
     private static final String IMAGE_URL = "/api/topic-images/11111111-1111-1111-1111-111111111111";
     @Mock UserRepository users;
+    @Mock com.example.bulletinboard.repository.AnswerRepository answers;
+    @Mock com.example.bulletinboard.repository.ProfileRepository profiles;
     @Mock TopicRepository topics;
     @Mock TopicImageService images;
     @Mock ReportRepository reports;
     @Mock ReportTopicSnapshotRepository snapshots;
+    @Mock com.example.bulletinboard.repository.ReportAnswerSnapshotRepository answerSnapshots;
+    @Mock com.example.bulletinboard.repository.ReportProfileSnapshotRepository profileSnapshots;
     @InjectMocks ReportService service;
 
     @ParameterizedTest

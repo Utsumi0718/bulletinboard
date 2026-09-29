@@ -21,7 +21,7 @@ import com.example.bulletinboard.service.ReportSubmissionService;
 
 import jakarta.validation.Valid;
 
-/** お題・回答の通報受付と管理者限定の証拠画像取得。一般向け応答に通報者・内容を含めない。 */
+/** お題・回答・プロフィールの通報受付と管理者限定の証拠画像取得。 */
 @RestController
 public class ReportApiController {
     private final ReportSubmissionService submission;
@@ -51,6 +51,17 @@ public class ReportApiController {
             return ResponseEntity.status(201).body(new ReportSubmittedResponse("通報を受け付けました。"));
         } catch (DataAccessException | TransactionException ex) {
             throw new ReportOperationException(Reason.FAILED, answerId, ex);
+        }
+    }
+
+    @PostMapping("/api/profiles/{profileId}/reports")
+    public ResponseEntity<ReportSubmittedResponse> reportProfile(@PathVariable Long profileId,
+            @Valid @RequestBody ReportRequest request, Authentication authentication) {
+        try {
+            submission.submitProfile(profileId, authentication.getName(), request);
+            return ResponseEntity.status(201).body(new ReportSubmittedResponse("通報を受け付けました。"));
+        } catch (DataAccessException | TransactionException ex) {
+            throw new ReportOperationException(Reason.FAILED, profileId, ex);
         }
     }
 

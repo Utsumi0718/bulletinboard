@@ -32,6 +32,8 @@ import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.model.TopicImage;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.AnswerRepository;
+import com.example.bulletinboard.repository.ProfileRepository;
+import com.example.bulletinboard.repository.ReportProfileSnapshotRepository;
 import com.example.bulletinboard.repository.ReportAnswerSnapshotRepository;
 import com.example.bulletinboard.repository.ReportRepository;
 import com.example.bulletinboard.repository.ReportTopicSnapshotRepository;
@@ -49,10 +51,12 @@ class ReportAnswerServiceTest {
     @Mock UserRepository users;
     @Mock TopicRepository topics;
     @Mock AnswerRepository answers;
+    @Mock ProfileRepository profiles;
     @Mock TopicImageService images;
     @Mock ReportRepository reports;
     @Mock ReportTopicSnapshotRepository topicSnapshots;
     @Mock ReportAnswerSnapshotRepository answerSnapshots;
+    @Mock ReportProfileSnapshotRepository profileSnapshots;
     @InjectMocks ReportService service;
 
     @Test

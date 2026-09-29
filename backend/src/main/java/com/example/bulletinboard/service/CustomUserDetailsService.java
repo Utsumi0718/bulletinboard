@@ -11,7 +11,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.bulletinboard.model.AccountStatus;
+import com.example.bulletinboard.model.Profile;
 import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.repository.ProfileRepository;
 import com.example.bulletinboard.repository.UserRepository;
 
 /*
@@ -48,6 +50,7 @@ import com.example.bulletinboard.repository.UserRepository;
 public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
+    private final ProfileRepository profileRepository;
     private final PasswordEncoder passwordEncoder;
 
     /*
@@ -61,9 +64,11 @@ public class CustomUserDetailsService implements UserDetailsService {
      */
     public CustomUserDetailsService(
             UserRepository userRepository,
+            ProfileRepository profileRepository,
             PasswordEncoder passwordEncoder) {
 
         this.userRepository = userRepository;
+        this.profileRepository = profileRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -114,7 +119,7 @@ public class CustomUserDetailsService implements UserDetailsService {
      * 新規ユーザーを登録します。
      *
      * 生のパスワードをPasswordEncoderでハッシュ化してから
-     * DBへ保存します。
+     * Userと初期Profileを同じトランザクションで保存します。
      */
     @Transactional
     public void registerUser(User user) {
@@ -129,7 +134,11 @@ public class CustomUserDetailsService implements UserDetailsService {
         user.setAccountNonLocked(true);
         user.setFailedAttempt(0);
 
-        userRepository.save(user);
+        User saved = userRepository.save(user);
+        Profile profile = new Profile();
+        profile.setUser(saved);
+        // 未設定のiconとbioはNULL。表示時の共通デフォルトアイコンを示す。
+        profileRepository.save(profile);
     }
 
     /*

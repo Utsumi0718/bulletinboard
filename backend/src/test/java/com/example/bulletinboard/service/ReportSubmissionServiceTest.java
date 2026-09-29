@@ -67,6 +67,21 @@ class ReportSubmissionServiceTest {
     }
 
     @Test
+    void profileUniqueConstraintFailureIsConflictOnlyWhenCommittedDuplicateExists() {
+        long profileId = 82L;
+        doThrow(failure(new SQLException("fake SQL", "23505")))
+                .when(reportService).submitProfile(profileId, EMAIL, REQUEST);
+        User reporter = new User();
+        reporter.setId(7L);
+        when(users.findByEmail(EMAIL)).thenReturn(Optional.of(reporter));
+        when(reports.existsByReporterUserIdAndTargetTypeAndTargetId(7L, ReportTargetType.PROFILE, profileId))
+                .thenReturn(true);
+        assertThatThrownBy(() -> submission.submitProfile(profileId, EMAIL, REQUEST))
+                .isInstanceOfSatisfying(ReportOperationException.class,
+                        ex -> assertThat(ex.getReason()).isEqualTo(Reason.DUPLICATE));
+    }
+
+    @Test
     void unrelatedConstraintFailureIsServerErrorEvenWhenMessageMentionsDuplicate() {
         doThrow(failure(new SQLException("duplicate report fake secret", "23514", 0)))
                 .when(reportService).submitTopic(TOPIC_ID, EMAIL, REQUEST);

@@ -38,6 +38,12 @@ public class ReportSubmissionService {
         submit(ReportTargetType.ANSWER, answerId, email, () -> reportService.submitAnswer(answerId, email, request));
     }
 
+    @Transactional(propagation = Propagation.NEVER)
+    public void submitProfile(Long profileId, String email, ReportRequest request) {
+        submit(ReportTargetType.PROFILE, profileId, email,
+                () -> reportService.submitProfile(profileId, email, request));
+    }
+
     private void submit(ReportTargetType targetType, Long targetId, String email, Runnable action) {
         try {
             action.run();

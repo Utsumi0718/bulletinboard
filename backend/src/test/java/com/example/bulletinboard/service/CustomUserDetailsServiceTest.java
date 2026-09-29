@@ -22,6 +22,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.example.bulletinboard.model.AccountStatus;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.UserRepository;
+import com.example.bulletinboard.repository.ProfileRepository;
 
 /**
  * 【クラス全体の役割】
@@ -63,6 +64,9 @@ class CustomUserDetailsServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private ProfileRepository profileRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     private CustomUserDetailsService userDetailsService;
@@ -72,6 +76,7 @@ class CustomUserDetailsServiceTest {
         userDetailsService =
                 new CustomUserDetailsService(
                         userRepository,
+                        profileRepository,
                         passwordEncoder
                 );
     }
