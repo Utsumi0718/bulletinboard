@@ -22,6 +22,8 @@ import com.example.bulletinboard.exception.AnswerNotFoundException;
 import com.example.bulletinboard.exception.ContactNotFoundException;
 import com.example.bulletinboard.exception.ContactSaveException;
 import com.example.bulletinboard.exception.ForbiddenOperationException;
+import com.example.bulletinboard.exception.AdminUserNotFoundException;
+import com.example.bulletinboard.exception.AdminUserOperationException;
 import com.example.bulletinboard.exception.LikeConflictException;
 import com.example.bulletinboard.exception.TopicEditConflictException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
@@ -116,6 +118,24 @@ import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
+    @ExceptionHandler(AdminUserOperationException.class)
+    public ResponseEntity<ErrorResponse> handleAdminUserOperation(AdminUserOperationException ex,
+            HttpServletRequest request) {
+        log.error("admin_user_operation_error operation={} userId={} errorType={}",
+                ex.getOperation(), ex.getUserId(),
+                ex.getCause() == null ? "Unknown" : ex.getCause().getClass().getSimpleName());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).header("Cache-Control", "no-store")
+                .body(new ErrorResponse(500, HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+                        "ユーザーの管理処理でエラーが発生しました。画面を再読み込みして状態を確認してください。",
+                        request.getRequestURI()));
+    }
+
+    @ExceptionHandler(AdminUserNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAdminUserNotFound(
+            AdminUserNotFoundException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(
+                404, HttpStatus.NOT_FOUND.getReasonPhrase(), ex.getMessage(), request.getRequestURI()));
+    }
 
     /** 管理通報のDB障害を固定500へ変換し、ログには操作・ID・例外型だけを残す。 */
     @ExceptionHandler(AdminReportOperationException.class)

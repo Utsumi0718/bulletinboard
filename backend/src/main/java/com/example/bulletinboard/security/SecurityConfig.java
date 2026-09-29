@@ -11,6 +11,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandlerImpl;
 import org.springframework.http.HttpMethod;
@@ -386,6 +387,7 @@ public class SecurityConfig {
                 .permitAll()
             );
 
+        http.addFilterBefore(new ActiveAccountFilter(userRepository, objectMapper), AuthorizationFilter.class);
         return http.build();
     }
 

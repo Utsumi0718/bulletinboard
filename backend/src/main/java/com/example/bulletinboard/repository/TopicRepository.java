@@ -43,6 +43,7 @@ import jakarta.persistence.LockModeType;
  */
 @Repository
 public interface TopicRepository extends JpaRepository<Topic, Long> {
+    Page<Topic> findByUserId(Long userId, Pageable pageable);
 
     boolean existsByImageAndDeletedAtIsNull(String image);
 

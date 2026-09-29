@@ -11,7 +11,7 @@ import com.example.bulletinboard.model.AdminOperationLog;
  * 管理者の操作履歴をDBへ保存・取得するRepositoryです。
  *
  * 【設計上のポイント】
- * - お問い合わせ・通報の管理Serviceから、管理操作と同じトランザクションで
+ * - お問い合わせ・通報・Userの管理Serviceから、管理操作と同じトランザクションで
  *   操作履歴を保存するために使用します。
  * - 保存・IDによる取得などはJpaRepositoryの機能を利用します。
  * - 操作履歴の更新・削除機能は公開しません。
