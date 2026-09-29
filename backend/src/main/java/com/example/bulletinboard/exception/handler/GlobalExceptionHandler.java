@@ -28,6 +28,7 @@ import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.exception.UserNotFoundException;
 import com.example.bulletinboard.exception.TopicImageException;
 import com.example.bulletinboard.exception.ReportOperationException;
+import com.example.bulletinboard.exception.AdminReportOperationException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
@@ -115,6 +116,19 @@ import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
+
+    /** 管理通報のDB障害を固定500へ変換し、ログには操作・ID・例外型だけを残す。 */
+    @ExceptionHandler(AdminReportOperationException.class)
+    public ResponseEntity<ErrorResponse> handleAdminReportOperation(AdminReportOperationException ex,
+            HttpServletRequest request) {
+        log.error("admin_report_operation_error operation={} reportId={} errorType={}",
+                ex.getOperation(), ex.getReportId(),
+                ex.getCause() == null ? "Unknown" : ex.getCause().getClass().getSimpleName());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).header("Cache-Control", "no-store")
+                .body(new ErrorResponse(500, HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+                        "通報の管理処理でエラーが発生しました。画面を再読み込みして状態を確認してください。",
+                        request.getRequestURI()));
+    }
 
     /** 通報の公開応答・失敗ログに画像、文章、メール、SQL、Throwableを含めない。 */
     @ExceptionHandler(ReportOperationException.class)
