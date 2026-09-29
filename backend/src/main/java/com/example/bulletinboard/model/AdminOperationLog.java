@@ -29,7 +29,7 @@ import lombok.NoArgsConstructor;
  * - 操作日時
  *
  * 【設計上のポイント】
- * - お問い合わせ・Topic・Answerの削除、通報とUserの状態変更と同じトランザクションで保存します。
+ * - お問い合わせ・Topic・Answerの削除、通報とUserの状態変更、Profile初期化と同じトランザクションで保存します。
  * - 名前・メールアドレス・件名・本文は履歴へコピーしません。
  * - 操作対象はIDとして保持し、Contact・Report・対象Userとのリレーションは持ちません。
  *   これにより、お問い合わせを物理削除した後も履歴を保持します。
@@ -62,7 +62,7 @@ public class AdminOperationLog {
     private User adminUser;
 
     /**
-     * 操作対象の種類。CONTACT、REPORT、USER、TOPIC、ANSWERを扱う。
+     * 操作対象の種類。CONTACT、REPORT、USER、TOPIC、ANSWER、PROFILEを扱う。
      */
     @Column(
             name = "target_type",
@@ -80,7 +80,7 @@ public class AdminOperationLog {
     private Long targetId;
 
     /**
-     * 操作内容。現在はSTATUS_CHANGEまたはDELETE。
+     * 操作内容。STATUS_CHANGE、DELETE、ICON_RESET、BIO_CLEARを扱う。
      */
     @Column(
             name = "action",

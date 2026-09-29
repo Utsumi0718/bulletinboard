@@ -2,7 +2,7 @@ package com.example.bulletinboard.exception;
 
 /** 管理コンテンツAPIのDB障害。原因の内容は公開しない。 */
 public class AdminContentOperationException extends RuntimeException {
-    public enum Operation { LIST, DETAIL, DELETE, IMAGE }
+    public enum Operation { LIST, DETAIL, DELETE, IMAGE, ICON_RESET, BIO_CLEAR }
 
     private final Operation operation;
     private final String targetType;

@@ -26,6 +26,7 @@ import com.example.bulletinboard.exception.AdminUserNotFoundException;
 import com.example.bulletinboard.exception.AdminUserOperationException;
 import com.example.bulletinboard.exception.AdminContentNotFoundException;
 import com.example.bulletinboard.exception.AdminContentOperationException;
+import com.example.bulletinboard.exception.AdminProfileNotFoundException;
 import com.example.bulletinboard.exception.LikeConflictException;
 import com.example.bulletinboard.exception.TopicEditConflictException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
@@ -120,6 +121,12 @@ import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
+    @ExceptionHandler(AdminProfileNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAdminProfileNotFound(AdminProfileNotFoundException ex,
+            HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(
+                404, HttpStatus.NOT_FOUND.getReasonPhrase(), ex.getMessage(), request.getRequestURI()));
+    }
     @ExceptionHandler(AdminContentNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleAdminContentNotFound(AdminContentNotFoundException ex,
             HttpServletRequest request) {
