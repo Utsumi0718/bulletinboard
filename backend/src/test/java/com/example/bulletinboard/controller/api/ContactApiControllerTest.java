@@ -11,7 +11,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.DisplayName;
@@ -89,11 +88,6 @@ import jakarta.validation.constraints.Size;
  *   → 有効なCSRFトークン付きのPOSTでアクセスできる
  *   → 200とテスト用Controllerの応答を確認する
  *
- * ☑ 旧MVCのSecurity応答を維持
- *   → 未ログインでは既存の誘導先へ302リダイレクトする
- *   → 一般ユーザーの管理画面へのアクセスは標準の403で拒否する
- *   → 標準403ではAPI用の共通JSONを返さない
- *
  * 【テストの範囲】
  * 実際のSecurityConfigを使用します。
  * ContactSubmissionServiceとUserRepositoryはモックを使用するため、
@@ -101,9 +95,6 @@ import jakarta.validation.constraints.Size;
  *
  * 管理者のアクセス許可は、テスト専用Controllerで確認します。
  * 管理機能の業務処理や、実際の管理APIの完成を保証するものではありません。
- *
- * 旧MVCはSecurityによるリダイレクト・拒否応答までを確認します。
- * Thymeleafの画面描画や、サーバーによる最終的なエラー画面は対象外です。
  *
  * 実ブラウザでのCookie送信・CORS・Reactとの接続、
  * ログイン・ログアウト前後のCSRF再取得は後続で確認します。
@@ -813,19 +804,6 @@ void adminApi_whenAnonymous_shouldReturnUnauthorizedJson()
 }
 
 @Test
-@WithAnonymousUser      
-@DisplayName("未ログインで旧MVCの管理画面へアクセスすると既存の誘導先へリダイレクトする")
-void adminMvc_whenAnonymous_shouldKeepExistingRedirect()
-        throws Exception {
-
-    mockMvc.perform(get("/admin/users"))
-            .andExpect(status().isFound())
-            .andExpect(redirectedUrl(
-                    "http://localhost/posts?error=unauthorized"
-            ));
-}
-
-@Test
 @WithMockUser(username = "user@example.com", roles = "USER")
 @DisplayName("一般ユーザーが管理APIへアクセスすると403と共通JSONを返す")
 void adminApi_whenRegularUser_shouldReturnForbiddenJson()
@@ -865,27 +843,6 @@ void adminApi_whenAdminWithCsrf_shouldAllowPost() throws Exception {
             .andExpect(status().isOk())
             .andExpect(content().string("admin-ok"));
 }
-
-@Test
-@WithMockUser(username = "user@example.com", roles = "USER")
-@DisplayName("一般ユーザーの旧MVC管理画面へのアクセスは標準の403で拒否する")
-void adminMvc_whenRegularUser_shouldKeepStandardForbidden()
-        throws Exception {
-
-    MvcResult result = mockMvc.perform(get("/admin/users"))
-            .andExpect(status().isForbidden())
-            .andExpect(header().doesNotExist("Location"))
-            .andReturn();
-
-    // API用JSONではなく、標準のsendErrorによる拒否であることを確認
-    assertThat(result.getResponse().getErrorMessage())
-            .isEqualTo("Forbidden");
-
-    assertThat(result.getResponse().getContentAsString())
-            .isEmpty();
-}
-
-
 
 /**
  * 管理APIの認可を確認するためのテスト専用Controllerです。

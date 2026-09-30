@@ -116,13 +116,6 @@ public class SecurityConfig {
                 .hasRole("USER")
 
                 /*
-                 * 管理者専用URLは、
-                 * ROLE_ADMINを持つユーザーのみアクセス可能とします。
-                 */
-                .requestMatchers("/admin/**")
-                .hasRole("ADMIN")
-
-                /*
                  * 上記以外のURLは、
                  * ログイン済みユーザーのみアクセス可能とします。
                  */

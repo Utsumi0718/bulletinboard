@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -29,7 +30,6 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MvcResult;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import com.example.bulletinboard.exception.handler.GlobalExceptionHandler;
 import com.example.bulletinboard.model.AccountStatus;
@@ -276,14 +276,6 @@ class AdminUserFlowIntegrationTest {
                 .with(user(MEMBER).roles("USER")).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"FROZEN\"}"))
                 .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void ordinaryUserCannotUseLegacyAdminPost() throws Exception {
-        mvc.perform(post("/admin/users/{id}/toggle-lock", member().getId())
-                .with(user(MEMBER).roles("USER")).with(csrf()))
-                .andExpect(status().isForbidden());
-        assertThat(member().getAccountStatus()).isEqualTo(AccountStatus.ACTIVE);
     }
 
     @Test

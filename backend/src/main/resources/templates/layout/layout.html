@@ -19,34 +19,14 @@
 </head>
 
 <body>
-    <!-- 追記：ナビゲーションバーへの管理画面リンク配置 -->
     <header class="header">
         <nav class="navbar navbar-dark bg-dark mb-4">
             <div class="container">
             <a class="navbar-brand" th:href="@{/posts}">掲示板アプリ</a>
-            <!--  -->
-            <li class="nav-item" sec:authorize="hasRole('ROLE_ADMIN')">
-              <a class="nav-link text-danger fw-bold" th:href="@{/admin/users}">管理画面へ</a>
-            </li>
         </div>
     </nav>
 
     </header>
-    <!-- 追記：アラート（フラッシュメッセージ）領域を追加します -->
-
-    <div class="container mt-3">
-        <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
-            <span th:text="${successMessage}"></span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-
-        <div  th:if="${errorMessage}"  class="alert alert-success alert-dismissible fade show" role="alert">
-          <span th:text="${errorMessage}"></span>
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-
-        </div>
-    </div>
-
     <!-- メインコンテンツ：各画面の内容がここに挿入される -->
     <main class="container">
     <!-- メイン表示領域のコンテナ -->
