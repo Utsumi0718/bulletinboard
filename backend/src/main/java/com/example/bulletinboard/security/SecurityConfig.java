@@ -89,6 +89,10 @@ public class SecurityConfig {
                   .requestMatchers(HttpMethod.GET, "/api/csrf")
                   .permitAll()
 
+                  // 新規登録APIは未ログインで利用し、CSRF保護は維持する
+                  .requestMatchers(HttpMethod.POST, "/api/auth/register")
+                  .permitAll()
+
                   // 管理APIは管理者のみ利用可能
                   .requestMatchers("/api/admin/**")
                   .hasRole("ADMIN")

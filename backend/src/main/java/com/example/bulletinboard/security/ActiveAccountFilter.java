@@ -43,6 +43,7 @@ public class ActiveAccountFilter extends OncePerRequestFilter {
                 path.startsWith("/css/") || path.startsWith("/js/") ||
                 path.equals("/logout") ||
                 (path.equals("/api/contacts") && HttpMethod.POST.matches(request.getMethod())) ||
+                (path.equals("/api/auth/register") && HttpMethod.POST.matches(request.getMethod())) ||
                 (path.equals("/api/csrf") && HttpMethod.GET.matches(request.getMethod()));
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         HttpSession session = request.getSession(false);

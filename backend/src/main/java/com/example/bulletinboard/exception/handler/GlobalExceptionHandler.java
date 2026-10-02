@@ -34,6 +34,8 @@ import com.example.bulletinboard.exception.UserNotFoundException;
 import com.example.bulletinboard.exception.TopicImageException;
 import com.example.bulletinboard.exception.ReportOperationException;
 import com.example.bulletinboard.exception.AdminReportOperationException;
+import com.example.bulletinboard.exception.RegistrationConflictException;
+import com.example.bulletinboard.exception.RegistrationOperationException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
@@ -121,6 +123,33 @@ import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
+    @ExceptionHandler(RegistrationConflictException.class)
+    public ResponseEntity<ValidationErrorResponse> handleRegistrationConflict(
+            RegistrationConflictException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .header("Cache-Control", "no-store")
+                .body(new ValidationErrorResponse(
+                        HttpStatus.CONFLICT.value(),
+                        HttpStatus.CONFLICT.getReasonPhrase(),
+                        "登録内容が既存のアカウントと重複しています。",
+                        request.getRequestURI(),
+                        Map.of(ex.getField().getName(), ex.getMessage())));
+    }
+
+    @ExceptionHandler(RegistrationOperationException.class)
+    public ResponseEntity<ErrorResponse> handleRegistrationOperation(
+            RegistrationOperationException ex, HttpServletRequest request) {
+        log.error("registration_error errorType={}",
+                ex.getCause() == null ? "Unknown" : ex.getCause().getClass().getSimpleName());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .header("Cache-Control", "no-store")
+                .body(new ErrorResponse(
+                        HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                        HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+                        "アカウントを登録できませんでした。時間をおいて再度お試しください。",
+                        request.getRequestURI()));
+    }
+
     @ExceptionHandler(AdminProfileNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleAdminProfileNotFound(AdminProfileNotFoundException ex,
             HttpServletRequest request) {

@@ -21,6 +21,11 @@ import lombok.Data;
 @Data
 public class RegisterForm {
 
+    @Override
+    public String toString() {
+        return "RegisterForm[credentials=REDACTED]";
+    }
+
     // --------------------------------------------------
     // ユーザー名（username）
     // --------------------------------------------------
