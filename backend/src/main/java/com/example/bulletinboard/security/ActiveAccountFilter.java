@@ -41,7 +41,8 @@ public class ActiveAccountFilter extends OncePerRequestFilter {
         boolean publicPath = path.equals("/login") || path.equals("/register") ||
                 path.equals("/reset-password") || path.equals("/error") ||
                 path.startsWith("/css/") || path.startsWith("/js/") ||
-                path.equals("/logout") ||
+                (path.equals("/api/auth/login") && HttpMethod.POST.matches(request.getMethod())) ||
+                (path.equals("/api/auth/logout") && HttpMethod.POST.matches(request.getMethod())) ||
                 (path.equals("/api/contacts") && HttpMethod.POST.matches(request.getMethod())) ||
                 (path.equals("/api/auth/register") && HttpMethod.POST.matches(request.getMethod())) ||
                 (path.equals("/api/csrf") && HttpMethod.GET.matches(request.getMethod()));

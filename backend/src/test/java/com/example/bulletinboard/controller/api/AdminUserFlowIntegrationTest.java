@@ -307,9 +307,11 @@ class AdminUserFlowIntegrationTest {
     @ParameterizedTest
     @CsvSource({"member@example.com,ROLE_USER", "admin@example.com,ROLE_ADMIN"})
     void alreadyLoggedInSessionIsRejectedAfterFreeze(String email, String role) throws Exception {
-        MvcResult login = mvc.perform(post("/login").with(csrf())
+        MvcResult login = mvc.perform(post("/api/auth/login").with(csrf())
                 .param("email", email).param("password", "test-password"))
-                .andExpect(status().is3xxRedirection()).andReturn();
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authenticated").value(true))
+                .andReturn();
         MockHttpSession session = (MockHttpSession) login.getRequest().getSession(false);
         assertThat(session).isNotNull();
         User account = users.findByEmail(email).orElseThrow();

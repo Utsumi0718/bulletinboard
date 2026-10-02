@@ -37,6 +37,7 @@ import com.example.bulletinboard.repository.ProfileRepository;
 import com.example.bulletinboard.repository.UserRepository;
 import com.example.bulletinboard.security.SecurityConfig;
 import com.example.bulletinboard.service.CustomUserDetailsService;
+import com.example.bulletinboard.service.AuthenticatedUserService;
 import com.example.bulletinboard.service.RegistrationService;
 import com.example.bulletinboard.service.RegistrationSubmissionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -60,7 +61,8 @@ class RegistrationApiIntegrationTest {
     @EnableAutoConfiguration
     @EntityScan(basePackageClasses = User.class)
     @EnableJpaRepositories(basePackageClasses = UserRepository.class)
-    @Import({AuthApiController.class, RegistrationService.class, RegistrationSubmissionService.class,
+    @Import({AuthApiController.class, AuthenticatedUserService.class,
+            RegistrationService.class, RegistrationSubmissionService.class,
             CustomUserDetailsService.class, SecurityConfig.class, GlobalExceptionHandler.class})
     static class TestConfiguration { }
 

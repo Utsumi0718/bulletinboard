@@ -5,11 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -22,255 +22,122 @@ import com.example.bulletinboard.model.AccountStatus;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.repository.UserRepository;
 
-/**
- * 【クラス全体の役割】
- * email + passwordによるログイン認証と、
- * ログイン失敗回数によるセキュリティロック、
- * accountStatusによるログイン可否を検証するテストクラスです。
- *
- * 【主な検証内容】
- * - パスワード誤り時にfailedAttemptが加算されること
- * - ログイン失敗3回でaccountNonLocked=falseになること
- * - ロック状態では正しいパスワードでもログインできないこと
- * - ACTIVEユーザーが正常にログインできること
- * - FROZENユーザーがログインできないこと
- * - WITHDRAWNユーザーがログインできないこと
- * - ログイン成功時にfailedAttemptが0へリセットされること
- *
- * 【設計上のポイント】
- * - ログインIDにはusernameではなくemailを使用します。
- * - ログイン失敗回数が3回に達すると
- *   accountNonLocked=falseとなりセキュリティロックされます。
- * - ログイン成功時はAuthenticationEventListenerを通して
- *   failedAttemptを0へリセットします。
- * - accountStatusはACTIVE / FROZEN / WITHDRAWNを区別し、
- *   ACTIVEの場合のみ通常ログインを許可します。
- */
+/** ログイン結果と、失敗回数・ロック・利用状態の既存動作をAPI契約で確認する。 */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 class LoginSecurityTest {
+    private static final String LOGIN = "/api/auth/login";
+    private static final String EMAIL = "testuser@example.com";
+    private static final String PASSWORD = "Password123";
 
-    @Autowired
-    private MockMvc mockMvc;
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    @Autowired MockMvc mvc;
+    @Autowired UserRepository users;
+    @Autowired PasswordEncoder encoder;
 
     @BeforeEach
     void setUp() {
-
-        // 通常利用可能なテストユーザーを作成
         User user = new User();
         user.setUsername("testuser");
-        user.setEmail("testuser@example.com");
-        user.setPassword(
-                passwordEncoder.encode("Password123")
-        );
+        user.setEmail(EMAIL);
+        user.setPassword(encoder.encode(PASSWORD));
         user.setFailedAttempt(0);
         user.setAccountNonLocked(true);
         user.setAccountStatus(AccountStatus.ACTIVE);
-
-        userRepository.save(user);
+        users.save(user);
     }
 
     @Test
-    @DisplayName(
-        "パスワード失敗1回目：wrongへリダイレクトされ、失敗回数が1になる"
-    )
-    void loginFailure_WrongPassword_RedirectsToWrong()
-            throws Exception {
+    void wrongPasswordReturnsJsonAndIncreasesFailureCount() throws Exception {
+        login("WrongPass1")
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.reason").value("WRONG_CREDENTIALS"))
+                .andExpect(jsonPath("$.path").value(LOGIN))
+                .andExpect(header().string("Cache-Control", "no-store"));
 
-        mockMvc.perform(post("/login")
-                .param("email", "testuser@example.com")
-                .param("password", "WrongPass1")
-                .with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(
-                    redirectedUrl("/login?error=wrong")
-                );
-
-        User user = userRepository
-                .findByEmail("testuser@example.com")
-                .orElseThrow();
-
+        User user = currentUser();
         assertEquals(1, user.getFailedAttempt());
         assertTrue(user.isAccountNonLocked());
     }
 
     @Test
-    @DisplayName(
-        "パスワードを3回間違えるとロックされ、4回目はlockedへリダイレクトされる"
-    )
-    void loginFailure_ThreeTimes_LocksAccountAndRedirectsToLocked()
-            throws Exception {
+    void threeFailuresLockAccountAndNextAttemptReportsLocked() throws Exception {
+        login("Wrong1").andExpect(status().isUnauthorized());
+        login("Wrong2").andExpect(status().isUnauthorized());
+        login("Wrong3")
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.reason").value("WRONG_CREDENTIALS"));
 
-        // 1回目
-        mockMvc.perform(post("/login")
-                .param("email", "testuser@example.com")
-                .param("password", "Wrong1")
-                .with(csrf()));
-
-        // 2回目
-        mockMvc.perform(post("/login")
-                .param("email", "testuser@example.com")
-                .param("password", "Wrong2")
-                .with(csrf()));
-
-        /*
-         * 3回目。
-         * この認証試行自体はBadCredentials扱いですが、
-         * AuthenticationEventListenerによって
-         * failedAttempt=3、accountNonLocked=falseになります。
-         */
-        mockMvc.perform(post("/login")
-                .param("email", "testuser@example.com")
-                .param("password", "Wrong3")
-                .with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(
-                    redirectedUrl("/login?error=wrong")
-                );
-
-        User user = userRepository
-                .findByEmail("testuser@example.com")
-                .orElseThrow();
-
+        User user = currentUser();
         assertEquals(3, user.getFailedAttempt());
         assertFalse(user.isAccountNonLocked());
 
-        /*
-         * 4回目は認証開始時点ですでにロック状態なので、
-         * LockedExceptionとなります。
-         */
-        mockMvc.perform(post("/login")
-                .param("email", "testuser@example.com")
-                .param("password", "Wrong4")
-                .with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(
-                    redirectedUrl("/login?error=locked")
-                );
+        login("Wrong4")
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.reason").value("LOCKED"));
     }
 
     @Test
-    @DisplayName(
-        "セキュリティロック中は正しいパスワードでもlockedへリダイレクトされる"
-    )
-    void login_WhenLocked_RedirectsToLocked()
-            throws Exception {
-
-        User user = userRepository
-                .findByEmail("testuser@example.com")
-                .orElseThrow();
-
+    void preLockedAccountReturnsLocked() throws Exception {
+        User user = currentUser();
         user.setFailedAttempt(3);
         user.setAccountNonLocked(false);
+        users.save(user);
 
-        userRepository.save(user);
-
-        mockMvc.perform(post("/login")
-                .param("email", "testuser@example.com")
-                .param("password", "Password123")
-                .with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(
-                    redirectedUrl("/login?error=locked")
-                );
+        login(PASSWORD)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.reason").value("LOCKED"));
     }
 
-    // 追記
+    @Test
+    void activeAccountReturnsJsonSuccess() throws Exception {
+        login(PASSWORD)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authenticated").value(true))
+                .andExpect(header().doesNotExist("Location"))
+                .andExpect(header().string("Cache-Control", "no-store"));
+    }
 
     @Test
-@DisplayName("ACTIVEユーザーは正しいメールアドレスとパスワードでログインできる")
-void login_WhenActive_ShouldSucceed() throws Exception {
+    void frozenAccountReturnsFrozen() throws Exception {
+        User user = currentUser();
+        user.setAccountStatus(AccountStatus.FROZEN);
+        users.save(user);
 
-    mockMvc.perform(post("/login")
-            .param("email", "testuser@example.com")
-            .param("password", "Password123")
-            .with(csrf()))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(
-                redirectedUrl("/posts")
-            );
-}
+        login(PASSWORD)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.reason").value("FROZEN"));
+    }
 
-@Test
-@DisplayName("FROZENユーザーはログインできず、frozenへリダイレクトされる")
-void login_WhenFrozen_RedirectsToFrozen() throws Exception {
+    @Test
+    void withdrawnAccountReturnsWithdrawn() throws Exception {
+        User user = currentUser();
+        user.setAccountStatus(AccountStatus.WITHDRAWN);
+        users.save(user);
 
-    User user = userRepository
-            .findByEmail("testuser@example.com")
-            .orElseThrow();
+        login(PASSWORD)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.reason").value("WITHDRAWN"));
+    }
 
-    user.setAccountStatus(AccountStatus.FROZEN);
-    userRepository.save(user);
+    @Test
+    void successfulLoginResetsFailureCount() throws Exception {
+        User user = currentUser();
+        user.setFailedAttempt(2);
+        users.save(user);
 
-    mockMvc.perform(post("/login")
-            .param("email", "testuser@example.com")
-            .param("password", "Password123")
-            .with(csrf()))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(
-                redirectedUrl("/login?error=frozen")
-            );
-}
+        login(PASSWORD).andExpect(status().isOk());
 
-@Test
-@DisplayName("WITHDRAWNユーザーはログインできず、withdrawnへリダイレクトされる")
-void login_WhenWithdrawn_RedirectsToWithdrawn() throws Exception {
+        User updated = currentUser();
+        assertEquals(0, updated.getFailedAttempt());
+        assertTrue(updated.isAccountNonLocked());
+    }
 
-    User user = userRepository
-            .findByEmail("testuser@example.com")
-            .orElseThrow();
+    private org.springframework.test.web.servlet.ResultActions login(String password) throws Exception {
+        return mvc.perform(post(LOGIN).with(csrf()).param("email", EMAIL).param("password", password));
+    }
 
-    user.setAccountStatus(AccountStatus.WITHDRAWN);
-    userRepository.save(user);
-
-    mockMvc.perform(post("/login")
-            .param("email", "testuser@example.com")
-            .param("password", "Password123")
-            .with(csrf()))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(
-                redirectedUrl("/login?error=withdrawn")
-            );
-}
-
-@Test
-@DisplayName("ログイン成功時にfailedAttemptが0へリセットされること")
-void loginSuccess_ShouldResetFailedAttempts()
-        throws Exception {
-
-    User user = userRepository
-            .findByEmail("testuser@example.com")
-            .orElseThrow();
-
-    user.setFailedAttempt(2);
-    userRepository.save(user);
-
-    mockMvc.perform(post("/login")
-            .param("email", "testuser@example.com")
-            .param("password", "Password123")
-            .with(csrf()))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(
-                redirectedUrl("/posts")
-            );
-
-    User updatedUser = userRepository
-            .findByEmail("testuser@example.com")
-            .orElseThrow();
-
-    assertEquals(
-        0,
-        updatedUser.getFailedAttempt()
-    );
-
-    assertTrue(
-        updatedUser.isAccountNonLocked()
-    );
-}
+    private User currentUser() {
+        return users.findByEmail(EMAIL).orElseThrow();
+    }
 }

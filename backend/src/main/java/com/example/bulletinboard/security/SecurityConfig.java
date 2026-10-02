@@ -20,6 +20,8 @@ import org.springframework.http.MediaType;
 
 
 import com.example.bulletinboard.dto.error.ErrorResponse;
+import com.example.bulletinboard.dto.auth.AuthenticatedUserResponse;
+import com.example.bulletinboard.dto.auth.LoginFailureResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.bulletinboard.model.AccountStatus;
 import com.example.bulletinboard.repository.UserRepository;
@@ -31,7 +33,7 @@ import com.example.bulletinboard.repository.UserRepository;
  *
  * 【主な役割】
  * - URLごとのアクセス権限を設定する
- * - email + passwordによるフォームログインを設定する
+ * - email + passwordによるAPIログインを設定する
  * - ログイン失敗理由に応じてエラー種別を判定する
  * - ログイン失敗回数によるセキュリティロックを判定する
  * - FROZEN / WITHDRAWNなどのアカウント状態によるログイン拒否を判定する
@@ -93,6 +95,12 @@ public class SecurityConfig {
                   .requestMatchers(HttpMethod.POST, "/api/auth/register")
                   .permitAll()
 
+                  .requestMatchers(HttpMethod.POST, "/api/auth/login")
+                  .permitAll()
+
+                  .requestMatchers(HttpMethod.GET, "/api/auth/me")
+                  .permitAll()
+
                   // 管理APIは管理者のみ利用可能
                   .requestMatchers("/api/admin/**")
                   .hasRole("ADMIN")
@@ -127,57 +135,54 @@ public class SecurityConfig {
                 .authenticated()
             )
 
-            // 2. フォームログインの設定
+            // 2. Spring Securityを利用したAPIログインの設定
             .formLogin(login -> login
 
-                /*
-                 * Spring Security標準のログイン画面ではなく、
-                 * アプリケーション独自のログイン画面を使用します。
-                 */
-                .loginPage("/login")
+                .loginProcessingUrl("/api/auth/login")
 
                 /*
                  * ログインIDとしてusernameではなくemailを使用します。
                  *
-                 * login.html側の
-                 * <input name="email">
-                 * と対応します。
+                 * POSTパラメータemailと対応します。
                  */
                 .usernameParameter("email")
 
-                /*
-                 * ログイン成功後はお題一覧画面へ遷移します。
-                 */
-                .defaultSuccessUrl("/posts", true)
+                .successHandler((request, response, authentication) -> {
+                    response.setStatus(HttpStatus.OK.value());
+                    response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.setHeader("Cache-Control", "no-store");
+                    objectMapper.writeValue(response.getWriter(),
+                            new AuthenticatedUserResponse(true, null, null, null, null));
+                })
 
                 /*
                  * ログイン失敗時の処理です。
                  *
-                 * エラー原因を判定し、
-                 * /login?error=xxx の形式でログイン画面へ返します。
+                 * エラー原因を判定し、React側が表示を選べる固定JSONを返します。
                  *
                  * 主なエラー種別：
                  *
-                 * wrong
+                 * WRONG_CREDENTIALS
                  *   メールアドレスまたはパスワードが正しくない
                  *
-                 * locked
+                 * LOCKED
                  *   ログイン失敗回数が上限に達し、
                  *   accountNonLocked=falseになっている
                  *
-                 * frozen
+                 * FROZEN
                  *   管理者によってアカウントが凍結されている
                  *
-                 * withdrawn
+                 * WITHDRAWN
                  *   退会済みアカウントである
                  *
-                 * email_empty
+                 * EMAIL_REQUIRED
                  *   メールアドレスが未入力
                  *
-                 * password_empty
+                 * PASSWORD_REQUIRED
                  *   パスワードが未入力
                  *
-                 * both_empty
+                 * CREDENTIALS_REQUIRED
                  *   メールアドレス・パスワードの両方が未入力
                  */
                 .failureHandler((request, response, exception) -> {
@@ -270,13 +275,34 @@ public class SecurityConfig {
                         }
                     }
 
-                    /*
-                     * 判定したエラー種別をクエリパラメータとして付与し、
-                     * ログイン画面へリダイレクトします。
-                     */
-                    response.sendRedirect(
-                        "/login?error=" + errorType
-                    );
+                    String reason = switch (errorType) {
+                        case "locked" -> "LOCKED";
+                        case "frozen" -> "FROZEN";
+                        case "withdrawn" -> "WITHDRAWN";
+                        case "email_empty" -> "EMAIL_REQUIRED";
+                        case "password_empty" -> "PASSWORD_REQUIRED";
+                        case "both_empty" -> "CREDENTIALS_REQUIRED";
+                        default -> "WRONG_CREDENTIALS";
+                    };
+                    String message = switch (reason) {
+                        case "LOCKED" -> "ログインに複数回失敗したため、アカウントがロックされています。";
+                        case "FROZEN" -> "このアカウントは凍結されています。";
+                        case "WITHDRAWN" -> "このアカウントは退会済みです。";
+                        case "EMAIL_REQUIRED" -> "メールアドレスを入力してください。";
+                        case "PASSWORD_REQUIRED" -> "パスワードを入力してください。";
+                        case "CREDENTIALS_REQUIRED" -> "メールアドレスとパスワードを入力してください。";
+                        default -> "メールアドレスまたはパスワードが正しくありません。";
+                    };
+                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                    response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.setHeader("Cache-Control", "no-store");
+                    objectMapper.writeValue(response.getWriter(), new LoginFailureResponse(
+                            HttpStatus.UNAUTHORIZED.value(),
+                            HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                            message,
+                            request.getRequestURI(),
+                            reason));
                 })
 
                 // ログイン処理自体は未認証ユーザーにも許可
@@ -321,9 +347,9 @@ public class SecurityConfig {
                     );
                 } else {
 
-                  // 旧MVCのリダイレクト先を維持します。
+                  // F-3では旧/postsへの認証エラー依存を解消する。
                  new LoginUrlAuthenticationEntryPoint(
-                    "/posts?error=unauthorized"
+                    "/login"
                   ).commence(request, response, authException);
                }
             
@@ -365,14 +391,20 @@ public class SecurityConfig {
         })
             )
 
+            .sessionManagement(session -> session
+                // Spring Security標準のSession ID変更を明示する。
+                .sessionFixation(fixation -> fixation.changeSessionId())
+            )
+
             // 3. ログアウト処理
             .logout(logout -> logout
 
-                // POST /logoutでログアウト処理を実行
-                .logoutUrl("/logout")
+                .logoutUrl("/api/auth/logout")
 
-                // ログアウト成功後はログイン画面へ遷移
-                .logoutSuccessUrl("/login?logout")
+                .logoutSuccessHandler((request, response, authentication) -> {
+                    response.setStatus(HttpStatus.NO_CONTENT.value());
+                    response.setHeader("Cache-Control", "no-store");
+                })
 
                 // サーバー側のセッションを無効化
                 .invalidateHttpSession(true)
