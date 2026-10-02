@@ -36,6 +36,8 @@ import com.example.bulletinboard.exception.ReportOperationException;
 import com.example.bulletinboard.exception.AdminReportOperationException;
 import com.example.bulletinboard.exception.RegistrationConflictException;
 import com.example.bulletinboard.exception.RegistrationOperationException;
+import com.example.bulletinboard.exception.PasswordResetException;
+import com.example.bulletinboard.exception.WithdrawalException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
@@ -123,6 +125,32 @@ import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
+    @ExceptionHandler(PasswordResetException.class)
+    public ResponseEntity<ErrorResponse> handlePasswordReset(
+            PasswordResetException ex, HttpServletRequest request) {
+        var reason = ex.getReason();
+        if (reason.status.is5xxServerError()) {
+            log.error("password_reset_error reason={} errorType={}", reason,
+                    ex.getCause() == null ? "Unknown" : ex.getCause().getClass().getSimpleName());
+        }
+        return ResponseEntity.status(reason.status).header("Cache-Control", "no-store")
+                .body(new ErrorResponse(reason.status.value(), reason.status.getReasonPhrase(),
+                        reason.message, request.getRequestURI()));
+    }
+
+    @ExceptionHandler(WithdrawalException.class)
+    public ResponseEntity<ErrorResponse> handleWithdrawal(
+            WithdrawalException ex, HttpServletRequest request) {
+        var reason = ex.getReason();
+        if (reason.status.is5xxServerError()) {
+            log.error("withdrawal_error errorType={}",
+                    ex.getCause() == null ? "Unknown" : ex.getCause().getClass().getSimpleName());
+        }
+        return ResponseEntity.status(reason.status).header("Cache-Control", "no-store")
+                .body(new ErrorResponse(reason.status.value(), reason.status.getReasonPhrase(),
+                        reason.message, request.getRequestURI()));
+    }
+
     @ExceptionHandler(RegistrationConflictException.class)
     public ResponseEntity<ValidationErrorResponse> handleRegistrationConflict(
             RegistrationConflictException ex, HttpServletRequest request) {

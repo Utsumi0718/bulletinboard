@@ -1,6 +1,5 @@
 package com.example.bulletinboard.service;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.springframework.security.core.userdetails.UserDetails;
@@ -160,47 +159,6 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     /*
-     * パスワードを更新します。
-     *
-     * 新しい認証仕様ではemailを基準に
-     * 対象ユーザーを検索します。
-     *
-     * パスワード入力失敗によってロックされている場合は、
-     * パスワード更新と同時にロックを解除します。
-     */
-    @Transactional
-    public boolean updatePassword(
-            String email,
-            String rawNewPassword) {
-
-        Optional<User> userOptional =
-            userRepository.findByEmail(email);
-
-        if (userOptional.isEmpty()) {
-            return false;
-        }
-
-        User user = userOptional.get();
-
-        user.setPassword(
-            passwordEncoder.encode(rawNewPassword)
-        );
-
-        /*
-         * パスワード入力失敗による自動ロックの場合は解除します。
-         */
-        if (user.getFailedAttempt() >= MAX_FAILED_ATTEMPTS) {
-
-            user.setAccountNonLocked(true);
-            user.setFailedAttempt(0);
-        }
-
-        userRepository.save(user);
-
-        return true;
-    }
-
-    /*
      * ログイン失敗時に、
      * failedAttemptを1増加させます。
      *
@@ -257,37 +215,5 @@ public class CustomUserDetailsService implements UserDetailsService {
     public Optional<User> findByUsername(String username) {
 
         return userRepository.findByUsername(username);
-    }
-
-    /*
-     * ログイン中ユーザーを退会状態へ変更します。
-     *
-     * ログインIDであるemailを基準に対象ユーザーを取得し、
-     * accountStatusをWITHDRAWNへ変更します。
-     *
-     * また、退会日時をwithdrawnAtへ記録します。
-     *
-     * accountNonLockedとfailedAttemptは
-     * ログイン失敗によるセキュリティロック専用のため、
-     * 退会処理では変更しません。
-     */
-    @Transactional
-    public boolean withdrawUser(String email) {
-
-        Optional<User> userOptional =
-            userRepository.findByEmail(email);
-
-        if (userOptional.isEmpty()) {
-            return false;
-        }
-
-        User user = userOptional.get();
-
-        user.setAccountStatus(AccountStatus.WITHDRAWN);
-        user.setWithdrawnAt(LocalDateTime.now());
-
-        userRepository.save(user);
-
-        return true;
     }
 }

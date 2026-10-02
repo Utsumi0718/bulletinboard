@@ -11,6 +11,10 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
+import org.springframework.boot.web.servlet.ServletListenerRegistrationBean;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandlerImpl;
@@ -65,7 +69,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             UserRepository userRepository,
-            ObjectMapper objectMapper) throws Exception {
+            ObjectMapper objectMapper,
+            SessionRegistry sessionRegistry) throws Exception {
 
         http
 
@@ -101,6 +106,11 @@ public class SecurityConfig {
                   .requestMatchers(HttpMethod.GET, "/api/auth/me")
                   .permitAll()
 
+                  .requestMatchers(HttpMethod.POST,
+                          "/api/auth/password-reset/request",
+                          "/api/auth/password-reset/confirm")
+                  .permitAll()
+
                   // 管理APIは管理者のみ利用可能
                   .requestMatchers("/api/admin/**")
                   .hasRole("ADMIN")
@@ -124,7 +134,7 @@ public class SecurityConfig {
                  * hasRole("USER")はSpring Security内部で
                  * ROLE_USER権限を確認します。
                  */
-                .requestMatchers("/account/withdraw")
+                .requestMatchers(HttpMethod.POST, "/api/account/withdraw")
                 .hasRole("USER")
 
                 /*
@@ -391,10 +401,21 @@ public class SecurityConfig {
         })
             )
 
-            .sessionManagement(session -> session
+            .sessionManagement(session -> {
                 // Spring Security標準のSession ID変更を明示する。
-                .sessionFixation(fixation -> fixation.changeSessionId())
-            )
+                session.sessionFixation(fixation -> fixation.changeSessionId());
+                session.maximumSessions(-1)
+                        .sessionRegistry(sessionRegistry)
+                        .expiredSessionStrategy(event -> {
+                            event.getResponse().setStatus(HttpStatus.UNAUTHORIZED.value());
+                            event.getResponse().setCharacterEncoding(StandardCharsets.UTF_8.name());
+                            event.getResponse().setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            event.getResponse().setHeader("Cache-Control", "no-store");
+                            objectMapper.writeValue(event.getResponse().getWriter(), new ErrorResponse(
+                                    401, HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                                    "ログインが必要です。", event.getRequest().getRequestURI()));
+                        });
+            })
 
             // 3. ログアウト処理
             .logout(logout -> logout
@@ -430,5 +451,15 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
 
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public SessionRegistry sessionRegistry() {
+        return new SessionRegistryImpl();
+    }
+
+    @Bean
+    public static ServletListenerRegistrationBean<HttpSessionEventPublisher> httpSessionEventPublisher() {
+        return new ServletListenerRegistrationBean<>(new HttpSessionEventPublisher());
     }
 }

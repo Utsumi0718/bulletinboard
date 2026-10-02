@@ -74,6 +74,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     Optional<User> findByEmail(String email);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.email = :email")
+    Optional<User> findByEmailForUpdate(@Param("email") String email);
+
     /*
      * 指定したメールアドレスのユーザーについて、
      * ログイン失敗回数を1増加させます。

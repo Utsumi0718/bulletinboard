@@ -43,6 +43,7 @@ public class ActiveAccountFilter extends OncePerRequestFilter {
                 path.startsWith("/css/") || path.startsWith("/js/") ||
                 (path.equals("/api/auth/login") && HttpMethod.POST.matches(request.getMethod())) ||
                 (path.equals("/api/auth/logout") && HttpMethod.POST.matches(request.getMethod())) ||
+                (path.startsWith("/api/auth/password-reset/") && HttpMethod.POST.matches(request.getMethod())) ||
                 (path.equals("/api/contacts") && HttpMethod.POST.matches(request.getMethod())) ||
                 (path.equals("/api/auth/register") && HttpMethod.POST.matches(request.getMethod())) ||
                 (path.equals("/api/csrf") && HttpMethod.GET.matches(request.getMethod()));
