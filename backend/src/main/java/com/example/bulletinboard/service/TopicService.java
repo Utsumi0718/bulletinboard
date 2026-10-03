@@ -69,6 +69,7 @@ public class TopicService {
 
     private final TopicRepository topicRepository;
     private final AnswerRepository answerRepository;
+    private final TopicImageService topicImageService;
 
 
     /*
@@ -81,10 +82,12 @@ public class TopicService {
      */
     public TopicService(
         TopicRepository topicRepository,
-        AnswerRepository answerRepository) {
+        AnswerRepository answerRepository,
+        TopicImageService topicImageService) {
 
     this.topicRepository = topicRepository;
     this.answerRepository = answerRepository;
+    this.topicImageService = topicImageService;
    }
 
     /*
@@ -135,10 +138,11 @@ public class TopicService {
     /*
      * Topicを保存します。
      *
-     * 新規登録・更新のどちらでもRepositoryのsave()を使用します。
+     * 本人がアップロードした管理下画像を確認して保存します。
      */
     @Transactional
     public Topic save(Topic topic) {
+        topicImageService.requireOwnedImage(topic.getImage(), topic.getUser().getEmail());
         return topicRepository.save(topic);
     }
 
@@ -188,7 +192,7 @@ public class TopicService {
         boolean isAdmin) {
 
     Topic topic = topicRepository
-        .findByIdAndDeletedAtIsNull(id)
+        .findReportableByIdForUpdate(id)
         .orElseThrow(
          () -> new TopicNotFoundException(
             "このお題は存在しないか、削除されています。"
@@ -299,7 +303,7 @@ public Topic updateTopic(
         String question) {
 
     Topic topic = topicRepository
-            .findByIdAndDeletedAtIsNull(topicId)
+            .findReportableByIdForUpdate(topicId)
             .orElseThrow(() ->
                     new TopicNotFoundException(
                             "このお題は存在しないか、削除されています。"
@@ -318,6 +322,7 @@ public Topic updateTopic(
     );
 }
 
+    topicImageService.requireOwnedImage(image, loginEmail);
     topic.setTitle(title);
     topic.setImage(image);
     topic.setQuestion(question);

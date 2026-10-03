@@ -124,7 +124,7 @@ public class AnswerService {
         boolean isAdmin) {
 
       Answer answer = answerRepository
-        .findByIdAndDeletedAtIsNull(id)
+        .findReportableByIdForUpdate(id)
         .orElseThrow(
        () -> new AnswerNotFoundException(
         "この回答は存在しないか、削除されています。"
@@ -159,7 +159,7 @@ public class AnswerService {
         String content) {
 
     Answer answer = answerRepository
-        .findByIdAndDeletedAtIsNull(answerId)
+        .findReportableByIdForUpdate(answerId)
        .orElseThrow(
         () -> new AnswerNotFoundException(
         "この回答は存在しないか、削除されています。"

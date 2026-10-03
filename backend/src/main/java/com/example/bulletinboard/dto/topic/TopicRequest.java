@@ -17,6 +17,7 @@ public class TopicRequest {
     @Size(max = 50)
     private String title;
 
+    // POST /api/topic-imagesで返されたurl。所有者・実在性はServiceで確認する。
     @NotBlank
     @Size(max = 255)
     private String image;

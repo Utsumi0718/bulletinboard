@@ -167,7 +167,7 @@ class AnswerServiceTest {
 
     when(
         answerRepository
-            .findByIdAndDeletedAtIsNull(1L)
+            .findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(answer));
 
     when(
@@ -204,7 +204,7 @@ class AnswerServiceTest {
     answer.setContent("変更前");
 
     when(
-        answerRepository.findByIdAndDeletedAtIsNull(1L)
+        answerRepository.findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(answer));
 
     when(
@@ -245,7 +245,7 @@ void deleteAnswer_Admin_ShouldSetDeletedAt() {
     answer.setUser(answerUser);
 
     when(
-        answerRepository.findByIdAndDeletedAtIsNull(1L)
+        answerRepository.findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(answer));
 
     when(
@@ -281,7 +281,7 @@ void deleteAnswer_NotOwnerAndNotAdmin_ShouldThrowException() {
     answer.setUser(answerUser);
 
     when(
-            answerRepository.findByIdAndDeletedAtIsNull(1L)
+            answerRepository.findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(answer));
 
     org.assertj.core.api.Assertions
@@ -306,7 +306,7 @@ void deleteAnswer_NotOwnerAndNotAdmin_ShouldThrowException() {
 void deleteAnswer_AnswerNotFound_ShouldThrowException() {
 
     when(
-            answerRepository.findByIdAndDeletedAtIsNull(999L)
+            answerRepository.findReportableByIdForUpdate(999L)
     ).thenReturn(Optional.empty());
 
     org.assertj.core.api.Assertions
@@ -331,7 +331,7 @@ void deleteAnswer_AnswerNotFound_ShouldThrowException() {
 void updateAnswer_AnswerNotFound_ShouldThrowException() {
 
     when(
-            answerRepository.findByIdAndDeletedAtIsNull(999L)
+            answerRepository.findReportableByIdForUpdate(999L)
     ).thenReturn(Optional.empty());
 
     org.assertj.core.api.Assertions
@@ -363,7 +363,7 @@ void updateAnswer_NotOwner_ShouldThrowException() {
     answer.setUser(answerUser);
 
     when(
-            answerRepository.findByIdAndDeletedAtIsNull(1L)
+            answerRepository.findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(answer));
 
     org.assertj.core.api.Assertions
@@ -395,7 +395,7 @@ void updateAnswer_LikeExists_ShouldThrowException() {
     answer.setUser(answerUser);
 
     when(
-            answerRepository.findByIdAndDeletedAtIsNull(1L)
+            answerRepository.findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(answer));
 
     when(

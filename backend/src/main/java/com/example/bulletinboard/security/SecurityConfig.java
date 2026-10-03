@@ -1,16 +1,31 @@
 package com.example.bulletinboard.security;
 
+import java.nio.charset.StandardCharsets;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.DefaultLoginPageConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
+import org.springframework.boot.web.servlet.ServletListenerRegistrationBean;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 
+
+import com.example.bulletinboard.dto.error.ErrorResponse;
+import com.example.bulletinboard.dto.auth.AuthenticatedUserResponse;
+import com.example.bulletinboard.dto.auth.LoginFailureResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.bulletinboard.model.AccountStatus;
 import com.example.bulletinboard.repository.UserRepository;
 
@@ -21,7 +36,7 @@ import com.example.bulletinboard.repository.UserRepository;
  *
  * 【主な役割】
  * - URLごとのアクセス権限を設定する
- * - email + passwordによるフォームログインを設定する
+ * - email + passwordによるAPIログインを設定する
  * - ログイン失敗理由に応じてエラー種別を判定する
  * - ログイン失敗回数によるセキュリティロックを判定する
  * - FROZEN / WITHDRAWNなどのアカウント状態によるログイン拒否を判定する
@@ -52,26 +67,57 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            UserRepository userRepository) throws Exception {
+            UserRepository userRepository,
+            ObjectMapper objectMapper,
+            SessionRegistry sessionRegistry) throws Exception {
+
+        // 認証はAPIで提供するため、Security標準のログイン・ログアウトHTMLを生成しない。
+        http.removeConfigurer(DefaultLoginPageConfigurer.class);
 
         http
+            .requestCache(cache -> cache.disable())
 
             // 1. URLごとのアクセス権限（認可）を設定
             .authorizeHttpRequests(auth -> auth
 
                 /*
-                 * お題一覧・ログイン・新規登録・パスワード再設定・
-                 * 静的リソースなどは、未ログインユーザーにも公開します。
+                 * 未ログインでも利用するAPIとエラー処理のアクセスを許可します。
                  */
-                .requestMatchers(
 
-                    "/login",
-                    "/register",
-                    "/reset-password",
-                    "/css/**",
-                    "/js/**",
-                    "/error"
-                ).permitAll()
+                 /*
+                  * お問い合わせの新規受付は、
+                  * 未ログイン・ログイン済みのどちらでも利用可能にします。
+                  *
+                  * 許可するのはPOST /api/contactsのみです。
+                  * CSRF保護は引き続き適用されます。
+                  */
+                  .requestMatchers(HttpMethod.POST, "/api/contacts")
+                  .permitAll()
+
+                  // CSRFトークンは未ログインでも取得可能
+                  .requestMatchers(HttpMethod.GET, "/api/csrf")
+                  .permitAll()
+
+                  // 新規登録APIは未ログインで利用し、CSRF保護は維持する
+                  .requestMatchers(HttpMethod.POST, "/api/auth/register")
+                  .permitAll()
+
+                  .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/logout")
+                  .permitAll()
+
+                  .requestMatchers(HttpMethod.GET, "/api/auth/me")
+                  .permitAll()
+
+                  .requestMatchers(HttpMethod.POST,
+                          "/api/auth/password-reset/request",
+                          "/api/auth/password-reset/confirm")
+                  .permitAll()
+
+                  // 管理APIは管理者のみ利用可能
+                  .requestMatchers("/api/admin/**")
+                  .hasRole("ADMIN")
+
+                  .requestMatchers("/error").permitAll()
 
                 /*
                  * 退会処理は一般ユーザーのみ実行可能とします。
@@ -82,15 +128,8 @@ public class SecurityConfig {
                  * hasRole("USER")はSpring Security内部で
                  * ROLE_USER権限を確認します。
                  */
-                .requestMatchers("/account/withdraw")
+                .requestMatchers(HttpMethod.POST, "/api/account/withdraw")
                 .hasRole("USER")
-
-                /*
-                 * 管理者専用URLは、
-                 * ROLE_ADMINを持つユーザーのみアクセス可能とします。
-                 */
-                .requestMatchers("/admin/**")
-                .hasRole("ADMIN")
 
                 /*
                  * 上記以外のURLは、
@@ -100,57 +139,54 @@ public class SecurityConfig {
                 .authenticated()
             )
 
-            // 2. フォームログインの設定
+            // 2. Spring Securityを利用したAPIログインの設定
             .formLogin(login -> login
 
-                /*
-                 * Spring Security標準のログイン画面ではなく、
-                 * アプリケーション独自のログイン画面を使用します。
-                 */
-                .loginPage("/login")
+                .loginProcessingUrl("/api/auth/login")
 
                 /*
                  * ログインIDとしてusernameではなくemailを使用します。
                  *
-                 * login.html側の
-                 * <input name="email">
-                 * と対応します。
+                 * POSTパラメータemailと対応します。
                  */
                 .usernameParameter("email")
 
-                /*
-                 * ログイン成功後はお題一覧画面へ遷移します。
-                 */
-                .defaultSuccessUrl("/posts", true)
+                .successHandler((request, response, authentication) -> {
+                    response.setStatus(HttpStatus.OK.value());
+                    response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.setHeader("Cache-Control", "no-store");
+                    objectMapper.writeValue(response.getWriter(),
+                            new AuthenticatedUserResponse(true, null, null, null, null));
+                })
 
                 /*
                  * ログイン失敗時の処理です。
                  *
-                 * エラー原因を判定し、
-                 * /login?error=xxx の形式でログイン画面へ返します。
+                 * エラー原因を判定し、React側が表示を選べる固定JSONを返します。
                  *
                  * 主なエラー種別：
                  *
-                 * wrong
+                 * WRONG_CREDENTIALS
                  *   メールアドレスまたはパスワードが正しくない
                  *
-                 * locked
+                 * LOCKED
                  *   ログイン失敗回数が上限に達し、
                  *   accountNonLocked=falseになっている
                  *
-                 * frozen
+                 * FROZEN
                  *   管理者によってアカウントが凍結されている
                  *
-                 * withdrawn
+                 * WITHDRAWN
                  *   退会済みアカウントである
                  *
-                 * email_empty
+                 * EMAIL_REQUIRED
                  *   メールアドレスが未入力
                  *
-                 * password_empty
+                 * PASSWORD_REQUIRED
                  *   パスワードが未入力
                  *
-                 * both_empty
+                 * CREDENTIALS_REQUIRED
                  *   メールアドレス・パスワードの両方が未入力
                  */
                 .failureHandler((request, response, exception) -> {
@@ -243,39 +279,114 @@ public class SecurityConfig {
                         }
                     }
 
-                    /*
-                     * 判定したエラー種別をクエリパラメータとして付与し、
-                     * ログイン画面へリダイレクトします。
-                     */
-                    response.sendRedirect(
-                        "/login?error=" + errorType
-                    );
+                    String reason = switch (errorType) {
+                        case "locked" -> "LOCKED";
+                        case "frozen" -> "FROZEN";
+                        case "withdrawn" -> "WITHDRAWN";
+                        case "email_empty" -> "EMAIL_REQUIRED";
+                        case "password_empty" -> "PASSWORD_REQUIRED";
+                        case "both_empty" -> "CREDENTIALS_REQUIRED";
+                        default -> "WRONG_CREDENTIALS";
+                    };
+                    String message = switch (reason) {
+                        case "LOCKED" -> "ログインに複数回失敗したため、アカウントがロックされています。";
+                        case "FROZEN" -> "このアカウントは凍結されています。";
+                        case "WITHDRAWN" -> "このアカウントは退会済みです。";
+                        case "EMAIL_REQUIRED" -> "メールアドレスを入力してください。";
+                        case "PASSWORD_REQUIRED" -> "パスワードを入力してください。";
+                        case "CREDENTIALS_REQUIRED" -> "メールアドレスとパスワードを入力してください。";
+                        default -> "メールアドレスまたはパスワードが正しくありません。";
+                    };
+                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                    response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.setHeader("Cache-Control", "no-store");
+                    objectMapper.writeValue(response.getWriter(), new LoginFailureResponse(
+                            HttpStatus.UNAUTHORIZED.value(),
+                            HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                            message,
+                            request.getRequestURI(),
+                            reason));
                 })
 
-                // ログイン処理自体は未認証ユーザーにも許可
-                .permitAll()
             )
 
-            /*
-             * 未ログイン状態で認証必須ページへ
-             * アクセスした場合の処理。
-             */
+           /*
+           * Securityで拒否されたリクエストの応答を設定します。
+           *
+           * - 未ログインによる認証拒否は401の共通JSON
+           * - 権限不足・CSRF拒否は403の共通JSON
+           */
+
             .exceptionHandling(exception -> exception
-                .authenticationEntryPoint(
-                    new LoginUrlAuthenticationEntryPoint(
-                        "/posts?error=unauthorized"
-                    )
-                )
+                .authenticationEntryPoint( (request, response, authException) -> {
+
+                      ErrorResponse errorResponse = new ErrorResponse(
+                      HttpStatus.UNAUTHORIZED.value(),
+                      HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                      "ログインが必要です。",
+                       request.getRequestURI()
+                    );
+
+                     response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                     response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+
+                    objectMapper.writeValue(
+                        response.getWriter(),
+                        errorResponse
+                    );
+
+             })
+
+
+          // 403：権限不足・CSRFによる拒否
+         .accessDeniedHandler((request, response, accessDeniedException) -> {
+
+            ErrorResponse errorResponse = new ErrorResponse(
+                    HttpStatus.FORBIDDEN.value(),
+                    HttpStatus.FORBIDDEN.getReasonPhrase(),
+                    "このリクエストは許可されていません。",
+                    request.getRequestURI()
+            );
+
+            response.setStatus(HttpStatus.FORBIDDEN.value());
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    errorResponse
+            );
+
+        })
             )
+
+            .sessionManagement(session -> {
+                // Spring Security標準のSession ID変更を明示する。
+                session.sessionFixation(fixation -> fixation.changeSessionId());
+                session.maximumSessions(-1)
+                        .sessionRegistry(sessionRegistry)
+                        .expiredSessionStrategy(event -> {
+                            event.getResponse().setStatus(HttpStatus.UNAUTHORIZED.value());
+                            event.getResponse().setCharacterEncoding(StandardCharsets.UTF_8.name());
+                            event.getResponse().setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            event.getResponse().setHeader("Cache-Control", "no-store");
+                            objectMapper.writeValue(event.getResponse().getWriter(), new ErrorResponse(
+                                    401, HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                                    "ログインが必要です。", event.getRequest().getRequestURI()));
+                        });
+            })
 
             // 3. ログアウト処理
             .logout(logout -> logout
 
-                // POST /logoutでログアウト処理を実行
-                .logoutUrl("/logout")
+                .logoutUrl("/api/auth/logout")
 
-                // ログアウト成功後はログイン画面へ遷移
-                .logoutSuccessUrl("/login?logout")
+                .logoutSuccessHandler((request, response, authentication) -> {
+                    response.setStatus(HttpStatus.NO_CONTENT.value());
+                    response.setHeader("Cache-Control", "no-store");
+                })
 
                 // サーバー側のセッションを無効化
                 .invalidateHttpSession(true)
@@ -283,10 +394,9 @@ public class SecurityConfig {
                 // ブラウザ側のセッションCookieを削除
                 .deleteCookies("JSESSIONID")
 
-                // ログアウト処理へのアクセスを許可
-                .permitAll()
             );
 
+        http.addFilterBefore(new ActiveAccountFilter(userRepository, objectMapper), AuthorizationFilter.class);
         return http.build();
     }
 
@@ -300,5 +410,15 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
 
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public SessionRegistry sessionRegistry() {
+        return new SessionRegistryImpl();
+    }
+
+    @Bean
+    public static ServletListenerRegistrationBean<HttpSessionEventPublisher> httpSessionEventPublisher() {
+        return new ServletListenerRegistrationBean<>(new HttpSessionEventPublisher());
     }
 }

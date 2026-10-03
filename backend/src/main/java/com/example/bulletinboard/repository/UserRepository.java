@@ -35,10 +35,12 @@ import com.example.bulletinboard.model.User;
  * - 今後の認証ではemail + passwordによるログインを採用するため、
  *   ログイン失敗回数やアカウントロック状態の更新もemailを基準に行います。
  * - accountNonLockedはログイン失敗によるセキュリティロックを管理します。
- * - ACTIVE / FROZEN / WITHDRAWNなどのaccountStatusを利用した
- *   凍結・退会処理については、認証・アカウント管理機能の実装時に整理します。
+ * - 管理者による状態変更ではUser行をロックして二重操作を直列に扱います。
  */
 public interface UserRepository extends JpaRepository<User, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.id = :id")
+    Optional<User> findByIdForUpdate(@Param("id") Long id);
 
     /*
      * 指定したユーザー名がすでに登録されているか確認します。
@@ -71,6 +73,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * 認証処理の基本となる検索メソッドです。
      */
     Optional<User> findByEmail(String email);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.email = :email")
+    Optional<User> findByEmailForUpdate(@Param("email") String email);
 
     /*
      * 指定したメールアドレスのユーザーについて、

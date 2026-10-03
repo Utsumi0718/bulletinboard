@@ -98,6 +98,9 @@ class TopicServiceTest {
    @Mock
    private AnswerRepository answerRepository;
 
+   @Mock
+   private TopicImageService topicImageService;
+
    @InjectMocks
    private TopicService topicService;
 
@@ -268,7 +271,7 @@ class TopicServiceTest {
 
     when(
         topicRepository
-            .findByIdAndDeletedAtIsNull(1L)
+            .findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(topic));
 
     when(
@@ -307,7 +310,7 @@ void updateTopic_OwnerAndNoAnswer_ShouldUpdateTopic() {
     topic.setQuestion("変更前の問題");
 
     when(
-        topicRepository.findByIdAndDeletedAtIsNull(1L)
+        topicRepository.findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(topic));
 
     when(
@@ -353,7 +356,7 @@ void updateTopic_NotOwner_ShouldThrowException() {
     topic.setUser(topicUser);
 
     when(
-        topicRepository.findByIdAndDeletedAtIsNull(1L)
+        topicRepository.findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(topic));
 
     org.assertj.core.api.Assertions
@@ -387,7 +390,7 @@ void updateTopic_AnswerExists_ShouldThrowException() {
     topic.setUser(topicUser);
 
     when(
-        topicRepository.findByIdAndDeletedAtIsNull(1L)
+        topicRepository.findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(topic));
 
     when(
@@ -417,7 +420,7 @@ void updateTopic_AnswerExists_ShouldThrowException() {
 void updateTopic_TopicNotFound_ShouldThrowException() {
 
     when(
-        topicRepository.findByIdAndDeletedAtIsNull(999L)
+        topicRepository.findReportableByIdForUpdate(999L)
     ).thenReturn(Optional.empty());
 
     org.assertj.core.api.Assertions
@@ -451,7 +454,7 @@ void deleteById_Admin_ShouldSetDeletedAt() {
     topic.setUser(topicUser);
 
     when(
-        topicRepository.findByIdAndDeletedAtIsNull(1L)
+        topicRepository.findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(topic));
 
     when(
@@ -485,7 +488,7 @@ void deleteById_NotOwnerAndNotAdmin_ShouldThrowException() {
     topic.setUser(topicUser);
 
     when(
-        topicRepository.findByIdAndDeletedAtIsNull(1L)
+        topicRepository.findReportableByIdForUpdate(1L)
     ).thenReturn(Optional.of(topic));
 
     org.assertj.core.api.Assertions
@@ -510,7 +513,7 @@ void deleteById_NotOwnerAndNotAdmin_ShouldThrowException() {
 void deleteById_TopicNotFound_ShouldThrowException() {
 
     when(
-        topicRepository.findByIdAndDeletedAtIsNull(999L)
+        topicRepository.findReportableByIdForUpdate(999L)
     ).thenReturn(Optional.empty());
 
     org.assertj.core.api.Assertions
@@ -576,6 +579,10 @@ void findById_ShouldReturnTopic() {
 void save_ShouldSaveTopic() {
 
     Topic topic = new Topic();
+    User owner = new User();
+    owner.setEmail("owner@example.com");
+    topic.setUser(owner);
+    topic.setImage("/api/topic-images/11111111-1111-1111-1111-111111111111");
 
     when(
         topicRepository.save(topic)
@@ -585,6 +592,8 @@ void save_ShouldSaveTopic() {
         topicService.save(topic);
 
     assertThat(result).isSameAs(topic);
+
+    verify(topicImageService).requireOwnedImage(topic.getImage(), owner.getEmail());
 
     verify(
         topicRepository,
