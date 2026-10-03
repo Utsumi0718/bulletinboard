@@ -627,7 +627,7 @@ void submitContact_asAnonymousWithInvalidCsrf_shouldReturnForbidden()
                    .andExpect(jsonPath("$.message")
                    .value("このリクエストは許可されていません。"))
                    .andExpect(jsonPath("$.path")
-                   .value("/api/contacts")); 
+                   .value("/api/contacts"));
 
     verifyNoInteractions(submissionService);
 }

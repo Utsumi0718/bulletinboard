@@ -103,7 +103,7 @@ public class Contact {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private ContactStatus status = ContactStatus.UNANSWERED;
-    
+
     /*
      * お問い合わせが作成された日時。
      */

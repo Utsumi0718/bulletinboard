@@ -49,7 +49,7 @@ import com.example.bulletinboard.model.ContactStatus;
  * MySQL固有の動作やFlywayのMigrationは、このテストの対象外です。
  *
  * - DB保存失敗時にデータが増えず、通知されないこと
- * - 既存トランザクション内からの受付呼び出しを拒否すること 
+ * - 既存トランザクション内からの受付呼び出しを拒否すること
  */
 @DataJpaTest(properties = {
         "spring.jpa.hibernate.ddl-auto=create-drop",

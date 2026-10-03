@@ -317,10 +317,10 @@ public class SecurityConfig {
            * - 未ログインによる認証拒否は401の共通JSON
            * - 権限不足・CSRF拒否は403の共通JSON
            */
- 
+
             .exceptionHandling(exception -> exception
-                .authenticationEntryPoint( (request, response, authException) -> {              
-                
+                .authenticationEntryPoint( (request, response, authException) -> {
+
                       ErrorResponse errorResponse = new ErrorResponse(
                       HttpStatus.UNAUTHORIZED.value(),
                       HttpStatus.UNAUTHORIZED.getReasonPhrase(),
@@ -336,10 +336,10 @@ public class SecurityConfig {
                         response.getWriter(),
                         errorResponse
                     );
-            
+
              })
 
-            
+
           // 403：権限不足・CSRFによる拒否
          .accessDeniedHandler((request, response, accessDeniedException) -> {
 
