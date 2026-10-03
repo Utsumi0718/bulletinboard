@@ -8,6 +8,7 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.DefaultLoginPageConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -16,8 +17,6 @@ import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.boot.web.servlet.ServletListenerRegistrationBean;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
-import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
-import org.springframework.security.web.access.AccessDeniedHandlerImpl;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -72,14 +71,17 @@ public class SecurityConfig {
             ObjectMapper objectMapper,
             SessionRegistry sessionRegistry) throws Exception {
 
+        // 認証はAPIで提供するため、Security標準のログイン・ログアウトHTMLを生成しない。
+        http.removeConfigurer(DefaultLoginPageConfigurer.class);
+
         http
+            .requestCache(cache -> cache.disable())
 
             // 1. URLごとのアクセス権限（認可）を設定
             .authorizeHttpRequests(auth -> auth
 
                 /*
-                 * お題一覧・ログイン・新規登録・パスワード再設定・
-                 * 静的リソースなどは、未ログインユーザーにも公開します。
+                 * 未ログインでも利用するAPIとエラー処理のアクセスを許可します。
                  */
 
                  /*
@@ -100,7 +102,7 @@ public class SecurityConfig {
                   .requestMatchers(HttpMethod.POST, "/api/auth/register")
                   .permitAll()
 
-                  .requestMatchers(HttpMethod.POST, "/api/auth/login")
+                  .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/logout")
                   .permitAll()
 
                   .requestMatchers(HttpMethod.GET, "/api/auth/me")
@@ -115,15 +117,7 @@ public class SecurityConfig {
                   .requestMatchers("/api/admin/**")
                   .hasRole("ADMIN")
 
-                  .requestMatchers(
-
-                    "/login",
-                    "/register",
-                    "/reset-password",
-                    "/css/**",
-                    "/js/**",
-                    "/error"
-                ).permitAll()
+                  .requestMatchers("/error").permitAll()
 
                 /*
                  * 退会処理は一般ユーザーのみ実行可能とします。
@@ -315,31 +309,18 @@ public class SecurityConfig {
                             reason));
                 })
 
-                // ログイン処理自体は未認証ユーザーにも許可
-                .permitAll()
             )
 
            /*
            * Securityで拒否されたリクエストの応答を設定します。
            *
-           * API：
            * - 未ログインによる認証拒否は401の共通JSON
            * - 権限不足・CSRF拒否は403の共通JSON
-           *
-           * 旧MVC：
-           * - 未ログイン時は既存の誘導先へリダイレクト
-           * - 権限不足・CSRF拒否は標準の403処理
            */
  
             .exceptionHandling(exception -> exception
                 .authenticationEntryPoint( (request, response, authException) -> {              
                 
-                    //アプリのコンテキストパスを除いて判定
-                    String path = request.getRequestURI()
-                        .substring(request.getContextPath().length());
-
-                    if (path.equals("/api") || path.startsWith("/api/")) {
-
                       ErrorResponse errorResponse = new ErrorResponse(
                       HttpStatus.UNAUTHORIZED.value(),
                       HttpStatus.UNAUTHORIZED.getReasonPhrase(),
@@ -355,24 +336,12 @@ public class SecurityConfig {
                         response.getWriter(),
                         errorResponse
                     );
-                } else {
-
-                  // F-3では旧/postsへの認証エラー依存を解消する。
-                 new LoginUrlAuthenticationEntryPoint(
-                    "/login"
-                  ).commence(request, response, authException);
-               }
             
              })
 
             
           // 403：権限不足・CSRFによる拒否
          .accessDeniedHandler((request, response, accessDeniedException) -> {
-
-        String path = request.getRequestURI()
-                .substring(request.getContextPath().length());
-
-        if (path.equals("/api") || path.startsWith("/api/")) {
 
             ErrorResponse errorResponse = new ErrorResponse(
                     HttpStatus.FORBIDDEN.value(),
@@ -390,14 +359,6 @@ public class SecurityConfig {
                     errorResponse
             );
 
-        } else {
-
-            new AccessDeniedHandlerImpl().handle(
-                    request,
-                    response,
-                    accessDeniedException
-              );
-          }
         })
             )
 
@@ -433,8 +394,6 @@ public class SecurityConfig {
                 // ブラウザ側のセッションCookieを削除
                 .deleteCookies("JSESSIONID")
 
-                // ログアウト処理へのアクセスを許可
-                .permitAll()
             );
 
         http.addFilterBefore(new ActiveAccountFilter(userRepository, objectMapper), AuthorizationFilter.class);

@@ -317,7 +317,7 @@ class AdminUserFlowIntegrationTest {
         User account = users.findByEmail(email).orElseThrow();
         account.setAccountStatus(AccountStatus.FROZEN);
         users.saveAndFlush(account);
-        mvc.perform(get(role.equals("ROLE_ADMIN") ? "/api/admin/users" : "/posts")
+        mvc.perform(get(role.equals("ROLE_ADMIN") ? "/api/admin/users" : "/api/auth/me")
                 .session(session))
                 .andExpect(status().isForbidden());
     }

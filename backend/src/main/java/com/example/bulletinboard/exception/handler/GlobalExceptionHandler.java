@@ -111,7 +111,7 @@ import jakarta.servlet.http.HttpServletRequest;
  *
  * 【適用範囲】
  * @RestControllerを付けたControllerのみを対象とします。
- * Thymeleafの画面を返す旧@Controllerには適用しません。
+ * フレームワークが用意する通常の@Controllerには適用しません。
  * URLではなく、Controllerのアノテーションで対象を判定します。
  *
  * Spring Securityのフィルタで発生する認証・認可エラーは、

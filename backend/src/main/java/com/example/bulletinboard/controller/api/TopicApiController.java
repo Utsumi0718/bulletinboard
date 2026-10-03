@@ -83,7 +83,7 @@ import jakarta.validation.Valid;
  * - ControllerではHTTPリクエストの受付、
  *   認証情報の取得、DTO変換、HTTPレスポンス生成を担当します。
  * - REST APIの例外レスポンスはGlobalExceptionHandlerへ委譲します。
- * - Thymeleaf用のView、redirect、FlashMessageは扱いません。
+ * - 応答はDTOとHTTPステータスで返します。
  */
 @RestController
 @RequestMapping("/api/topics")

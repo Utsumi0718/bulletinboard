@@ -18,7 +18,7 @@ import com.example.bulletinboard.repository.UserRepository;
 /*
  * 【クラス全体の役割】
  * Spring Securityのログイン認証処理と、
- * ユーザー登録・パスワード更新・ログイン失敗回数管理などを担当する
+ * User・Profileの同時登録・ログイン失敗回数管理を担当する
  * Serviceクラスです。
  *
  * UserDetailsServiceを実装することで、
@@ -30,11 +30,9 @@ import com.example.bulletinboard.repository.UserRepository;
  * - UserからSpring Security用UserDetailsへの変換
  * - 新規ユーザー登録
  * - パスワードのハッシュ化
- * - ユーザー名・メールアドレスの重複確認
- * - パスワード更新
  * - ログイン失敗回数の管理
  * - ログイン失敗によるアカウントロック管理
- * - ユーザー退会処理
+ * 登録APIの入力・重複確認はRegistrationService、再設定・退会は各専用Serviceが担当します。
  *
  * 【設計上のポイント】
  * - 新しい認証仕様ではusernameではなくemailをログインIDとして使用します。
@@ -138,24 +136,6 @@ public class CustomUserDetailsService implements UserDetailsService {
         profile.setUser(saved);
         // 未設定のiconとbioはNULL。表示時の共通デフォルトアイコンを示す。
         profileRepository.save(profile);
-    }
-
-    /*
-     * 指定したユーザー名が
-     * すでに登録されているか確認します。
-     */
-    @Transactional(readOnly = true)
-    public boolean existsByUsername(String username) {
-        return userRepository.existsByUsername(username);
-    }
-
-    /*
-     * 指定したメールアドレスが
-     * すでに登録されているか確認します。
-     */
-    @Transactional(readOnly = true)
-    public boolean existsByEmail(String email) {
-        return userRepository.existsByEmail(email);
     }
 
     /*

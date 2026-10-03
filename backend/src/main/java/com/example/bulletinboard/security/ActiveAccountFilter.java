@@ -38,9 +38,7 @@ public class ActiveAccountFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
             FilterChain chain) throws ServletException, IOException {
         String path = request.getRequestURI().substring(request.getContextPath().length());
-        boolean publicPath = path.equals("/login") || path.equals("/register") ||
-                path.equals("/reset-password") || path.equals("/error") ||
-                path.startsWith("/css/") || path.startsWith("/js/") ||
+        boolean publicPath = path.equals("/error") ||
                 (path.equals("/api/auth/login") && HttpMethod.POST.matches(request.getMethod())) ||
                 (path.equals("/api/auth/logout") && HttpMethod.POST.matches(request.getMethod())) ||
                 (path.startsWith("/api/auth/password-reset/") && HttpMethod.POST.matches(request.getMethod())) ||
@@ -61,12 +59,10 @@ public class ActiveAccountFilter extends OncePerRequestFilter {
             SecurityContextHolder.clearContext();
             if (session != null) session.invalidate();
             response.setStatus(HttpStatus.FORBIDDEN.value());
-            if (path.equals("/api") || path.startsWith("/api/")) {
-                response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                mapper.writeValue(response.getWriter(), new ErrorResponse(403, "Forbidden",
-                        "このリクエストは許可されていません。", request.getRequestURI()));
-            }
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            mapper.writeValue(response.getWriter(), new ErrorResponse(403, "Forbidden",
+                    "このリクエストは許可されていません。", request.getRequestURI()));
             return;
         }
         chain.doFilter(request, response);

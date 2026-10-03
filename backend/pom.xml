@@ -78,25 +78,6 @@
             <optional>true</optional>
         </dependency>
 
-		<!-- （Thymeleaf）を使用するための設定 -->
-		<dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-thymeleaf</artifactId>
-        </dependency>
-
-        <!-- 共通レイアウト機能を有効化するために、これを追加します -->
-        <dependency>
-            <groupId>nz.net.ultraq.thymeleaf</groupId>
-            <artifactId>thymeleaf-layout-dialect</artifactId>
-        </dependency>
-
-
-        <!-- ログイン時のみ表示）などのセキュリティタグを使う -->
-        <dependency>
-       <groupId>org.thymeleaf.extras</groupId>
-       <artifactId>thymeleaf-extras-springsecurity6</artifactId>
-      </dependency>
-
         <!-- dependency: Web機能のテスト用ライブラリ -->
         <!-- scope: テスト実行時（test）のみ使用するスコープ指定 -->
       <dependency>

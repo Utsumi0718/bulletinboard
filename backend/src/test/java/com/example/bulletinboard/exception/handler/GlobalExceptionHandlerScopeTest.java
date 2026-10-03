@@ -24,8 +24,8 @@ import jakarta.servlet.ServletException;
  * RestControllerでは共通JSONへ変換され、
  * 通常のControllerではこのHandlerが処理しないことを確認します。
  *
- * Security・DB・Thymeleafの画面描画は対象外です。
- * MVC側の最終的なエラー画面やHTTPステータスは検証しません。
+ * Security・DB・画面描画は対象外です。
+ * 通常のControllerは適用範囲を確認するテスト用のもので、業務画面ではありません。
  */
 class GlobalExceptionHandlerScopeTest {
 
