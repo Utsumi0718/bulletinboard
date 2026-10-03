@@ -49,6 +49,7 @@ class BulletinboardApplicationTests {
 	@Test
 	void serverSideTemplatesAndTemplateEngineAreAbsent() {
 		var loader = getClass().getClassLoader();
+		assertThat(loader.getResource("templates/")).isNull();
 		for (String resource : new String[] {"auth/login.html", "auth/register.html",
 				"auth/reset-password.html", "layout/layout.html"}) {
 			assertThat(loader.getResource("templates/" + resource)).isNull();
