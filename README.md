@@ -63,7 +63,7 @@
 
 STEP7で旧Thymeleaf画面と関連依存を撤去し、STEP8で`frontend/`に画面の基盤を作成しました。
 共通レイアウト・状態表示・API通信と認証状態管理の土台まで実装しています。
-個別画面と実backendへのブラウザ接続は後続工程です。起動方法は[frontend/README.md](frontend/README.md)を参照してください。
+個別画面と実backendへのブラウザ接続は後続工程です。起動方法と通信契約は末尾のSTEP8の節を参照してください。
 
 ### Test
 
@@ -2399,6 +2399,22 @@ STEP8以降でReact画面を実装し、STEP11でセッションCookie・CORS・
 - Layout・Header・Footer・Navigationと、エラー・ローディング・未ログインの共通表示を作成しました。390px幅の表示とキーボードでのスキップリンク・状態切り替えを確認しました。
 - 共通API通信処理はCookieを含めて送信し、変更系リクエストの直前に`GET /api/csrf`からトークンとヘッダー名を取得します。400／401／403などの応答は画面で判別できる形にし、500応答の内部情報は表示用エラーへ渡しません。
 - 認証状態は`GET /api/auth/me`から取得してReact Contextで管理します。開発時の`/api`はViteからローカルbackendへ転送します。
+
+#### 開発時の起動と通信契約
+
+Node.js 24とnpmを使用します。Windowsでは`frontend`で次のコマンドを実行します。
+
+```powershell
+cd frontend
+npm.cmd ci
+npm.cmd run dev
+npm.cmd test
+npm.cmd run build
+npm.cmd run lint
+```
+
+`POST /api/auth/login`はJSONではなく、`URLSearchParams`で`email`・`password`を送信します。ログイン後は`useAuth().refresh()`で本人情報を読み直し、ログアウト後は`useAuth().clear()`で画面の認証状態を消します。
+画面は`api.request()`の失敗を`toUserFacingError()`へ渡し、400／401／403などを`category`で判別します。`fieldErrors`は入力欄、`reason`はログイン失敗理由の表示に使えます。500と通信失敗の内部情報は表示用エラーへ渡しません。
 
 `frontend`で`npm.cmd test`を実行して15件成功し、`npm.cmd run build`と`npm.cmd run lint`も成功しました（2026-10-06 JST）。
 この検証には実backendとのブラウザ接続は含みません。個別画面はSTEP9以降で実装し、セッションCookie・CORS・CSRF・401／403の実ブラウザ連携はSTEP11で確認します。本番のCORS許可先とCookie設定は配置先の決定後に確定します。
