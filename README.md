@@ -55,16 +55,15 @@
 
 ### Frontend（現在）
 
-STEP7で旧Thymeleaf画面と関連依存を撤去しました。
-React画面はSTEP8以降で実装・接続する予定です。
-
-### Frontend（今後）
-
 - React
+- TypeScript
 - Tailwind CSS
+- React Router
+- Vite / npm
 
-バックエンドの主要機能はREST APIへ移行済みです。
-今後はReact画面からAPIを利用する構成へ進めます。
+STEP7で旧Thymeleaf画面と関連依存を撤去し、STEP8で`frontend/`に画面の基盤を作成しました。
+共通レイアウト・状態表示・API通信と認証状態管理の土台まで実装しています。
+個別画面と実backendへのブラウザ接続は後続工程です。起動方法は[frontend/README.md](frontend/README.md)を参照してください。
 
 ### Test
 
@@ -72,6 +71,7 @@ React画面はSTEP8以降で実装・接続する予定です。
 - MockMvc
 - Mockito
 - Spring Security Test
+- Node.js標準のテストランナー（frontendの通信処理）
 
 ### Development Tools
 
@@ -139,9 +139,11 @@ React画面はSTEP8以降で実装・接続する予定です。
 
 ### フロントエンド
 
-- [ ] Reactによる画面再構築
-- [ ] Tailwind CSSによるUI実装
-- [ ] Backend APIとの連携
+- [x] React・TypeScript・Tailwind CSS・Routerの基盤
+- [x] 共通レイアウトとエラー・ローディング・未ログイン表示
+- [x] API通信と認証状態管理の土台
+- [ ] 個別画面の実装
+- [ ] 実backendとのブラウザ接続
 
 ### インフラ・公開
 
@@ -152,7 +154,7 @@ React画面はSTEP8以降で実装・接続する予定です。
 
 ## これまでに実施した主な改修
 
-以下の1〜6節は各工程の作業記録です。現在の構成は末尾のSTEP7の節を参照してください。
+以下の1〜6節は各工程の作業記録です。現在の構成は末尾のSTEP7・STEP8の節を参照してください。
 
 ### 1. Repository / Serviceとの再構築
 
@@ -2387,3 +2389,16 @@ Like数スナップショット、
 STEP8以降でReact画面を実装し、STEP11でセッションCookie・CORS・CSRF・401／403を実ブラウザで確認します。
 一般向けProfileの表示・編集・活動集計・実績表示はSTEP10の範囲です。
 通報データの本番での保持期間、自動削除、ログ保管、大量送信対策は運用前に決定・検証します。
+
+
+### 8. STEP8：Reactフロントエンド基盤
+
+`feature/frontend-foundation`で8-1〜8-5を進め、[PR #26](https://github.com/Utsumi0718/bulletinboard/pull/26)でmainへ反映しました。
+
+- `frontend/`にReact・TypeScript・Tailwind CSS・React Router・Viteを導入しました。
+- Layout・Header・Footer・Navigationと、エラー・ローディング・未ログインの共通表示を作成しました。390px幅の表示とキーボードでのスキップリンク・状態切り替えを確認しました。
+- 共通API通信処理はCookieを含めて送信し、変更系リクエストの直前に`GET /api/csrf`からトークンとヘッダー名を取得します。400／401／403などの応答は画面で判別できる形にし、500応答の内部情報は表示用エラーへ渡しません。
+- 認証状態は`GET /api/auth/me`から取得してReact Contextで管理します。開発時の`/api`はViteからローカルbackendへ転送します。
+
+`frontend`で`npm.cmd test`を実行して15件成功し、`npm.cmd run build`と`npm.cmd run lint`も成功しました（2026-10-06 JST）。
+この検証には実backendとのブラウザ接続は含みません。個別画面はSTEP9以降で実装し、セッションCookie・CORS・CSRF・401／403の実ブラウザ連携はSTEP11で確認します。本番のCORS許可先とCookie設定は配置先の決定後に確定します。
