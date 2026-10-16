@@ -62,7 +62,8 @@ class ReportProfileFlowIntegrationTest {
     @EnableAutoConfiguration
     @EntityScan(basePackageClasses = User.class)
     @EnableJpaRepositories(basePackageClasses = UserRepository.class)
-    @Import({ReportApiController.class, ReportService.class, ReportSubmissionService.class,
+    @Import({ReportApiController.class, ReportService.class, com.example.bulletinboard.service.ProfileImageService.class,
+            ReportSubmissionService.class,
             TopicImageService.class, CustomUserDetailsService.class, SecurityConfig.class,
             GlobalExceptionHandler.class})
     static class FlowConfiguration { }

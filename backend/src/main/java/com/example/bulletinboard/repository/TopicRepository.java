@@ -57,6 +57,8 @@ public interface TopicRepository extends JpaRepository<Topic, Long> {
     /*
      * 指定されたIDかつ削除されていないTopicを取得します。
      */
+    // DTOの表示名とcanReportに必要な所有者を、Repositoryのセッション内で取得する。
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "user")
     Optional<Topic> findByIdAndDeletedAtIsNull(Long id);
 
     /** 通報受付と編集・削除が同じお題行を直列に処理する。 */

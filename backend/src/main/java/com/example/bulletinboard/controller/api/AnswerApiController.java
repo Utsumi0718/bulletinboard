@@ -236,7 +236,8 @@ public class AnswerApiController {
                             return AnswerResponse.from(
                                     answer,
                                     liked,
-                                    likeCount
+                                    likeCount,
+                                    currentUser
                             );
                         })
                         .toList();

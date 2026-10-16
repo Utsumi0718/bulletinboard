@@ -41,12 +41,13 @@ public class ReportService {
     private final ReportTopicSnapshotRepository snapshots;
     private final ReportAnswerSnapshotRepository answerSnapshots;
     private final ReportProfileSnapshotRepository profileSnapshots;
+    private final ProfileImageService profileImages;
 
     public ReportService(UserRepository users, TopicRepository topics, AnswerRepository answers,
             ProfileRepository profiles,
             TopicImageService images, ReportRepository reports,
             ReportTopicSnapshotRepository snapshots, ReportAnswerSnapshotRepository answerSnapshots,
-            ReportProfileSnapshotRepository profileSnapshots) {
+            ReportProfileSnapshotRepository profileSnapshots, ProfileImageService profileImages) {
         this.users = users;
         this.topics = topics;
         this.answers = answers;
@@ -56,6 +57,7 @@ public class ReportService {
         this.snapshots = snapshots;
         this.answerSnapshots = answerSnapshots;
         this.profileSnapshots = profileSnapshots;
+        this.profileImages = profileImages;
     }
 
     @Transactional
@@ -142,10 +144,10 @@ public class ReportService {
                 reporter.getId(), ReportTargetType.PROFILE, profileId)) {
             throw new ReportOperationException(Reason.DUPLICATE, profileId);
         }
-        // 現在のProfile.iconはURL/パスのみで原本を取得できない。証拠を欠いた受付を防ぐ。
-        if (profile.getIcon() != null) {
-            throw new ReportOperationException(Reason.FAILED, profileId);
-        }
+        // 外部URLや旧参照を取得せず、Profile所有者の管理下原本だけを証拠へコピーする。
+        var image = profile.getIcon() == null ? null : profileImages
+                .findOwnedSource(profile.getIcon(), owner.getId())
+                .orElseThrow(() -> new ReportOperationException(Reason.FAILED, profileId));
         Report report = new Report();
         report.setReporterUser(reporter);
         report.setTargetType(ReportTargetType.PROFILE);
@@ -154,7 +156,7 @@ public class ReportService {
         report.setReason(request.reason());
         report.setDetail(request.detail());
         report = reports.saveAndFlush(report);
-        profileSnapshots.saveAndFlush(new ReportProfileSnapshot(report, profile));
+        profileSnapshots.saveAndFlush(new ReportProfileSnapshot(report, profile, image));
     }
 
     /** 保持内容は管理者だけが参照する。画像取得時にもDB上のACTIVEを再確認する。 */
@@ -167,6 +169,15 @@ public class ReportService {
         }
         Report report = reports.findById(reportId)
                 .orElseThrow(() -> new ReportOperationException(Reason.NOT_FOUND, reportId));
+        if (report.getTargetType() == ReportTargetType.PROFILE) {
+            ReportProfileSnapshot snapshot = profileSnapshots.findById(reportId)
+                    .orElseThrow(() -> new ReportOperationException(Reason.NOT_FOUND, reportId));
+            byte[] content = snapshot.getImageContent();
+            if (content == null || snapshot.getContentType() == null) {
+                throw new ReportOperationException(Reason.NOT_FOUND, reportId);
+            }
+            return new EvidenceImage(content, snapshot.getContentType());
+        }
         if (report.getTargetType() == ReportTargetType.ANSWER) {
             ReportAnswerSnapshot snapshot = answerSnapshots.findById(reportId)
                     .orElseThrow(() -> new ReportOperationException(Reason.NOT_FOUND, reportId));

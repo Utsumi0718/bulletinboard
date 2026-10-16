@@ -53,6 +53,7 @@ class ReportAnswerServiceTest {
     @Mock AnswerRepository answers;
     @Mock ProfileRepository profiles;
     @Mock TopicImageService images;
+    @Mock ProfileImageService profileImages;
     @Mock ReportRepository reports;
     @Mock ReportTopicSnapshotRepository topicSnapshots;
     @Mock ReportAnswerSnapshotRepository answerSnapshots;

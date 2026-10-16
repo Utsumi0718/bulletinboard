@@ -50,10 +50,10 @@ public interface AnswerRepository extends JpaRepository<Answer, Long> {
      * 削除されていない回答を取得します。
      *
      * Answer一覧表示ではusernameを使用するため、
-     * EntityGraphでUserも同時取得し、
+     * EntityGraphでUserと、canReport判定に使う親Topicも同時取得し、
      * AnswerごとのUser取得によるN+1を防ぎます。
      */
-     @EntityGraph(attributePaths = "user")
+     @EntityGraph(attributePaths = {"user", "topic"})
      List<Answer> findByTopicIdAndDeletedAtIsNull(Long topicId);
 
      /*

@@ -58,7 +58,7 @@ public class AdminProfileService {
         Profile profile = profiles.findByIdForUpdate(profileId)
                 .orElseThrow(AdminProfileNotFoundException::new);
         if (profile.getIcon() == null) return;
-        // Profileの参照だけを外す。原本の保存先は未実装であり、共有参照を削除しない。
+        // Profileの参照だけを外す。原本や通報時の証拠は連動削除しない。
         profile.setIcon(null);
         profiles.saveAndFlush(profile);
         logs.saveAndFlush(new AdminOperationLog(actor, "PROFILE", profileId,

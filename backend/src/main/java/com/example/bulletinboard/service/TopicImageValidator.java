@@ -32,20 +32,25 @@ public class TopicImageValidator {
     }
 
     public ValidatedImage validate(MultipartFile file) {
+        return validate(file, MAX_BYTES);
+    }
+
+    /** 呼び出し元の容量制限で同じ実体検証を使う。Topicの上限は変更しない。 */
+    public ValidatedImage validate(MultipartFile file, int maxBytes) {
         if (file.isEmpty()) {
             throw new TopicImageException(Reason.INVALID);
         }
-        if (file.getSize() > MAX_BYTES) {
+        if (file.getSize() > maxBytes) {
             throw new TopicImageException(Reason.TOO_LARGE);
         }
         byte[] bytes;
         try (var input = file.getInputStream()) {
             // getSizeの申告値に依存せず、実際に読み込む量も制限する。
-            bytes = input.readNBytes(MAX_BYTES + 1);
+            bytes = input.readNBytes(maxBytes + 1);
         } catch (IOException ex) {
             throw new TopicImageException(Reason.FAILED, ex);
         }
-        if (bytes.length > MAX_BYTES) {
+        if (bytes.length > maxBytes) {
             throw new TopicImageException(Reason.TOO_LARGE);
         }
         try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {

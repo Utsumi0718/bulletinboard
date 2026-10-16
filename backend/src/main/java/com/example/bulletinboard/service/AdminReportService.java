@@ -179,6 +179,6 @@ public class AdminReportService {
         }
         return profileSnapshots.findById(id).map(s -> new AdminReportEvidenceResponse(
                 null, null, null, null, null, null, s.getDisplayName(), s.getBio(),
-                false, null)).orElse(null);
+                s.hasImage(), s.hasImage() ? imageUrl : null)).orElse(null);
     }
 }

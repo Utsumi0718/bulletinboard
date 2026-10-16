@@ -32,6 +32,7 @@ import com.example.bulletinboard.exception.TopicEditConflictException;
 import com.example.bulletinboard.exception.TopicNotFoundException;
 import com.example.bulletinboard.exception.UserNotFoundException;
 import com.example.bulletinboard.exception.TopicImageException;
+import com.example.bulletinboard.exception.ProfileOperationException;
 import com.example.bulletinboard.exception.ReportOperationException;
 import com.example.bulletinboard.exception.AdminReportOperationException;
 import com.example.bulletinboard.exception.RegistrationConflictException;
@@ -125,6 +126,22 @@ import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
+    @ExceptionHandler(ProfileOperationException.class)
+    public ResponseEntity<?> handleProfileOperation(
+            ProfileOperationException ex, HttpServletRequest request) {
+        var reason = ex.getReason();
+        if (reason.status.is5xxServerError()) {
+            log.error("profile_operation_error reason={} errorType={}", reason,
+                    ex.getCause() == null ? "Unknown" : ex.getCause().getClass().getSimpleName());
+        }
+        Object body = reason.status == HttpStatus.BAD_REQUEST
+                ? new ValidationErrorResponse(400, "Bad Request", "入力内容に誤りがあります。",
+                        request.getRequestURI(), Map.of("file", reason.message))
+                : new ErrorResponse(reason.status.value(), reason.status.getReasonPhrase(), reason.message,
+                        request.getRequestURI());
+        return ResponseEntity.status(reason.status).header("Cache-Control", "no-store").body(body);
+    }
+
     @ExceptionHandler(PasswordResetException.class)
     public ResponseEntity<ErrorResponse> handlePasswordReset(
             PasswordResetException ex, HttpServletRequest request) {
@@ -263,13 +280,21 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<ErrorResponse> handleImageTooLarge(MaxUploadSizeExceededException ex,
+    public ResponseEntity<?> handleImageTooLarge(MaxUploadSizeExceededException ex,
             HttpServletRequest request) {
+        if (request.getRequestURI().endsWith("/api/profiles/me/icon")) {
+            return handleProfileOperation(new ProfileOperationException(
+                    ProfileOperationException.Reason.TOO_LARGE), request);
+        }
         return handleTopicImage(new TopicImageException(TopicImageException.Reason.TOO_LARGE), request);
     }
 
     @ExceptionHandler({MultipartException.class, MissingServletRequestPartException.class})
-    public ResponseEntity<ErrorResponse> handleInvalidMultipart(Exception ex, HttpServletRequest request) {
+    public ResponseEntity<?> handleInvalidMultipart(Exception ex, HttpServletRequest request) {
+        if (request.getRequestURI().endsWith("/api/profiles/me/icon")) {
+            return handleProfileOperation(new ProfileOperationException(
+                    ProfileOperationException.Reason.INVALID_IMAGE), request);
+        }
         return handleTopicImage(new TopicImageException(TopicImageException.Reason.INVALID), request);
     }
 
