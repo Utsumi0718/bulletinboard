@@ -47,6 +47,7 @@ class ReportServiceTest {
     @Mock com.example.bulletinboard.repository.ProfileRepository profiles;
     @Mock TopicRepository topics;
     @Mock TopicImageService images;
+    @Mock ProfileImageService profileImages;
     @Mock ReportRepository reports;
     @Mock ReportTopicSnapshotRepository snapshots;
     @Mock com.example.bulletinboard.repository.ReportAnswerSnapshotRepository answerSnapshots;

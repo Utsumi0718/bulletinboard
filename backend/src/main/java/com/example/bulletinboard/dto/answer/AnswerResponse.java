@@ -3,6 +3,8 @@ package com.example.bulletinboard.dto.answer;
 import java.time.LocalDateTime;
 
 import com.example.bulletinboard.model.Answer;
+import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.service.ReportEligibility;
 
 /*
  * 【クラスの役割】
@@ -26,6 +28,17 @@ public class AnswerResponse {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    private boolean canReport;
+
+    public boolean isCanReport() { return canReport; }
+
+    public static AnswerResponse from(Answer answer, boolean liked, long likeCount,
+            User viewer) {
+        AnswerResponse response = from(answer, liked, likeCount);
+        response.canReport = ReportEligibility.canReport(answer, viewer);
+        return response;
+    }
 
     /*
      * 現在ログインしているユーザーが、

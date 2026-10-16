@@ -84,7 +84,8 @@ class ReportFlowIntegrationTest {
     @EnableJpaRepositories(basePackageClasses = UserRepository.class)
     @Import({TopicApiController.class, TopicImageApiController.class, ReportApiController.class,
             TopicService.class, TopicImageService.class, TopicImageValidator.class,
-            ReportService.class, ReportSubmissionService.class, CustomUserDetailsService.class,
+            ReportService.class, com.example.bulletinboard.service.ProfileImageService.class,
+            ReportSubmissionService.class, CustomUserDetailsService.class,
             SecurityConfig.class, GlobalExceptionHandler.class})
     static class FlowConfiguration { }
 

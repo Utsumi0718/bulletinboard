@@ -176,12 +176,13 @@ public class TopicApiController {
 
     @GetMapping("/{id}")
     public ResponseEntity<TopicResponse> getTopic(
-        @PathVariable Long id) {
+        @PathVariable Long id, Authentication authentication) {
 
     Topic topic = topicService.getById(id);
 
     TopicResponse response =
-            TopicResponse.from(topic);
+            TopicResponse.from(topic, authentication == null ? null :
+                    userDetailsService.findByEmail(authentication.getName()).orElse(null));
 
     return ResponseEntity.ok(response);
 }

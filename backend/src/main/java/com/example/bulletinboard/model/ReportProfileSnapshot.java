@@ -36,7 +36,7 @@ public class ReportProfileSnapshot {
     @Column(name = "bio", length = 300)
     private String bio;
 
-    // アイコン未設定なら共通デフォルト表示。画像参照だけのプロフィールは受付しない。
+    // アイコン未設定は両方NULL。設定済みなら参照でなく通報時の原本を保存する。
     @Column(name = "content_type", length = 30)
     private String contentType;
 
@@ -45,12 +45,22 @@ public class ReportProfileSnapshot {
     private byte[] imageContent;
 
     public ReportProfileSnapshot(Report report, Profile profile) {
+        this(report, profile, null);
+    }
+
+    public ReportProfileSnapshot(Report report, Profile profile, ProfileImage image) {
         this.report = report;
         this.displayName = profile.getUser().getUsername();
         this.bio = profile.getBio();
+        if (image != null) {
+            this.contentType = image.getContentType();
+            this.imageContent = image.getContent();
+        }
     }
 
     public byte[] getImageContent() {
         return imageContent == null ? null : imageContent.clone();
     }
+
+    public boolean hasImage() { return imageContent != null && contentType != null; }
 }

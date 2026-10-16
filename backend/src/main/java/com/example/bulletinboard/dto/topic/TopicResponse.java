@@ -3,6 +3,8 @@ package com.example.bulletinboard.dto.topic;
 import java.time.LocalDateTime;
 
 import com.example.bulletinboard.model.Topic;
+import com.example.bulletinboard.model.User;
+import com.example.bulletinboard.service.ReportEligibility;
 
 /*
  * 【クラスの役割】
@@ -30,6 +32,16 @@ public class TopicResponse {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    private boolean canReport;
+
+    public boolean isCanReport() { return canReport; }
+
+    public static TopicResponse from(Topic topic, User viewer) {
+        TopicResponse response = from(topic);
+        response.canReport = ReportEligibility.canReport(topic, viewer);
+        return response;
+    }
 
     /*
      * Topic EntityをAPI返却用のTopicResponseへ変換します。
