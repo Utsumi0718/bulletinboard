@@ -18,6 +18,7 @@ import com.example.bulletinboard.dto.common.PageResponse;
 import com.example.bulletinboard.dto.contact.AdminContactListResponse;
 import com.example.bulletinboard.dto.contact.AdminContactResponse;
 import com.example.bulletinboard.dto.contact.AdminContactStatusRequest;
+import com.example.bulletinboard.dto.contact.ContactLegalHoldRequest;
 import com.example.bulletinboard.exception.AdminContactOperationException;
 import com.example.bulletinboard.exception.AdminContactOperationException.Operation;
 import com.example.bulletinboard.model.Contact;
@@ -59,6 +60,7 @@ import jakarta.validation.Valid;
  *   AdminContactServiceへ委譲します。
  * - このクラスではDTOへの変換とHTTP応答を担当します。
  * - /api/admin/**の管理者認可はSecurityConfigで行います。
+ * - PATCH /{id}/legal-holdは期限付き法的保持の設定・解除を行います。
  *
  * - 一覧・詳細取得・状態変更・削除のService呼び出しから伝わるDataAccessException・
  *   TransactionExceptionをAdminContactOperationExceptionへ変換します。
@@ -195,12 +197,21 @@ public ResponseEntity<AdminContactResponse> updateContactStatus(
 }
 
 /**
- * お問い合わせを物理削除します。
- *
- * Serviceのトランザクションが正常終了した場合に204を返します。
- * 状態変更と同じくDataAccessException・TransactionExceptionを
- * 管理操作専用例外へ変換し、失敗ログと共通500応答の処理へ渡します。
+ * 法的保持の設定・解除を行い、管理者用の詳細を返します。
  */
+@PatchMapping("/{id}/legal-hold")
+public ResponseEntity<AdminContactResponse> updateLegalHold(
+        @PathVariable Long id,
+        @Valid @RequestBody ContactLegalHoldRequest request,
+        Authentication authentication) {
+    try {
+        return ResponseEntity.ok(AdminContactResponse.from(adminContactService.updateLegalHold(id, request, authentication.getName())));
+    } catch (DataAccessException | TransactionException ex) {
+        throw new AdminContactOperationException(Operation.LEGAL_HOLD, id, ex);
+    }
+}
+
+/** 法的保持中を除き物理削除する。削除と履歴のコミット後に204を返す。 */
 @DeleteMapping("/{id}")
 public ResponseEntity<Void> deleteContact(
         @PathVariable Long id,

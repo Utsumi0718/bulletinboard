@@ -87,6 +87,7 @@ class ContactNotificationServiceTest {
                 .isEqualTo(
                         "お問い合わせID：1\n"
                         + "お名前：テスト太郎\n"
+                        + "お問い合わせ種別：旧受付・種別未設定\n"
                         + "メールアドレス：user@example.com\n\n"
                         + "[お問い合わせ内容]\n"
                         + "ログイン方法を教えてください。"
@@ -117,6 +118,20 @@ class ContactNotificationServiceTest {
      * DB保存済みの状態を想定したテストデータ。
      * 実際のDB保存は行いません。
      */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(com.example.bulletinboard.model.ContactCategory.class)
+    void newContactIncludesCategoryWithoutCollectingName(com.example.bulletinboard.model.ContactCategory category) {
+        Contact contact = createContact();
+        contact.setName(null);
+        contact.setCategory(category);
+        notificationService.sendNotification(contact);
+        ArgumentCaptor<SimpleMailMessage> argument = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(argument.capture());
+        assertThat(argument.getValue().getText()).contains("お問い合わせ種別：" + category.getLabel()).doesNotContain("お名前：", "null");
+        assertThat(argument.getValue().getReplyTo()).isEqualTo(contact.getEmail());
+        assertThat(argument.getValue().getTo()).containsExactly("admin@example.com");
+    }
+
     private Contact createContact() {
 
         Contact contact = new Contact();

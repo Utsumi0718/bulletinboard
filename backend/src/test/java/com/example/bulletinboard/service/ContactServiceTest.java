@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
 
 import com.example.bulletinboard.dto.contact.ContactRequest;
+import com.example.bulletinboard.model.ContactCategory;
 import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.repository.ContactRepository;
 import com.example.bulletinboard.model.ContactStatus;
@@ -40,7 +41,7 @@ class ContactServiceTest {
 
         // Given：入力内容を用意
         ContactRequest request = new ContactRequest();
-        request.setName("テスト太郎");
+        request.setCategory(ContactCategory.OTHER);
         request.setEmail("user@example.com");
         request.setSubject("サービスについて");
         request.setMessage("お問い合わせ本文です。");
@@ -64,8 +65,7 @@ class ContactServiceTest {
         Contact capturedContact = contactCaptor.getValue();
 
         // 入力内容と初期状態を確認
-        assertThat(capturedContact.getName())
-                .isEqualTo("テスト太郎");
+        assertThat(capturedContact.getName()).isNull(); assertThat(capturedContact.getCategory()).isEqualTo(ContactCategory.OTHER);
         assertThat(capturedContact.getEmail())
                 .isEqualTo("user@example.com");
         assertThat(capturedContact.getSubject())
@@ -84,7 +84,7 @@ void createContact_WhenSaveFails_ShouldPropagateException() {
 
     // Given：正常な入力を用意
     ContactRequest request = new ContactRequest();
-    request.setName("テスト太郎");
+    request.setCategory(ContactCategory.OTHER);
     request.setEmail("user@example.com");
     request.setSubject("サービスについて");
     request.setMessage("お問い合わせ本文です。");

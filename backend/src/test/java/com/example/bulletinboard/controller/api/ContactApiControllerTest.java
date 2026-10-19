@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.bulletinboard.dto.contact.ContactRequest;
+import com.example.bulletinboard.model.ContactCategory;
 import com.example.bulletinboard.exception.ContactSaveException;
 import com.example.bulletinboard.repository.UserRepository;
 import com.example.bulletinboard.security.SecurityConfig;
@@ -61,7 +62,7 @@ import jakarta.validation.constraints.Size;
  *
  * ☑ 必須項目・メール形式・文字数境界の検証
  *   → 空文字・null・未指定・半角スペースのみを拒否
- *   → 名前50文字、email255文字、件名100文字、本文1000文字の境界
+ *   → 種別6種類、email255文字、件名100文字、本文1000文字の境界
  *   → 入力不正時は400と項目別エラーを返し、Serviceを呼ばない
  *
  * ☑ CSRF保護
@@ -115,6 +116,9 @@ class ContactApiControllerTest {
     @MockitoBean
     private ContactSubmissionService submissionService;
 
+    @MockitoBean
+    private com.example.bulletinboard.service.ContactRateLimitService rateLimitService;
+
     // SecurityConfigの生成に必要な依存先
     @MockitoBean
     private UserRepository userRepository;
@@ -136,7 +140,7 @@ class ContactApiControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "name": "テスト太郎",
+                                  "category": "OTHER",
                                   "email": "contact@example.com",
                                   "subject": "ログインについて",
                                   "message": "ログイン方法を教えてください。"
@@ -158,8 +162,8 @@ class ContactApiControllerTest {
 
         ContactRequest request = captor.getValue();
 
-        assertThat(request.getName())
-                .isEqualTo("テスト太郎");
+        assertThat(request.getCategory())
+                .isEqualTo(ContactCategory.OTHER);
 
         assertThat(request.getEmail())
                 .isEqualTo("contact@example.com");
@@ -182,7 +186,7 @@ void submitContact_withInvalidRequest_shouldReturnBadRequest()
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""
                             {
-                              "name": "",
+                              "category": null,
                               "email": "invalid-email",
                               "subject": "",
                               "message": ""
@@ -197,7 +201,7 @@ void submitContact_withInvalidRequest_shouldReturnBadRequest()
             .andExpect(jsonPath("$.message")
                     .value("入力内容に誤りがあります。"))
             .andExpect(jsonPath("$.path").value("/api/contacts"))
-            .andExpect(jsonPath("$.fieldErrors.name").isNotEmpty())
+            .andExpect(jsonPath("$.fieldErrors.category").isNotEmpty())
             .andExpect(jsonPath("$.fieldErrors.email").isNotEmpty())
             .andExpect(jsonPath("$.fieldErrors.subject").isNotEmpty())
             .andExpect(jsonPath("$.fieldErrors.message").isNotEmpty());
@@ -208,12 +212,12 @@ void submitContact_withInvalidRequest_shouldReturnBadRequest()
 
 @Test
 @WithMockUser(username = "user@example.com", roles = "USER")
-@DisplayName("名前が上限の50文字なら受け付ける")
-void submitContact_withNameAtMaxLength_shouldReturnCreated()
+@DisplayName("名前なしで有効な種別なら受け付ける")
+void submitContact_withoutName_shouldReturnCreated()
         throws Exception {
 
     ContactRequest request = createValidRequest();
-    request.setName("あ".repeat(50));
+    request.setCategory(ContactCategory.OTHER);
 
     mockMvc.perform(post("/api/contacts")
                     .with(csrf())
@@ -228,19 +232,19 @@ void submitContact_withNameAtMaxLength_shouldReturnCreated()
 
     verify(submissionService).submitContact(captor.capture());
 
-    // 入力された50文字が、切り詰められずに渡ることも確認
-    assertThat(captor.getValue().getName())
-            .isEqualTo(request.getName());
+    // 正式コードが渡ることを確認
+    assertThat(captor.getValue().getCategory())
+            .isEqualTo(request.getCategory());
 }
 
 @Test
 @WithMockUser(username = "user@example.com", roles = "USER")
-@DisplayName("名前が上限を超える51文字なら拒否する")
-void submitContact_withNameOverMaxLength_shouldReturnBadRequest()
+@DisplayName("種別がnullなら拒否する")
+void submitContact_withNullCategory_shouldReturnBadRequest()
         throws Exception {
 
     ContactRequest request = createValidRequest();
-    request.setName("あ".repeat(51));
+    request.setCategory(null);
 
     mockMvc.perform(post("/api/contacts")
                     .with(csrf())
@@ -248,7 +252,7 @@ void submitContact_withNameOverMaxLength_shouldReturnBadRequest()
                     .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.status").value(400))
-            .andExpect(jsonPath("$.fieldErrors.name").isNotEmpty());
+            .andExpect(jsonPath("$.fieldErrors.category").isNotEmpty());
 
     verifyNoInteractions(submissionService);
 }
@@ -261,7 +265,7 @@ private ContactRequest createValidRequest() {
 
     ContactRequest request = new ContactRequest();
 
-    request.setName("テスト太郎");
+    request.setCategory(ContactCategory.OTHER);
     request.setEmail("contact@example.com");
     request.setSubject("ログインについて");
     request.setMessage("ログイン方法を教えてください。");
@@ -452,7 +456,7 @@ private String createBoundaryEmail(int variableLabelLength) {
 }
 
 @ParameterizedTest(name = "{0}がnullなら拒否する")
-@ValueSource(strings = {"name", "email", "subject", "message"})
+@ValueSource(strings = {"category", "email", "subject", "message"})
 @WithMockUser(username = "user@example.com", roles = "USER")
 void submitContact_withNullField_shouldReturnBadRequest(
         String fieldName) throws Exception {
@@ -475,7 +479,7 @@ void submitContact_withNullField_shouldReturnBadRequest(
 }
 
 @ParameterizedTest(name = "{0}が未指定なら拒否する")
-@ValueSource(strings = {"name", "email", "subject", "message"})
+@ValueSource(strings = {"category", "email", "subject", "message"})
 @WithMockUser(username = "user@example.com", roles = "USER")
 void submitContact_withMissingField_shouldReturnBadRequest(
         String fieldName) throws Exception {
@@ -498,7 +502,7 @@ void submitContact_withMissingField_shouldReturnBadRequest(
 }
 
 @ParameterizedTest(name = "{0}が半角スペースだけなら拒否する")
-@ValueSource(strings = {"name", "email", "subject", "message"})
+@ValueSource(strings = {"category", "email", "subject", "message"})
 @WithMockUser(username = "user@example.com", roles = "USER")
 void submitContact_withWhitespaceOnlyField_shouldReturnBadRequest(
         String fieldName) throws Exception {
@@ -567,8 +571,8 @@ void submitContact_asAnonymousWithCsrf_shouldReturnCreated()
 
     ContactRequest actualRequest = captor.getValue();
 
-    assertThat(actualRequest.getName())
-            .isEqualTo(request.getName());
+    assertThat(actualRequest.getCategory())
+            .isEqualTo(request.getCategory());
 
     assertThat(actualRequest.getEmail())
             .isEqualTo(request.getEmail());
@@ -684,7 +688,7 @@ void submitContact_withFetchedCsrfToken_shouldReturnCreated()
 
     ContactRequest actualRequest = captor.getValue();
 
-    assertThat(actualRequest.getName()).isEqualTo(request.getName());
+    assertThat(actualRequest.getCategory()).isEqualTo(request.getCategory());
     assertThat(actualRequest.getEmail()).isEqualTo(request.getEmail());
     assertThat(actualRequest.getSubject()).isEqualTo(request.getSubject());
     assertThat(actualRequest.getMessage()).isEqualTo(request.getMessage());
@@ -700,7 +704,7 @@ void submitContact_withMalformedJson_shouldReturnBadRequest()
     // 最後の閉じ括弧がない、不正なJSON
     String malformedJson = """
             {
-              "name": "テスト太郎",
+              "category": "OTHER",
               "email": "contact@example.com",
               "subject": "お問い合わせ",
               "message": "本文がレスポンスへ漏れないことを確認"

@@ -304,7 +304,7 @@ void updateStatus_shouldUpdateContactAndSaveOperationLog() {
     when(userRepository.findByEmail("admin@example.com"))
             .thenReturn(Optional.of(adminUser));
 
-    when(contactRepository.findById(1L))
+    when(contactRepository.findByIdForUpdate(1L))
             .thenReturn(Optional.of(contact));
 
     when(contactRepository.saveAndFlush(contact))
@@ -322,7 +322,7 @@ void updateStatus_shouldUpdateContactAndSaveOperationLog() {
             .isEqualTo(ContactStatus.IN_PROGRESS);
 
     verify(userRepository).findByEmail("admin@example.com");
-    verify(contactRepository).findById(1L);
+    verify(contactRepository).findByIdForUpdate(1L);
     verify(contactRepository).saveAndFlush(contact);
 
     // 履歴Repositoryへ渡した内容を取り出して確認。
@@ -369,7 +369,7 @@ void updateStatus_whenSameStatus_shouldNotSaveOrAddLog() {
     when(userRepository.findByEmail("admin@example.com"))
             .thenReturn(Optional.of(adminUser));
 
-    when(contactRepository.findById(1L))
+    when(contactRepository.findByIdForUpdate(1L))
             .thenReturn(Optional.of(contact));
 
     Contact result = adminContactService.updateStatus(
@@ -386,7 +386,7 @@ void updateStatus_whenSameStatus_shouldNotSaveOrAddLog() {
     assertThat(result.getUpdatedAt()).isEqualTo(updatedAt);
 
     // お問い合わせの取得以外に、保存などを呼んでいない。
-    verify(contactRepository).findById(1L);
+    verify(contactRepository).findByIdForUpdate(1L);
     verifyNoMoreInteractions(contactRepository);
 
     // 同じ状態への指定では操作履歴を追加しない。
@@ -409,7 +409,7 @@ void updateStatus_whenContactNotFound_shouldThrowAndNotSave() {
     when(userRepository.findByEmail("admin@example.com"))
             .thenReturn(Optional.of(adminUser));
 
-    when(contactRepository.findById(999L))
+    when(contactRepository.findByIdForUpdate(999L))
             .thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> adminContactService.updateStatus(
@@ -421,7 +421,7 @@ void updateStatus_whenContactNotFound_shouldThrowAndNotSave() {
             .hasMessage("指定されたお問い合わせが見つかりません。");
 
     // 対象の検索だけを行い、保存処理へ進まない。
-    verify(contactRepository).findById(999L);
+    verify(contactRepository).findByIdForUpdate(999L);
     verifyNoMoreInteractions(contactRepository);
 
     // 存在しないお問い合わせの操作履歴を追加しない。
@@ -518,7 +518,7 @@ void updateStatus_whenSaveFails_shouldThrowAndNotAddLog() {
     when(userRepository.findByEmail("admin@example.com"))
             .thenReturn(Optional.of(adminUser));
 
-    when(contactRepository.findById(1L))
+    when(contactRepository.findByIdForUpdate(1L))
             .thenReturn(Optional.of(contact));
 
     when(contactRepository.saveAndFlush(contact))
@@ -566,7 +566,7 @@ void updateStatus_shouldUpdateContactAndSaveOperationLog(
     when(userRepository.findByEmail("admin@example.com"))
             .thenReturn(Optional.of(adminUser));
 
-    when(contactRepository.findById(1L))
+    when(contactRepository.findByIdForUpdate(1L))
             .thenReturn(Optional.of(contact));
 
     when(contactRepository.saveAndFlush(contact))
@@ -582,7 +582,7 @@ void updateStatus_shouldUpdateContactAndSaveOperationLog(
     assertThat(result.getStatus()).isEqualTo(afterStatus);
 
     verify(userRepository).findByEmail("admin@example.com");
-    verify(contactRepository).findById(1L);
+    verify(contactRepository).findByIdForUpdate(1L);
     verify(contactRepository).saveAndFlush(contact);
 
     ArgumentCaptor<AdminOperationLog> logCaptor =
@@ -667,7 +667,7 @@ void deleteContact_whenAdmin_shouldDeleteAndSaveLog(
     contact.setId(1L);
     contact.setStatus(contactStatus);
 
-    when(contactRepository.findById(1L))
+    when(contactRepository.findByIdForUpdate(1L))
             .thenReturn(Optional.of(contact));
 
     adminContactService.deleteContact(1L, "admin@example.com");
@@ -682,7 +682,7 @@ void deleteContact_whenAdmin_shouldDeleteAndSaveLog(
     );
 
     order.verify(userRepository).findByEmail("admin@example.com");
-    order.verify(contactRepository).findById(1L);
+    order.verify(contactRepository).findByIdForUpdate(1L);
     order.verify(contactRepository).delete(contact);
     order.verify(contactRepository).flush();
     order.verify(adminOperationLogRepository).save(logCaptor.capture());
@@ -776,7 +776,7 @@ void deleteContact_whenContactNotFound_shouldReject() {
 
     stubDeleteAdmin();
 
-    when(contactRepository.findById(999L))
+    when(contactRepository.findByIdForUpdate(999L))
             .thenReturn(Optional.empty());
 
     assertThatThrownBy(
@@ -787,7 +787,7 @@ void deleteContact_whenContactNotFound_shouldReject() {
             .isInstanceOf(ContactNotFoundException.class)
             .hasMessage("指定されたお問い合わせが見つかりません。");
 
-    verify(contactRepository).findById(999L);
+    verify(contactRepository).findByIdForUpdate(999L);
     verifyNoMoreInteractions(contactRepository);
     verifyNoInteractions(adminOperationLogRepository);
 }
@@ -809,7 +809,7 @@ void deleteContact_whenDeleteFails_shouldStop() {
             )
     ).isSameAs(failure);
 
-    verify(contactRepository).findById(1L);
+    verify(contactRepository).findByIdForUpdate(1L);
     verify(contactRepository).delete(contact);
     verifyNoMoreInteractions(contactRepository);
     verifyNoInteractions(adminOperationLogRepository);
@@ -832,7 +832,7 @@ void deleteContact_whenFlushFails_shouldStop() {
             )
     ).isSameAs(failure);
 
-    verify(contactRepository).findById(1L);
+    verify(contactRepository).findByIdForUpdate(1L);
     verify(contactRepository).delete(contact);
     verify(contactRepository).flush();
     verifyNoMoreInteractions(contactRepository);
@@ -862,7 +862,7 @@ void deleteContact_whenLogSaveFails_shouldPropagateException() {
             adminOperationLogRepository
     );
 
-    order.verify(contactRepository).findById(1L);
+    order.verify(contactRepository).findByIdForUpdate(1L);
     order.verify(contactRepository).delete(contact);
     order.verify(contactRepository).flush();
     order.verify(adminOperationLogRepository)
@@ -899,7 +899,7 @@ private Contact stubDeleteTarget() {
     contact.setId(1L);
     contact.setStatus(ContactStatus.UNANSWERED);
 
-    when(contactRepository.findById(1L))
+    when(contactRepository.findByIdForUpdate(1L))
             .thenReturn(Optional.of(contact));
 
     return contact;

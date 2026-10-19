@@ -13,7 +13,8 @@ public class AdminContactOperationException extends RuntimeException {
         LIST,
         DETAIL,
         STATUS_CHANGE,
-        DELETE
+        DELETE,
+        LEGAL_HOLD
     }
 
     private final Operation operation;

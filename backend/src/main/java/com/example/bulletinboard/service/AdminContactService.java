@@ -1,5 +1,10 @@
 package com.example.bulletinboard.service;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Objects;
+import com.example.bulletinboard.dto.contact.ContactLegalHoldRequest;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -192,7 +197,7 @@ public Contact updateStatus(
         );
     }
 
-    Contact contact = contactRepository.findById(id)
+    Contact contact = contactRepository.findByIdForUpdate(id)
             .orElseThrow(ContactNotFoundException::new);
 
     ContactStatus beforeStatus = contact.getStatus();
@@ -260,8 +265,13 @@ public void deleteContact(Long id, String loginEmail) {
         );
     }
 
-    Contact contact = contactRepository.findById(id)
+    Contact contact = contactRepository.findByIdForUpdate(id)
             .orElseThrow(ContactNotFoundException::new);
+
+    if (contact.getLegalHoldUntil() != null
+            && contact.getLegalHoldUntil().isAfter(LocalDateTime.now(ZoneId.of("Asia/Tokyo")))) {
+        throw new ForbiddenOperationException("法的保存期間中のお問い合わせは削除できません。");
+    }
 
     // 削除前の情報で履歴を作成する。
     // この時点では、まだ履歴を保存しない。
@@ -283,5 +293,28 @@ public void deleteContact(Long id, String loginEmail) {
     // 履歴保存中の実行時例外では、削除もロールバックの対象となる。
     // 履歴の保存だけでは成功は確定せず、同じトランザクションのコミットで確定する。
     adminOperationLogRepository.save(operationLog);
+}
+
+/** 法的保持の設定・解除と管理者の操作履歴を同一トランザクションで保存する。 */
+@Transactional
+public Contact updateLegalHold(Long id, ContactLegalHoldRequest request, String email) {
+    if (email == null || email.isBlank()) throw new UserNotFoundException("ログインユーザー情報を取得できませんでした。");
+    User admin = userRepository.findByEmail(email).orElseThrow(() -> new UserNotFoundException("ログインユーザー情報を取得できませんでした。"));
+    if (!"ROLE_ADMIN".equals(admin.getRole())) throw new ForbiddenOperationException("この操作は管理者のみ実行できます。");
+    if (request.held() == null) throw new IllegalArgumentException("保持の設定を指定してください。");
+    if (request.held() && (request.reason() == null || request.reason().isBlank() || request.reason().length() > 500
+            || request.until() == null || !request.until().isAfter(LocalDateTime.now(ZoneId.of("Asia/Tokyo"))))) {
+        throw new IllegalArgumentException("保持には500文字以内の理由と将来の期限を指定してください。");
+    }
+    Contact contact = contactRepository.findByIdForUpdate(id).orElseThrow(ContactNotFoundException::new);
+    var until = request.held() ? request.until() : null;
+    String reason = request.held() ? request.reason() : null;
+    if (Objects.equals(until, contact.getLegalHoldUntil()) && Objects.equals(reason, contact.getLegalHoldReason())) return contact;
+    contact.setLegalHoldUntil(until);
+    contact.setLegalHoldReason(reason);
+    contactRepository.saveAndFlush(contact);
+    adminOperationLogRepository.save(new AdminOperationLog(admin, "CONTACT", id,
+            request.held() ? "LEGAL_HOLD_SET" : "LEGAL_HOLD_RELEASE", contact.getStatus().name(), contact.getStatus().name()));
+    return contact;
 }
 }

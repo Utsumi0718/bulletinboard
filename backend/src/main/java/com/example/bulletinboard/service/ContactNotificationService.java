@@ -32,7 +32,7 @@ public class ContactNotificationService {
      * 保存済みのお問い合わせについて、管理者へ通知します。
      *
      * メール送信に失敗した場合の例外は呼び出し元へ伝えます。
-     * 受付結果とログの扱いは、後で作成する呼び出し元で制御します。
+     * 受付結果とログの扱いはContactSubmissionServiceが制御します。
      */
     public void sendNotification(Contact contact) {
 
@@ -49,7 +49,9 @@ public class ContactNotificationService {
 
         mail.setText(
                 "お問い合わせID：" + contact.getId() + "\n"
-                + "お名前：" + contact.getName() + "\n"
+                + (contact.getName() == null ? "" : "お名前：" + contact.getName() + "\n")
+                + "お問い合わせ種別：" + (contact.getCategory() == null
+                        ? "旧受付・種別未設定" : contact.getCategory().getLabel()) + "\n"
                 + "メールアドレス：" + contact.getEmail() + "\n\n"
                 + "[お問い合わせ内容]\n"
                 + contact.getMessage()

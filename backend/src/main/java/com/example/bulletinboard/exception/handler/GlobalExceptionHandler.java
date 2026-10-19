@@ -2,6 +2,8 @@ package com.example.bulletinboard.exception.handler;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import com.example.bulletinboard.dto.contact.ContactRequest;
+import com.fasterxml.jackson.databind.JsonMappingException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -562,10 +564,18 @@ public ResponseEntity<ErrorResponse> handleLikeConflictException(
  * 公開用の固定メッセージを使用します。
  */
 @ExceptionHandler(HttpMessageNotReadableException.class)
-public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(
+public ResponseEntity<?> handleHttpMessageNotReadable(
         HttpMessageNotReadableException ex,
         HttpServletRequest request) {
 
+    for (Throwable cause = ex.getCause(); cause != null; cause = cause.getCause()) {
+        if (cause instanceof JsonMappingException mapping
+                && mapping.getPath().stream().anyMatch(ref -> ref.getFrom() instanceof ContactRequest
+                        && "category".equals(ref.getFieldName()))) {
+            return ResponseEntity.badRequest().body(new ValidationErrorResponse(400, "Bad Request",
+                    "入力内容に誤りがあります。", request.getRequestURI(), Map.of("category", "お問い合わせ種別が正しくありません。")));
+        }
+    }
     ErrorResponse response = new ErrorResponse(
             HttpStatus.BAD_REQUEST.value(),
             HttpStatus.BAD_REQUEST.getReasonPhrase(),
