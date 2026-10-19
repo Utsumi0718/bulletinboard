@@ -1,6 +1,9 @@
 package com.example.bulletinboard.security;
 
 import java.nio.charset.StandardCharsets;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.security.web.csrf.CsrfFilter;
+import com.example.bulletinboard.service.ContactRateLimitService;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -69,7 +72,8 @@ public class SecurityConfig {
             HttpSecurity http,
             UserRepository userRepository,
             ObjectMapper objectMapper,
-            SessionRegistry sessionRegistry) throws Exception {
+            SessionRegistry sessionRegistry,
+            ObjectProvider<ContactRateLimitService> contactRateLimiter) throws Exception {
 
         // 認証はAPIで提供するため、Security標準のログイン・ログアウトHTMLを生成しない。
         http.removeConfigurer(DefaultLoginPageConfigurer.class);
@@ -396,6 +400,7 @@ public class SecurityConfig {
 
             );
 
+        http.addFilterAfter(new ContactRateLimitFilter(contactRateLimiter, objectMapper), CsrfFilter.class);
         http.addFilterBefore(new ActiveAccountFilter(userRepository, objectMapper), AuthorizationFilter.class);
         return http.build();
     }

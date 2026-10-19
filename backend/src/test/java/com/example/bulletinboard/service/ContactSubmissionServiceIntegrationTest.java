@@ -28,6 +28,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.IllegalTransactionStateException;
 
 import com.example.bulletinboard.dto.contact.ContactRequest;
+import com.example.bulletinboard.model.ContactCategory;
 import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.repository.ContactRepository;
 import com.example.bulletinboard.exception.ContactSaveException;
@@ -90,7 +91,7 @@ class ContactSubmissionServiceIntegrationTest {
     void submitContact_shouldCommitBeforeNotification() {
 
         ContactRequest request = new ContactRequest();
-        request.setName("テスト太郎");
+        request.setCategory(ContactCategory.OTHER);
         request.setEmail("user@example.com");
         request.setSubject("ログインについて");
         request.setMessage("ログイン方法を教えてください。");
@@ -129,8 +130,8 @@ class ContactSubmissionServiceIntegrationTest {
                                 "通知時点でお問い合わせをDBから取得できません"
                         ));
 
-                assertThat(storedContact.getName())
-                        .isEqualTo(request.getName());
+                assertThat(storedContact.getCategory())
+                        .isEqualTo(request.getCategory());
 
                 assertThat(storedContact.getEmail())
                         .isEqualTo(request.getEmail());
@@ -161,7 +162,7 @@ class ContactSubmissionServiceIntegrationTest {
 void submitContact_whenNotificationFails_shouldKeepSavedContact() {
 
     ContactRequest request = new ContactRequest();
-    request.setName("テスト太郎");
+    request.setCategory(ContactCategory.OTHER);
     request.setEmail("user@example.com");
     request.setSubject("お問い合わせ通知の確認");
     request.setMessage("通知に失敗しても保存が残ることを確認します。");
@@ -207,8 +208,8 @@ void submitContact_whenNotificationFails_shouldKeepSavedContact() {
                         "通知失敗後にお問い合わせがDBに残っていません"
                 ));
 
-        assertThat(storedContact.getName())
-                .isEqualTo(request.getName());
+        assertThat(storedContact.getCategory())
+                .isEqualTo(request.getCategory());
 
         assertThat(storedContact.getEmail())
                 .isEqualTo(request.getEmail());
@@ -232,10 +233,10 @@ void submitContact_whenDatabaseSaveFails_shouldNotPersistOrNotify() {
 
     ContactRequest request = new ContactRequest();
 
-    // contacts.nameのDB上限100文字を超過させる
-    request.setName("a".repeat(101));
+    // contacts.subjectのDB上限150文字を超過させる
+    request.setCategory(ContactCategory.OTHER);
     request.setEmail("user@example.com");
-    request.setSubject("保存失敗の確認");
+    request.setSubject("a".repeat(151));
     request.setMessage("DB保存に失敗した場合の動作を確認します。");
 
      assertThatThrownBy(
@@ -271,7 +272,7 @@ void submitContact_withExistingTransaction_shouldReject() {
     long countBefore = contactRepository.count();
 
     ContactRequest request = new ContactRequest();
-    request.setName("テスト太郎");
+    request.setCategory(ContactCategory.OTHER);
     request.setEmail("user@example.com");
     request.setSubject("トランザクションの確認");
     request.setMessage("既存トランザクションから呼び出します。");

@@ -19,6 +19,7 @@ import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.mail.MailSendException;
 
 import com.example.bulletinboard.dto.contact.ContactRequest;
+import com.example.bulletinboard.model.ContactCategory;
 import com.example.bulletinboard.model.Contact;
 import com.example.bulletinboard.exception.ContactSaveException;
 import com.example.bulletinboard.model.ContactStatus;
@@ -126,7 +127,7 @@ class ContactSubmissionServiceTest {
 
         ContactRequest request = new ContactRequest();
 
-        request.setName("テスト太郎");
+        request.setCategory(ContactCategory.OTHER);
         request.setEmail("user@example.com");
         request.setSubject("ログインについて");
         request.setMessage("ログイン方法を教えてください。");
@@ -143,7 +144,7 @@ class ContactSubmissionServiceTest {
         Contact contact = new Contact();
 
         contact.setId(1L);
-        contact.setName(request.getName());
+        contact.setCategory(request.getCategory());
         contact.setEmail(request.getEmail());
         contact.setSubject(request.getSubject());
         contact.setMessage(request.getMessage());

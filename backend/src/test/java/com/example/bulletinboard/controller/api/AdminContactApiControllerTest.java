@@ -60,9 +60,9 @@ import ch.qos.logback.core.read.ListAppender;
  * 認証・認可・CSRFによる拒否、失敗ログを検証するWeb層のテストです。
  *
  * 【現在の検証内容】
- * - 管理者による詳細取得で200と詳細情報8項目を返すこと
+ * - 管理者による詳細取得で200と詳細情報11項目を返すこと
  * - 対象不存在時に404と共通エラーJSONを返すこと
- * - 一覧取得で200と一覧情報5項目・ページ情報を返すこと
+ * - 一覧取得で200と一覧情報6項目・ページ情報を返すこと
  * - 一覧にメールアドレス・本文・更新日時を含めないこと
  * - 一覧条件の省略時に既定値をServiceへ渡すこと
  * - 指定したページ番号・件数・状態をServiceへ渡すこと
@@ -76,7 +76,7 @@ import ch.qos.logback.core.read.ListAppender;
  * - 一覧・詳細への一般ユーザーのアクセスを403と共通エラーJSONで拒否し、
  *   Serviceを呼ばないこと
  * - 管理者が有効なCSRFトークン付きで状態変更すると、
- *   200と変更後の詳細情報8項目を返すこと
+ *   200と変更後の詳細情報11項目を返すこと
  * - 状態変更のID・変更先の状態・認証情報のメールアドレスを
  *   Serviceへ渡すこと
  * - 状態変更の対象不存在時に404と共通エラーJSONを返すこと
@@ -189,14 +189,14 @@ class AdminContactApiControllerTest {
 
     /**
      * Serviceから取得したContactが詳細DTOへ変換され、
-     * 決定済みの8項目をJSONで返すことを確認します。
+     * 決定済みの11項目をJSONで返すことを確認します。
      */
     @Test
     @WithMockUser(
             username = "admin@example.com",
             roles = "ADMIN"
     )
-    @DisplayName("管理者がお問い合わせ詳細を取得すると200と詳細8項目を返す")
+    @DisplayName("管理者がお問い合わせ詳細を取得すると200と詳細11項目を返す")
     void getContact_whenFound_shouldReturn200() throws Exception {
 
         // Given：Serviceから返されるお問い合わせを用意する
@@ -217,7 +217,7 @@ class AdminContactApiControllerTest {
         when(adminContactService.getById(1L))
                 .thenReturn(contact);
 
-        // When・Then：200と詳細情報8項目を確認する
+        // When・Then：200と詳細情報11項目を確認する
         mockMvc.perform(
                 get("/api/admin/contacts/1")
                         .accept(MediaType.APPLICATION_JSON)
@@ -228,7 +228,10 @@ class AdminContactApiControllerTest {
                                 MediaType.APPLICATION_JSON
                         )
                 )
-                .andExpect(jsonPath("$.length()").value(8))
+                .andExpect(jsonPath("$.length()").value(11))
+                .andExpect(jsonPath("$.category").isEmpty())
+                .andExpect(jsonPath("$.legalHoldUntil").isEmpty())
+                .andExpect(jsonPath("$.legalHoldReason").isEmpty())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.name").value("テスト太郎"))
                 .andExpect(
@@ -262,7 +265,7 @@ class AdminContactApiControllerTest {
 
     /**
  * パラメータ省略時にpage=0・size=20・状態指定なしで取得し、
- * 一覧用の5項目とページ情報を返すことを確認します。
+ * 一覧用の6項目とページ情報を返すことを確認します。
  */
 @Test
 @WithMockUser(
@@ -316,8 +319,9 @@ void getContacts_withoutParameters_shouldReturnDefaultPage() throws Exception {
             .andExpect(jsonPath("$.totalPages").value(1))
             .andExpect(jsonPath("$.content.length()").value(1))
 
-            // 一覧用の5項目を確認する
-            .andExpect(jsonPath("$.content[0].length()").value(5))
+            // 一覧用の6項目を確認する
+            .andExpect(jsonPath("$.content[0].length()").value(6))
+            .andExpect(jsonPath("$.content[0].category").isEmpty())
             .andExpect(jsonPath("$.content[0].id").value(1))
             .andExpect(
                     jsonPath("$.content[0].name").value("テスト太郎")
@@ -733,7 +737,10 @@ void updateContactStatus_whenAdminWithCsrf_shouldReturnUpdatedContact()
             .andExpect(content().contentTypeCompatibleWith(
                     MediaType.APPLICATION_JSON
             ))
-            .andExpect(jsonPath("$.length()").value(8))
+                .andExpect(jsonPath("$.length()").value(11))
+                .andExpect(jsonPath("$.category").isEmpty())
+                .andExpect(jsonPath("$.legalHoldUntil").isEmpty())
+                .andExpect(jsonPath("$.legalHoldReason").isEmpty())
             .andExpect(jsonPath("$.id").value(1))
             .andExpect(jsonPath("$.name").value("テスト太郎"))
             .andExpect(jsonPath("$.email").value("user@example.com"))

@@ -34,6 +34,16 @@ import com.example.bulletinboard.model.ContactStatus;
 @Repository
 public interface ContactRepository extends JpaRepository<Contact, Long> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select c from Contact c where c.id = :id")
+    java.util.Optional<Contact> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Long id);
+
+    @org.springframework.data.jpa.repository.Query("select c.id from Contact c where c.status = com.example.bulletinboard.model.ContactStatus.RESOLVED "
+            + "and c.createdAt <= :cutoff and timestampadd(year, 1, c.createdAt) <= :now "
+            + "and (c.legalHoldUntil is null or c.legalHoldUntil <= :now) order by c.id")
+    java.util.List<Long> findExpiredIds(@org.springframework.data.repository.query.Param("cutoff") java.time.LocalDateTime cutoff,
+            @org.springframework.data.repository.query.Param("now") java.time.LocalDateTime now, Pageable pageable);
+
     /*
      * 指定したステータスのお問い合わせを取得します。
      *

@@ -80,7 +80,7 @@ public class AdminOperationLog {
     private Long targetId;
 
     /**
-     * 操作内容。STATUS_CHANGE、DELETE、ICON_RESET、BIO_CLEARを扱う。
+     * 操作内容。STATUS_CHANGE、DELETE、ICON_RESET、BIO_CLEAR、LEGAL_HOLD_SET、LEGAL_HOLD_RELEASEを扱う。
      */
     @Column(
             name = "action",

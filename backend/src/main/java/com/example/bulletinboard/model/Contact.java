@@ -1,6 +1,7 @@
 package com.example.bulletinboard.model;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -38,8 +39,8 @@ import lombok.Setter;
  * 【設計上のポイント】
  * - お問い合わせはログインユーザー・未ログインユーザーの
  *   どちらからでも送信できる想定です。
- * - usersテーブルとは紐付けず、送信時に入力された
- *   nameとemailをそのまま保持します。
+ * - usersテーブルとは紐付けません。nameは過去データのみ保持し、新規受付では収集しません。
+ * - 新規受付のcategoryは必須、過去データの未設定categoryはnullで保持します。
  * - emailにはUNIQUE制約を付けません。
  *   同じメールアドレスから複数回お問い合わせできます。
  * - statusでは管理者による対応状況を管理します。
@@ -62,11 +63,21 @@ public class Contact {
     private Long id;
 
     /*
-     * お問い合わせ送信者の氏名。
+     * 過去の受付で収集した氏名。新規受付ではnullを保存する。
      */
-    @NotBlank
-    @Column(name = "name", nullable = false, length = 100)
+    @Column(name = "name", length = 100)
     private String name;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category", length = 30)
+    private ContactCategory category;
+
+    /** 法的保持の期限。期限到達後は次回ジョブで通常の削除条件を判定する。 */
+    @Column(name = "legal_hold_until")
+    private LocalDateTime legalHoldUntil;
+
+    @Column(name = "legal_hold_reason", length = 500)
+    private String legalHoldReason;
 
     /*
      * お問い合わせ送信者のメールアドレス。
@@ -126,7 +137,7 @@ public class Contact {
      */
     @PrePersist
     public void prePersist() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Tokyo"));
 
        if (status == null) {
         status = ContactStatus.UNANSWERED;
@@ -147,6 +158,6 @@ public class Contact {
      */
     @PreUpdate
     public void preUpdate() {
-        updatedAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now(ZoneId.of("Asia/Tokyo"));
     }
 }

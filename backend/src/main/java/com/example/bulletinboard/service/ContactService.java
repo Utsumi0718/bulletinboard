@@ -33,7 +33,7 @@ public class ContactService {
 
         Contact contact = new Contact();
 
-        contact.setName(request.getName());
+        contact.setCategory(request.getCategory());
         contact.setEmail(request.getEmail());
         contact.setSubject(request.getSubject());
         contact.setMessage(request.getMessage());

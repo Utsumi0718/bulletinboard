@@ -85,7 +85,7 @@ class ContactAdminFlowIntegrationTest {
     @EnableJpaRepositories(basePackageClasses = UserRepository.class)
     @Import({ContactApiController.class, AdminContactApiController.class,
             ContactService.class, ContactSubmissionService.class, AdminContactService.class,
-            SecurityConfig.class, GlobalExceptionHandler.class, CustomUserDetailsService.class})
+            SecurityConfig.class, com.example.bulletinboard.service.ContactRateLimitService.class, GlobalExceptionHandler.class, CustomUserDetailsService.class})
     static class FlowConfiguration {
     }
 
@@ -118,7 +118,6 @@ class ContactAdminFlowIntegrationTest {
         });
         // 保存済みUserから認証情報を作り、認証名とDBのメールアドレスを一致させる。
         UserDetails admin = userDetailsService.loadUserByUsername(adminEmail);
-        String name = "フロー確認ユーザー";
         String email = "flow-contact-" + suffix + "@example.com";
         String subject = "受付から削除まで " + suffix;
         String message = "同じお問い合わせの状態変更と削除後の履歴を確認します。";
@@ -126,7 +125,7 @@ class ContactAdminFlowIntegrationTest {
         mockMvc.perform(post("/api/contacts").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "name", name, "email", email, "subject", subject, "message", message))))
+                                "category", "OTHER", "email", email, "subject", subject, "message", message))))
                 .andExpect(status().isCreated());
 
         // IDや並び順を仮定せず、このテストで送信した件名で特定する。
@@ -138,7 +137,8 @@ class ContactAdminFlowIntegrationTest {
         mockMvc.perform(get("/api/admin/contacts/{id}", contactId).with(user(admin)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(contactId))
-                .andExpect(jsonPath("$.name").value(name))
+                .andExpect(jsonPath("$.name").isEmpty())
+                .andExpect(jsonPath("$.category").value("OTHER"))
                 .andExpect(jsonPath("$.email").value(email))
                 .andExpect(jsonPath("$.subject").value(subject))
                 .andExpect(jsonPath("$.message").value(message))
