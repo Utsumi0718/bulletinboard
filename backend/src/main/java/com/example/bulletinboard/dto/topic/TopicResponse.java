@@ -2,6 +2,7 @@ package com.example.bulletinboard.dto.topic;
 
 import java.time.LocalDateTime;
 
+import com.example.bulletinboard.dto.common.PublicDisplayName;
 import com.example.bulletinboard.model.Topic;
 import com.example.bulletinboard.model.User;
 import com.example.bulletinboard.service.ReportEligibility;
@@ -57,7 +58,7 @@ public class TopicResponse {
         response.setTitle(topic.getTitle());
         response.setImage(topic.getImage());
         response.setQuestion(topic.getQuestion());
-        response.setUsername(topic.getUser().getUsername());
+        response.setUsername(PublicDisplayName.from(topic.getUser()));
         response.setCreatedAt(topic.getCreatedAt());
         response.setUpdatedAt(topic.getUpdatedAt());
 
