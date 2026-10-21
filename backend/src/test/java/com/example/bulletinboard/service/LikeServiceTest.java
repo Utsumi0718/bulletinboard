@@ -86,7 +86,7 @@ class LikeServiceTest {
     private Answer testAnswer;
 
     private static final Long ANSWER_ID = 10L;
-    private static final String LOGIN_EMAIL = "testuser@example.com";
+    private static final String LOGIN_EMAIL = "883786395";
 
     @BeforeEach
     void setUp() {
@@ -115,7 +115,7 @@ class LikeServiceTest {
     void toggleLike_WhenNotLiked_ShouldAddLike() {
 
         // Given
-        when(customUserDetailsService.findByEmail(LOGIN_EMAIL))
+        when(customUserDetailsService.findByActorId(LOGIN_EMAIL))
                 .thenReturn(Optional.of(loginUser));
 
         when(answerRepository.findByIdAndDeletedAtIsNull(ANSWER_ID))
@@ -156,7 +156,7 @@ class LikeServiceTest {
         Like existingLike =
                 new Like(loginUser, testAnswer);
 
-        when(customUserDetailsService.findByEmail(LOGIN_EMAIL))
+        when(customUserDetailsService.findByActorId(LOGIN_EMAIL))
                 .thenReturn(Optional.of(loginUser));
 
         when(answerRepository.findByIdAndDeletedAtIsNull(ANSWER_ID))
@@ -194,7 +194,7 @@ class LikeServiceTest {
     void toggleLike_WhenAnswerDoesNotExist_ShouldThrowAnswerNotFoundException() {
 
         // Given
-        when(customUserDetailsService.findByEmail(LOGIN_EMAIL))
+        when(customUserDetailsService.findByActorId(LOGIN_EMAIL))
                 .thenReturn(Optional.of(loginUser));
 
         when(answerRepository.findByIdAndDeletedAtIsNull(ANSWER_ID))
@@ -234,7 +234,7 @@ class LikeServiceTest {
          * 論理削除済みAnswerを取得しないため、
          * RepositoryからOptional.empty()が返る状態を再現する。
          */
-        when(customUserDetailsService.findByEmail(LOGIN_EMAIL))
+        when(customUserDetailsService.findByActorId(LOGIN_EMAIL))
                 .thenReturn(Optional.of(loginUser));
 
         when(answerRepository.findByIdAndDeletedAtIsNull(ANSWER_ID))
@@ -265,7 +265,7 @@ class LikeServiceTest {
         // Given
         testTopic.setDeletedAt(LocalDateTime.now());
 
-        when(customUserDetailsService.findByEmail(LOGIN_EMAIL))
+        when(customUserDetailsService.findByActorId(LOGIN_EMAIL))
                 .thenReturn(Optional.of(loginUser));
 
         when(answerRepository.findByIdAndDeletedAtIsNull(ANSWER_ID))
@@ -303,7 +303,7 @@ class LikeServiceTest {
         // Given
         testAnswer.setUser(loginUser);
 
-        when(customUserDetailsService.findByEmail(LOGIN_EMAIL))
+        when(customUserDetailsService.findByActorId(LOGIN_EMAIL))
                 .thenReturn(Optional.of(loginUser));
 
         when(answerRepository.findByIdAndDeletedAtIsNull(ANSWER_ID))
@@ -339,7 +339,7 @@ class LikeServiceTest {
     void toggleLike_WhenUserDoesNotExist_ShouldThrowUserNotFoundException() {
 
         // Given
-        when(customUserDetailsService.findByEmail(LOGIN_EMAIL))
+        when(customUserDetailsService.findByActorId(LOGIN_EMAIL))
                 .thenReturn(Optional.empty());
 
         // When & Then
@@ -372,7 +372,7 @@ class LikeServiceTest {
     void toggleLike_WhenLikeInsertConflicts_ShouldThrowLikeConflictException() {
 
         // Given
-        when(customUserDetailsService.findByEmail(LOGIN_EMAIL))
+        when(customUserDetailsService.findByActorId(LOGIN_EMAIL))
                 .thenReturn(Optional.of(loginUser));
 
         when(answerRepository.findByIdAndDeletedAtIsNull(ANSWER_ID))

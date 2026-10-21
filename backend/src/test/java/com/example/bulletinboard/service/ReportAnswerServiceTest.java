@@ -42,9 +42,11 @@ import com.example.bulletinboard.repository.UserRepository;
 
 @ExtendWith(MockitoExtension.class)
 class ReportAnswerServiceTest {
+    @Mock PrivacyRetentionService retention;
+    @Mock PrivacyAccessService privacyAccess;
     private static final long ANSWER_ID = 44L;
     private static final long TOPIC_ID = 18L;
-    private static final String EMAIL = "reporter@example.com";
+    private static final String EMAIL = "965257759";
     private static final String IMAGE_URL = "/api/topic-images/11111111-1111-1111-1111-111111111111";
     private static final ReportRequest REQUEST = new ReportRequest(ReportReason.SPAM, null);
 
@@ -108,7 +110,7 @@ class ReportAnswerServiceTest {
 
     @Test
     void selfReportIsForbidden() {
-        when(users.findByEmail(EMAIL)).thenReturn(Optional.of(user(22L, EMAIL, AccountStatus.ACTIVE)));
+        when(users.findById(Long.valueOf(EMAIL))).thenReturn(Optional.of(user(22L, EMAIL, AccountStatus.ACTIVE)));
         lookupAnswerAndParent();
         expect(Reason.FORBIDDEN);
     }
@@ -126,7 +128,7 @@ class ReportAnswerServiceTest {
     @ParameterizedTest
     @EnumSource(value = AccountStatus.class, names = {"FROZEN", "WITHDRAWN"})
     void inactiveReporterIsForbidden(AccountStatus status) {
-        when(users.findByEmail(EMAIL)).thenReturn(Optional.of(user(11L, EMAIL, status)));
+        when(users.findById(Long.valueOf(EMAIL))).thenReturn(Optional.of(user(11L, EMAIL, status)));
         expect(Reason.FORBIDDEN);
         verify(answers, never()).findReportableTopicIdByAnswerId(ANSWER_ID);
     }
@@ -146,7 +148,7 @@ class ReportAnswerServiceTest {
                 new ReportRequest(ReportReason.OTHER, "  ")))
                 .isInstanceOfSatisfying(ReportOperationException.class,
                         ex -> assertThat(ex.getReason()).isEqualTo(Reason.INVALID));
-        verify(users, never()).findByEmail(any());
+        verify(users, never()).findById(any());
     }
 
     private void expect(Reason reason) {
@@ -160,11 +162,11 @@ class ReportAnswerServiceTest {
         lookupAnswerAndParent();
         when(images.findOwnedSource(IMAGE_URL, 33L))
                 .thenReturn(Optional.of(new TopicImage(33L, "image/png", new byte[]{1, 2, 3})));
-        when(reports.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
+        when(reports.saveAndFlush(any())).thenAnswer(call -> { Report saved=call.getArgument(0); saved.setId(1L); return saved; });
     }
 
     private void activeReporter() {
-        when(users.findByEmail(EMAIL)).thenReturn(Optional.of(user(11L, EMAIL, AccountStatus.ACTIVE)));
+        when(users.findById(Long.valueOf(EMAIL))).thenReturn(Optional.of(user(11L, EMAIL, AccountStatus.ACTIVE)));
     }
 
     private void lookupAnswerAndParent() {
@@ -177,7 +179,7 @@ class ReportAnswerServiceTest {
         Answer result = new Answer();
         result.setId(ANSWER_ID);
         result.setTopic(topic());
-        result.setUser(user(22L, "owner@example.com", AccountStatus.ACTIVE));
+        result.setUser(user(22L, "1008766193", AccountStatus.ACTIVE));
         result.setContent("通報時の回答");
         return result;
     }
@@ -185,7 +187,7 @@ class ReportAnswerServiceTest {
     private Topic topic() {
         Topic result = new Topic();
         result.setId(TOPIC_ID);
-        result.setUser(user(33L, "topic-owner@example.com", AccountStatus.ACTIVE));
+        result.setUser(user(33L, "3379219411", AccountStatus.ACTIVE));
         result.setTitle("親タイトル");
         result.setQuestion("親本文");
         result.setImage(IMAGE_URL);

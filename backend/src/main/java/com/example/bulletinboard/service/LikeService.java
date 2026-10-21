@@ -1,4 +1,5 @@
 package com.example.bulletinboard.service;
+import com.example.bulletinboard.security.ActorIds;
 
 import java.util.HashMap;
 import java.util.List;
@@ -69,7 +70,7 @@ public class LikeService {
       * 処理完了後は最新のLike状態とLike件数を返す。
       *
       * @param answerId   対象AnswerのID
-      * @param loginEmail ログインユーザーのメールアドレス
+      * @param actorId ログインユーザーのメールアドレス
       * @return toggle後のLike状態と最新Like件数を持つLikeResponse
       * @throws UserNotFoundException       ログインユーザーを取得できない場合
       * @throws AnswerNotFoundException     Answerが存在しない、論理削除済み、
@@ -78,9 +79,9 @@ public class LikeService {
       * @throws LikeConflictException       Like登録時に重複登録競合が発生した場合
       */
     @Transactional
-    public LikeResponse toggleLike(Long answerId, String loginEmail) {
+    public LikeResponse toggleLike(Long answerId, String actorId) {
 
-        User user = customUserDetailsService.findByEmail(loginEmail)
+        User user = customUserDetailsService.findByActorId(actorId)
                 .orElseThrow(() ->
                         new UserNotFoundException(
                                 "ユーザーが見つかりません。"

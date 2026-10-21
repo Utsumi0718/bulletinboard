@@ -25,7 +25,7 @@ import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.test.context.support.WithAnonymousUser;
-import org.springframework.security.test.context.support.WithMockUser;
+import com.example.bulletinboard.support.WithAccount;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -108,6 +108,7 @@ import jakarta.validation.constraints.Size;
         SecurityConfig.class,
         ContactApiControllerTest.TestAdminController.class
 })
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class ContactApiControllerTest {
 
     @Autowired
@@ -130,7 +131,7 @@ class ContactApiControllerTest {
     private Validator validator;
 
     @Test
-    @WithMockUser(username = "user@example.com", roles = "USER")
+    @WithAccount(username = "user@example.com", roles = "USER")
     @DisplayName("正常な入力で受付Serviceを呼び、201と受付完了メッセージを返す")
     void submitContact_withValidRequest_shouldReturnCreated()
             throws Exception {
@@ -176,7 +177,7 @@ class ContactApiControllerTest {
     }
 
 @Test
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "user@example.com", roles = "USER")
 @DisplayName("入力不正の場合は400と項目別エラーを返し、受付Serviceを呼ばない")
 void submitContact_withInvalidRequest_shouldReturnBadRequest()
         throws Exception {
@@ -211,7 +212,7 @@ void submitContact_withInvalidRequest_shouldReturnBadRequest()
 }
 
 @Test
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "user@example.com", roles = "USER")
 @DisplayName("名前なしで有効な種別なら受け付ける")
 void submitContact_withoutName_shouldReturnCreated()
         throws Exception {
@@ -238,7 +239,7 @@ void submitContact_withoutName_shouldReturnCreated()
 }
 
 @Test
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "user@example.com", roles = "USER")
 @DisplayName("種別がnullなら拒否する")
 void submitContact_withNullCategory_shouldReturnBadRequest()
         throws Exception {
@@ -274,7 +275,7 @@ private ContactRequest createValidRequest() {
 }
 
 @Test
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "user@example.com", roles = "USER")
 @DisplayName("件名が上限の100文字なら受け付ける")
 void submitContact_withSubjectAtMaxLength_shouldReturnCreated()
         throws Exception {
@@ -301,7 +302,7 @@ void submitContact_withSubjectAtMaxLength_shouldReturnCreated()
 }
 
 @Test
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "user@example.com", roles = "USER")
 @DisplayName("件名が上限を超える101文字なら拒否する")
 void submitContact_withSubjectOverMaxLength_shouldReturnBadRequest()
         throws Exception {
@@ -321,7 +322,7 @@ void submitContact_withSubjectOverMaxLength_shouldReturnBadRequest()
 }
 
 @Test
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "user@example.com", roles = "USER")
 @DisplayName("本文が上限の1000文字なら受け付ける")
 void submitContact_withMessageAtMaxLength_shouldReturnCreated()
         throws Exception {
@@ -348,7 +349,7 @@ void submitContact_withMessageAtMaxLength_shouldReturnCreated()
 }
 
 @Test
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "user@example.com", roles = "USER")
 @DisplayName("本文が上限を超える1001文字なら拒否する")
 void submitContact_withMessageOverMaxLength_shouldReturnBadRequest()
         throws Exception {
@@ -368,7 +369,7 @@ void submitContact_withMessageOverMaxLength_shouldReturnBadRequest()
 }
 
 @Test
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "user@example.com", roles = "USER")
 @DisplayName("メールアドレスが255文字で入力条件を満たす場合は受け付ける")
 void submitContact_withEmailAtMaxLength_shouldReturnCreated()
         throws Exception {
@@ -398,7 +399,7 @@ void submitContact_withEmailAtMaxLength_shouldReturnCreated()
 }
 
 @Test
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "user@example.com", roles = "USER")
 @DisplayName("メールアドレスが256文字の場合は文字数制限で拒否する")
 void submitContact_withEmailOverMaxLength_shouldReturnBadRequest()
         throws Exception {
@@ -457,7 +458,7 @@ private String createBoundaryEmail(int variableLabelLength) {
 
 @ParameterizedTest(name = "{0}がnullなら拒否する")
 @ValueSource(strings = {"category", "email", "subject", "message"})
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "user@example.com", roles = "USER")
 void submitContact_withNullField_shouldReturnBadRequest(
         String fieldName) throws Exception {
 
@@ -480,7 +481,7 @@ void submitContact_withNullField_shouldReturnBadRequest(
 
 @ParameterizedTest(name = "{0}が未指定なら拒否する")
 @ValueSource(strings = {"category", "email", "subject", "message"})
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "user@example.com", roles = "USER")
 void submitContact_withMissingField_shouldReturnBadRequest(
         String fieldName) throws Exception {
 
@@ -503,7 +504,7 @@ void submitContact_withMissingField_shouldReturnBadRequest(
 
 @ParameterizedTest(name = "{0}が半角スペースだけなら拒否する")
 @ValueSource(strings = {"category", "email", "subject", "message"})
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "user@example.com", roles = "USER")
 void submitContact_withWhitespaceOnlyField_shouldReturnBadRequest(
         String fieldName) throws Exception {
 
@@ -525,7 +526,7 @@ void submitContact_withWhitespaceOnlyField_shouldReturnBadRequest(
 }
 
 @Test
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "user@example.com", roles = "USER")
 @DisplayName("メールアドレスが空文字なら拒否する")
 void submitContact_withEmptyEmail_shouldReturnBadRequest()
         throws Exception {
@@ -808,7 +809,7 @@ void adminApi_whenAnonymous_shouldReturnUnauthorizedJson()
 }
 
 @Test
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "user@example.com", roles = "USER")
 @DisplayName("一般ユーザーが管理APIへアクセスすると403と共通JSONを返す")
 void adminApi_whenRegularUser_shouldReturnForbiddenJson()
         throws Exception {
@@ -828,7 +829,7 @@ void adminApi_whenRegularUser_shouldReturnForbiddenJson()
 
 
 @Test
-@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@WithAccount(username = "admin@example.com", roles = "ADMIN")
 @DisplayName("管理者は管理APIのGETへアクセスできる")
 void adminApi_whenAdmin_shouldAllowGet() throws Exception {
 
@@ -838,7 +839,7 @@ void adminApi_whenAdmin_shouldAllowGet() throws Exception {
 }
 
 @Test
-@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@WithAccount(username = "admin@example.com", roles = "ADMIN")
 @DisplayName("管理者は有効なCSRFトークン付きで管理APIのPOSTへアクセスできる")
 void adminApi_whenAdminWithCsrf_shouldAllowPost() throws Exception {
 

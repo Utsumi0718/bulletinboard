@@ -1,4 +1,5 @@
 package com.example.bulletinboard.service;
+import com.example.bulletinboard.security.ActorIds;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,9 +29,9 @@ public class AdminProfileService {
         this.logs = logs;
     }
 
-    private User admin(String email) {
-        if (email == null || email.isBlank()) throw new UserNotFoundException("ログインユーザー情報を取得できませんでした。");
-        User actor = users.findByEmail(email)
+    private User admin(String actorId) {
+        if (actorId == null || actorId.isBlank()) throw new UserNotFoundException("ログインユーザー情報を取得できませんでした。");
+        User actor = users.findById(ActorIds.parse(actorId))
                 .orElseThrow(() -> new UserNotFoundException("ログインユーザー情報を取得できませんでした。"));
         if (!"ROLE_ADMIN".equals(actor.getRole()) || actor.getAccountStatus() != AccountStatus.ACTIVE) {
             throw new ForbiddenOperationException("この操作は管理者のみ実行できます。");
@@ -39,22 +40,22 @@ public class AdminProfileService {
     }
 
     @Transactional(readOnly = true)
-    public AdminProfileResponse detail(Long profileId, String email) {
-        admin(email);
+    public AdminProfileResponse detail(Long profileId, String actorId) {
+        admin(actorId);
         return AdminProfileResponse.from(profiles.findById(profileId)
                 .orElseThrow(AdminProfileNotFoundException::new));
     }
 
     @Transactional(readOnly = true)
-    public AdminProfileResponse byUser(Long userId, String email) {
-        admin(email);
+    public AdminProfileResponse byUser(Long userId, String actorId) {
+        admin(actorId);
         return AdminProfileResponse.from(profiles.findByUserId(userId)
                 .orElseThrow(AdminProfileNotFoundException::new));
     }
 
     @Transactional
-    public void resetIcon(Long profileId, String email) {
-        User actor = admin(email);
+    public void resetIcon(Long profileId, String actorId) {
+        User actor = admin(actorId);
         Profile profile = profiles.findByIdForUpdate(profileId)
                 .orElseThrow(AdminProfileNotFoundException::new);
         if (profile.getIcon() == null) return;
@@ -66,8 +67,8 @@ public class AdminProfileService {
     }
 
     @Transactional
-    public void clearBio(Long profileId, String email) {
-        User actor = admin(email);
+    public void clearBio(Long profileId, String actorId) {
+        User actor = admin(actorId);
         Profile profile = profiles.findByIdForUpdate(profileId)
                 .orElseThrow(AdminProfileNotFoundException::new);
         if (profile.getBio() == null) return;

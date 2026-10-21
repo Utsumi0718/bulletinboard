@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Optional;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,13 +32,15 @@ public class PasswordResetService {
     private final PasswordResetTokenRepository tokens;
     private final PasswordEncoder passwords;
     private final ApplicationEventPublisher events;
+    private final EntityManager entityManager;
 
     public PasswordResetService(UserRepository users, PasswordResetTokenRepository tokens,
-            PasswordEncoder passwords, ApplicationEventPublisher events) {
+            PasswordEncoder passwords, ApplicationEventPublisher events,EntityManager entityManager) {
         this.users = users;
         this.tokens = tokens;
         this.passwords = passwords;
         this.events = events;
+        this.entityManager=entityManager;
     }
 
     /** 未登録・退会済みの場合も呼び出し元は同じ公開応答を返す。 */
@@ -63,20 +67,25 @@ public class PasswordResetService {
 
     @Transactional
     public void confirm(String rawToken, String newPassword) {
+        Long owner=tokens.findOwnerId(hash(rawToken))
+                .orElseThrow(() -> new PasswordResetException(PasswordResetException.Reason.INVALID));
+        var user=users.findByIdForUpdate(owner)
+                .orElseThrow(() -> new PasswordResetException(PasswordResetException.Reason.INVALID));
+        entityManager.refresh(user,LockModeType.PESSIMISTIC_WRITE);
         PasswordResetToken token = tokens.findByTokenHash(hash(rawToken))
                 .orElseThrow(() -> new PasswordResetException(PasswordResetException.Reason.INVALID));
         if (!token.getExpiresAt().isAfter(LocalDateTime.now())
-                || token.getUser().getAccountStatus() == AccountStatus.WITHDRAWN) {
+                || user.getAccountStatus() == AccountStatus.WITHDRAWN || !token.getUser().getId().equals(owner)) {
             throw new PasswordResetException(PasswordResetException.Reason.INVALID);
         }
 
-        var user = token.getUser();
         user.setPassword(passwords.encode(newPassword));
         user.setFailedAttempt(0);
         user.setAccountNonLocked(true);
+        user.setAuthenticationVersion(user.getAuthenticationVersion()+1);
         users.saveAndFlush(user);
         tokens.delete(token);
-        events.publishEvent(new PasswordResetCompletedEvent(user.getEmail()));
+        events.publishEvent(new PasswordResetCompletedEvent(user.getId()));
     }
 
     public static String hash(String rawToken) {
@@ -95,5 +104,7 @@ public class PasswordResetService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
-    public record IssuedToken(String email, String rawToken) { }
+    public record IssuedToken(String email, String rawToken) {
+        @Override public String toString() { return "IssuedToken[credentials=REDACTED]"; }
+    }
 }

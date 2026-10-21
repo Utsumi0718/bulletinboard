@@ -1,4 +1,5 @@
 package com.example.bulletinboard.service;
+import com.example.bulletinboard.security.ActorIds;
 
 import java.util.regex.Pattern;
 import java.util.Optional;
@@ -34,16 +35,16 @@ public class TopicImageService {
     }
 
     @Transactional
-    public TopicImageResponse upload(ValidatedImage image, String email) {
-        User owner = requireActiveUser(email);
+    public TopicImageResponse upload(ValidatedImage image, String actorId) {
+        User owner = requireActiveUser(actorId);
         TopicImage saved = images.save(new TopicImage(owner.getId(), image.contentType(), image.bytes()));
         return new TopicImageResponse(URL_PREFIX + saved.getId());
     }
 
     /** 未使用・差し替え後の画像は所有者のみ。公開中Topicの画像は認証済み利用者が取得できる。 */
     @Transactional(readOnly = true)
-    public TopicImage get(String id, String email) {
-        User viewer = requireActiveUser(email);
+    public TopicImage get(String id, String actorId) {
+        User viewer = requireActiveUser(actorId);
         if (!ID.matcher(id).matches()
                 || !(images.existsByIdAndOwnerUserId(id, viewer.getId())
                 || topics.existsByImageAndDeletedAtIsNull(URL_PREFIX + id))) {
@@ -54,8 +55,8 @@ public class TopicImageService {
 
     /** 任意URL・パスを取得せず、本人の管理下画像だけをTopicへ設定する。 */
     @Transactional(readOnly = true)
-    public void requireOwnedImage(String url, String email) {
-        User owner = requireActiveUser(email);
+    public void requireOwnedImage(String url, String actorId) {
+        User owner = requireActiveUser(actorId);
         if (url == null || !url.startsWith(URL_PREFIX)) {
             throw new TopicImageException(Reason.INVALID_REFERENCE);
         }
@@ -77,8 +78,8 @@ public class TopicImageService {
                 : Optional.empty();
     }
 
-    private User requireActiveUser(String email) {
-        User user = users.findByEmail(email).orElseThrow(() -> new TopicImageException(Reason.FORBIDDEN));
+    private User requireActiveUser(String actorId) {
+        User user = users.findById(ActorIds.parse(actorId)).orElseThrow(() -> new TopicImageException(Reason.FORBIDDEN));
         if (user.getAccountStatus() != AccountStatus.ACTIVE) {
             throw new TopicImageException(Reason.FORBIDDEN);
         }

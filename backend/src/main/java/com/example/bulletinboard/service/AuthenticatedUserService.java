@@ -1,4 +1,5 @@
 package com.example.bulletinboard.service;
+import com.example.bulletinboard.security.ActorIds;
 
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -23,10 +24,12 @@ public class AuthenticatedUserService {
     @Transactional(readOnly = true)
     public AuthenticatedUserResponse current(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()
-                || authentication instanceof AnonymousAuthenticationToken) {
+                || authentication instanceof AnonymousAuthenticationToken
+                || !(authentication.getPrincipal() instanceof com.example.bulletinboard.security.AccountPrincipal)) {
             return AuthenticatedUserResponse.anonymous();
         }
-        return users.findByEmail(authentication.getName())
+        return users.findById(ActorIds.parse(authentication.getName()))
+                .filter(user -> user.getAccountStatus()==com.example.bulletinboard.model.AccountStatus.ACTIVE)
                 .map(user -> new AuthenticatedUserResponse(
                         true,
                         user.getId(),

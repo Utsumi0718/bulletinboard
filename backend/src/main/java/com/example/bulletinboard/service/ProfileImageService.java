@@ -1,4 +1,5 @@
 package com.example.bulletinboard.service;
+import com.example.bulletinboard.security.ActorIds;
 
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -34,8 +35,8 @@ public class ProfileImageService {
     }
 
     @Transactional(readOnly = true)
-    public ProfileResponse detail(Long profileId, String email) {
-        User viewer = active(email);
+    public ProfileResponse detail(Long profileId, String actorId) {
+        User viewer = active(actorId);
         Profile profile = profiles.findWithUserById(profileId)
                 .filter(p -> p.getUser().getAccountStatus() != AccountStatus.WITHDRAWN)
                 .orElseThrow(() -> new ProfileOperationException(Reason.NOT_FOUND));
@@ -44,8 +45,8 @@ public class ProfileImageService {
 
     /** 原本保存と利用中参照の変更を同じトランザクションにする。本人以外のIDを受け取らない。 */
     @Transactional
-    public ProfileResponse put(TopicImageValidator.ValidatedImage image, String email) {
-        User viewer = active(email);
+    public ProfileResponse put(TopicImageValidator.ValidatedImage image, String actorId) {
+        User viewer = active(actorId);
         Profile profile = lockOwnProfile(viewer);
         ProfileImage source = images.saveAndFlush(new ProfileImage(viewer.getId(), image.contentType(), image.bytes()));
         profile.setIcon(URL_PREFIX + source.getId());
@@ -54,8 +55,8 @@ public class ProfileImageService {
     }
 
     @Transactional
-    public void reset(String email) {
-        Profile profile = lockOwnProfile(active(email));
+    public void reset(String actorId) {
+        Profile profile = lockOwnProfile(active(actorId));
         if (profile.getIcon() != null) {
             profile.setIcon(null);
             profiles.saveAndFlush(profile);
@@ -76,8 +77,8 @@ public class ProfileImageService {
 
     /** 通常画像は現在の公開ProfileまたはACTIVEな所有者だけ。証拠テーブルにはアクセスしない。 */
     @Transactional(readOnly = true)
-    public ProfileImage get(String id, String email) {
-        User viewer = active(email);
+    public ProfileImage get(String id, String actorId) {
+        User viewer = active(actorId);
         if (!ID.matcher(id).matches()) throw new ProfileOperationException(Reason.NOT_FOUND);
         ProfileImage source = images.findById(id)
                 .orElseThrow(() -> new ProfileOperationException(Reason.NOT_FOUND));
@@ -96,8 +97,8 @@ public class ProfileImageService {
         return ID.matcher(id).matches() ? images.findByIdAndOwnerUserId(id, ownerId) : Optional.empty();
     }
 
-    private User active(String email) {
-        return users.findByEmail(email).filter(u -> u.getAccountStatus() == AccountStatus.ACTIVE)
+    private User active(String actorId) {
+        return users.findById(ActorIds.parse(actorId)).filter(u -> u.getAccountStatus() == AccountStatus.ACTIVE)
                 .orElseThrow(() -> new ProfileOperationException(Reason.FORBIDDEN));
     }
 }

@@ -1,4 +1,5 @@
 package com.example.bulletinboard.service;
+import com.example.bulletinboard.security.ActorIds;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,6 +37,7 @@ import com.example.bulletinboard.repository.UserRepository;
 
 /** 管理者用の通報検索・証拠確認・状態変更を担当する。 */
 @Service
+@org.springframework.context.annotation.Import(PrivacyModule.class)
 public class AdminReportService {
     private static final int MAX_PAGE_SIZE = 100;
     private final ReportRepository reports;
@@ -47,11 +49,14 @@ public class AdminReportService {
     private final ReportAnswerSnapshotRepository answerSnapshots;
     private final ReportProfileSnapshotRepository profileSnapshots;
     private final AdminOperationLogRepository operationLogs;
+    private final PrivacyRetentionService retention;
+    private final PrivacyAccessService privacyAccess;
 
     public AdminReportService(ReportRepository reports, UserRepository users, TopicRepository topics,
             AnswerRepository answers, ProfileRepository profiles,
             ReportTopicSnapshotRepository topicSnapshots, ReportAnswerSnapshotRepository answerSnapshots,
-            ReportProfileSnapshotRepository profileSnapshots, AdminOperationLogRepository operationLogs) {
+            ReportProfileSnapshotRepository profileSnapshots, AdminOperationLogRepository operationLogs,
+            PrivacyRetentionService retention,PrivacyAccessService privacyAccess) {
         this.reports = reports;
         this.users = users;
         this.topics = topics;
@@ -61,16 +66,25 @@ public class AdminReportService {
         this.answerSnapshots = answerSnapshots;
         this.profileSnapshots = profileSnapshots;
         this.operationLogs = operationLogs;
+        this.retention=retention;this.privacyAccess=privacyAccess;
+    }
+
+    @Transactional(readOnly=true)
+    public AdminReportEvidenceResponse evidenceDetail(Long reportId,String actorId) {
+        privacyAccess.require(actorId);retention.requireEvidencePolicy(reportId);
+        privacyAccess.auditRead(actorId,"REPORT_EVIDENCE",reportId.toString(),"READ_TEXT");
+        return evidence(reports.findById(reportId).orElseThrow(() -> new ReportOperationException(
+                ReportOperationException.Reason.NOT_FOUND,reportId)));
     }
 
     @Transactional(readOnly = true)
     public Page<AdminReportListResponse> list(int page, int size, ReportStatus status,
-            Long reporterUserId, String adminEmail) {
+            Long reporterUserId, String actorId) {
         if (page < 0 || size < 1 || size > MAX_PAGE_SIZE ||
                 (reporterUserId != null && reporterUserId < 1)) {
             throw new IllegalArgumentException("一覧条件を確認してください。");
         }
-        requireAdmin(adminEmail);
+        requireAdmin(actorId);
         var pageable = PageRequest.of(page, size,
                 Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
         Page<Report> results;
@@ -91,27 +105,27 @@ public class AdminReportService {
         return results.map(report -> {
             User owner = owners.get(report.getTargetOwnerUserId());
             return new AdminReportListResponse(report.getId(), report.getTargetType(), report.getTargetId(),
-                    report.getReporterUser().getId(), report.getReporterUser().getUsername(),
-                    report.getTargetOwnerUserId(), owner == null ? null : owner.getUsername(),
+                    report.getReporterUser().getId(), WithdrawalIdentity.publicName(report.getReporterUser()),
+                    report.getTargetOwnerUserId(), owner == null ? null : WithdrawalIdentity.publicName(owner),
                     report.getReason(), report.getReason().getDisplayName(),
                     report.getStatus(), report.getCreatedAt());
         });
     }
 
     @Transactional(readOnly = true)
-    public AdminReportDetailResponse detail(Long reportId, String adminEmail) {
-        requireAdmin(adminEmail);
+    public AdminReportDetailResponse detail(Long reportId, String actorId) {
+        requireAdmin(actorId);
         Report report = reports.findById(reportId)
                 .orElseThrow(() -> new ReportOperationException(ReportOperationException.Reason.NOT_FOUND, reportId));
         return toDetail(report);
     }
 
     @Transactional
-    public AdminReportDetailResponse updateStatus(Long reportId, ReportStatus next, String adminEmail) {
+    public AdminReportDetailResponse updateStatus(Long reportId, ReportStatus next, String actorId) {
         if (next == null) {
             throw new IllegalArgumentException("ステータスを指定してください。");
         }
-        User admin = requireAdmin(adminEmail);
+        User admin = requireAdmin(actorId);
         Report report = reports.findByIdForUpdate(reportId)
                 .orElseThrow(() -> new ReportOperationException(ReportOperationException.Reason.NOT_FOUND, reportId));
         ReportStatus before = report.getStatus();
@@ -124,11 +138,11 @@ public class AdminReportService {
         return toDetail(report);
     }
 
-    private User requireAdmin(String email) {
-        if (email == null || email.isBlank()) {
+    private User requireAdmin(String actorId) {
+        if (actorId == null || actorId.isBlank()) {
             throw new UserNotFoundException("ログインユーザー情報を取得できませんでした。");
         }
-        User admin = users.findByEmail(email)
+        User admin = users.findById(ActorIds.parse(actorId))
                 .orElseThrow(() -> new UserNotFoundException("ログインユーザー情報を取得できませんでした。"));
         if (!"ROLE_ADMIN".equals(admin.getRole()) || admin.getAccountStatus() != AccountStatus.ACTIVE) {
             throw new ForbiddenOperationException("この操作は管理者のみ実行できます。");
@@ -145,7 +159,7 @@ public class AdminReportService {
                 report.getReason().getDisplayName(), report.getDetail(), report.getStatus(),
                 report.getCreatedAt(), report.getUpdatedAt(),
                 reports.countByReporterUserId(report.getReporterUser().getId()), currentTargetState(report),
-                evidence(report), operationLogs.findByTargetTypeAndTargetIdOrderByCreatedAtAscIdAsc(
+                null, operationLogs.findByTargetTypeAndTargetIdOrderByCreatedAtAscIdAsc(
                         "REPORT", report.getId()).stream().map(AdminReportHistoryResponse::from).toList());
     }
 

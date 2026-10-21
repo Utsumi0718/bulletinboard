@@ -1,4 +1,5 @@
 package com.example.bulletinboard.service;
+import com.example.bulletinboard.security.ActorIds;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -157,7 +158,7 @@ public class AdminContactService {
  *
  * @param id お問い合わせID
  * @param newStatus 変更先の状態
- * @param loginEmail Controllerが認証情報から取得したメールアドレス
+ * @param actorId Controllerが認証情報から取得したメールアドレス
  * @return 変更後、または変更不要だったお問い合わせ
  * @throws IllegalArgumentException 変更先の状態がnullの場合
  * @throws UserNotFoundException 操作するユーザーを取得できない場合
@@ -168,7 +169,7 @@ public class AdminContactService {
 public Contact updateStatus(
         Long id,
         ContactStatus newStatus,
-        String loginEmail) {
+        String actorId) {
 
     // APIの入力検証に加え、Serviceでもnullを拒否する。
     if (newStatus == null) {
@@ -179,13 +180,13 @@ public Contact updateStatus(
 
     // loginEmailには、リクエスト本文の値ではなく
     // ControllerがAuthenticationから取得した値を渡す。
-    if (loginEmail == null || loginEmail.isBlank()) {
+    if (actorId == null || actorId.isBlank()) {
         throw new UserNotFoundException(
                 "ログインユーザー情報を取得できませんでした。"
         );
     }
 
-    User adminUser = userRepository.findByEmail(loginEmail)
+    User adminUser = userRepository.findById(ActorIds.parse(actorId))
             .orElseThrow(() -> new UserNotFoundException(
                     "ログインユーザー情報を取得できませんでした。"
             ));
@@ -240,21 +241,21 @@ public Contact updateStatus(
  * コミット時の通信障害などでは、DBの最終状態を断定できません。
  *
  * @param id お問い合わせID
- * @param loginEmail Controllerが認証情報から取得したメールアドレス
+ * @param actorId Controllerが認証情報から取得したメールアドレス
  * @throws UserNotFoundException 操作者を取得できない場合
  * @throws ForbiddenOperationException 操作者が管理者でない場合
  * @throws ContactNotFoundException お問い合わせが存在しない場合
  */
 @Transactional
-public void deleteContact(Long id, String loginEmail) {
+public void deleteContact(Long id, String actorId) {
 
-    if (loginEmail == null || loginEmail.isBlank()) {
+    if (actorId == null || actorId.isBlank()) {
         throw new UserNotFoundException(
                 "ログインユーザー情報を取得できませんでした。"
         );
     }
 
-    User adminUser = userRepository.findByEmail(loginEmail)
+    User adminUser = userRepository.findById(ActorIds.parse(actorId))
             .orElseThrow(() -> new UserNotFoundException(
                     "ログインユーザー情報を取得できませんでした。"
             ));
@@ -297,9 +298,9 @@ public void deleteContact(Long id, String loginEmail) {
 
 /** 法的保持の設定・解除と管理者の操作履歴を同一トランザクションで保存する。 */
 @Transactional
-public Contact updateLegalHold(Long id, ContactLegalHoldRequest request, String email) {
-    if (email == null || email.isBlank()) throw new UserNotFoundException("ログインユーザー情報を取得できませんでした。");
-    User admin = userRepository.findByEmail(email).orElseThrow(() -> new UserNotFoundException("ログインユーザー情報を取得できませんでした。"));
+public Contact updateLegalHold(Long id, ContactLegalHoldRequest request, String actorId) {
+    if (actorId == null || actorId.isBlank()) throw new UserNotFoundException("ログインユーザー情報を取得できませんでした。");
+    User admin = userRepository.findById(ActorIds.parse(actorId)).orElseThrow(() -> new UserNotFoundException("ログインユーザー情報を取得できませんでした。"));
     if (!"ROLE_ADMIN".equals(admin.getRole())) throw new ForbiddenOperationException("この操作は管理者のみ実行できます。");
     if (request.held() == null) throw new IllegalArgumentException("保持の設定を指定してください。");
     if (request.held() && (request.reason() == null || request.reason().isBlank() || request.reason().length() > 500

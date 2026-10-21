@@ -1,4 +1,5 @@
 package com.example.bulletinboard.service;
+import com.example.bulletinboard.security.ActorIds;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -142,7 +143,7 @@ public class TopicService {
      */
     @Transactional
     public Topic save(Topic topic) {
-        topicImageService.requireOwnedImage(topic.getImage(), topic.getUser().getEmail());
+        topicImageService.requireOwnedImage(topic.getImage(), topic.getUser().getId().toString());
         return topicRepository.save(topic);
     }
 
@@ -188,7 +189,7 @@ public class TopicService {
     @Transactional
      public void deleteById(
         Long id,
-        String loginEmail,
+        String actorId,
         boolean isAdmin) {
 
     Topic topic = topicRepository
@@ -200,7 +201,7 @@ public class TopicService {
         );
 
     boolean isOwner =
-        topic.getUser().getEmail().equals(loginEmail);
+        topic.getUser().getId().equals(ActorIds.parse(actorId));
 
     if (!isOwner && !isAdmin) {
     throw new ForbiddenOperationException(
@@ -297,7 +298,7 @@ public class TopicService {
    @Transactional
 public Topic updateTopic(
         Long topicId,
-        String loginEmail,
+        String actorId,
         String title,
         String image,
         String question) {
@@ -310,7 +311,7 @@ public Topic updateTopic(
                         )
 
             );
-    if (!topic.getUser().getEmail().equals(loginEmail)) {
+    if (!topic.getUser().getId().equals(ActorIds.parse(actorId))) {
     throw new ForbiddenOperationException(
         "このお題を編集する権限がありません。"
     );
@@ -322,7 +323,7 @@ public Topic updateTopic(
     );
 }
 
-    topicImageService.requireOwnedImage(image, loginEmail);
+    topicImageService.requireOwnedImage(image, actorId);
     topic.setTitle(title);
     topic.setImage(image);
     topic.setQuestion(question);

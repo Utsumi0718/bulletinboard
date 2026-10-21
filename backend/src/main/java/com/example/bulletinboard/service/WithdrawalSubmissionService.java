@@ -20,7 +20,7 @@ public class WithdrawalSubmissionService {
             withdrawal.withdraw(email, password);
         } catch (WithdrawalException ex) {
             throw ex;
-        } catch (DataAccessException | TransactionException ex) {
+        } catch (DataAccessException | TransactionException | IllegalStateException ex) {
             throw new WithdrawalException(WithdrawalException.Reason.FAILED, ex);
         }
     }

@@ -26,7 +26,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
+import com.example.bulletinboard.support.WithAccount;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -103,6 +103,7 @@ import com.example.bulletinboard.service.TopicService;
  */
 
 @WebMvcTest(TopicApiController.class)
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class TopicApiControllerTest {
 
     @Autowired
@@ -116,7 +117,7 @@ class TopicApiControllerTest {
 
     @Test
     @DisplayName("keyword未指定の場合はTopic一覧を200 OKで取得できること")
-    @WithMockUser(username = "testuser01@example.com")
+    @WithAccount(username = "3125414876")
     void getTopics_WithoutKeyword_ShouldReturnTopicList() throws Exception {
 
         Topic topic = new Topic();
@@ -162,7 +163,7 @@ class TopicApiControllerTest {
 
     @Test
     @DisplayName("keyword指定時はTopic.titleの部分一致検索が実行されること")
-    @WithMockUser(username = "testuser01@example.com")
+    @WithAccount(username = "3125414876")
     void getTopics_WithKeyword_ShouldSearchTopics() throws Exception {
 
         Topic topic = new Topic();
@@ -207,7 +208,7 @@ class TopicApiControllerTest {
 
     @Test
     @DisplayName("keywordが空文字の場合は400 Bad Requestになること")
-    @WithMockUser(username = "testuser01@example.com")
+    @WithAccount(username = "3125414876")
     void getTopics_BlankKeyword_ShouldReturnBadRequest() throws Exception {
 
         mockMvc.perform(
@@ -225,7 +226,7 @@ class TopicApiControllerTest {
 
     @Test
     @DisplayName("検索結果が0件の場合は200 OKで空のcontentを返すこと")
-    @WithMockUser(username = "testuser01@example.com")
+    @WithAccount(username = "3125414876")
     void getTopics_NoSearchResults_ShouldReturnEmptyPage() throws Exception {
 
         Page<Topic> emptyPage =
@@ -267,7 +268,7 @@ class TopicApiControllerTest {
 
     @Test
     @DisplayName("Topic詳細を200 OKで取得できること")
-    @WithMockUser(username = "testuser01@example.com")
+    @WithAccount(username = "3125414876")
     void getTopic_ShouldReturnTopicDetail() throws Exception {
 
     User user = new User();
@@ -302,7 +303,7 @@ class TopicApiControllerTest {
 
     @Test
     @DisplayName("存在しないTopicを取得すると404 Not Foundになること")
-    @WithMockUser(username = "testuser01@example.com")
+    @WithAccount(username = "3125414876")
     void getTopic_TopicNotFound_ShouldReturnNotFound() throws Exception {
 
     when(
@@ -329,16 +330,16 @@ class TopicApiControllerTest {
 
 @Test
 @DisplayName("Topicを新規投稿すると201 Createdと作成済みTopicを返すこと")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void createTopic_ShouldReturnCreatedTopic() throws Exception {
 
     User user = new User();
     user.setUsername("testuser01");
-    user.setEmail("testuser01@example.com");
+    user.setEmail("3125414876");
 
     when(
-            userDetailsService.findByEmail(
-                    "testuser01@example.com"
+            userDetailsService.findByActorId(
+                    "3125414876"
             )
     ).thenReturn(Optional.of(user));
 
@@ -384,8 +385,8 @@ void createTopic_ShouldReturnCreatedTopic() throws Exception {
             .andExpect(jsonPath("$.username")
                     .value("testuser01"));
 
-    verify(userDetailsService).findByEmail(
-            "testuser01@example.com"
+    verify(userDetailsService).findByActorId(
+            "3125414876"
     );
 
     ArgumentCaptor<Topic> topicCaptor =
@@ -411,12 +412,12 @@ void createTopic_ShouldReturnCreatedTopic() throws Exception {
 
 @Test
 @DisplayName("認証ユーザー情報を取得できない場合は500 Internal Server Errorになること")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void createTopic_UserNotFound_ShouldReturnInternalServerError() throws Exception {
 
     when(
-            userDetailsService.findByEmail(
-                    "testuser01@example.com"
+            userDetailsService.findByActorId(
+                    "3125414876"
             )
     ).thenReturn(Optional.empty());
 
@@ -441,14 +442,14 @@ void createTopic_UserNotFound_ShouldReturnInternalServerError() throws Exception
             .andExpect(jsonPath("$.path")
                     .value("/api/topics"));
 
-    verify(userDetailsService).findByEmail(
-            "testuser01@example.com"
+    verify(userDetailsService).findByActorId(
+            "3125414876"
     );
 }
 
 @Test
 @DisplayName("Topic新規投稿でValidationエラーの場合は400 Bad Requestになること")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void createTopic_ValidationError_ShouldReturnBadRequest() throws Exception {
 
     mockMvc.perform(
@@ -476,12 +477,12 @@ void createTopic_ValidationError_ShouldReturnBadRequest() throws Exception {
 
 @Test
 @DisplayName("Topicを編集すると200 OKと更新後Topicを返すこと")
-@WithMockUser(username = "owner@example.com")
+@WithAccount(username = "1008766193")
 void updateTopic_ShouldReturnUpdatedTopic() throws Exception {
 
     User user = new User();
     user.setUsername("owner");
-    user.setEmail("owner@example.com");
+    user.setEmail("1008766193");
 
     Topic updatedTopic = new Topic();
     updatedTopic.setId(1L);
@@ -499,7 +500,7 @@ void updateTopic_ShouldReturnUpdatedTopic() throws Exception {
     when(
             topicService.updateTopic(
                     1L,
-                    "owner@example.com",
+                    "1008766193",
                     "変更後タイトル",
                     "/images/after.jpg",
                     "変更後の問題"
@@ -531,7 +532,7 @@ void updateTopic_ShouldReturnUpdatedTopic() throws Exception {
 
     verify(topicService).updateTopic(
             1L,
-            "owner@example.com",
+            "1008766193",
             "変更後タイトル",
             "/images/after.jpg",
             "変更後の問題"
@@ -540,7 +541,7 @@ void updateTopic_ShouldReturnUpdatedTopic() throws Exception {
 
 @Test
 @DisplayName("Topic編集でValidationエラーの場合は400 Bad Requestになること")
-@WithMockUser(username = "owner@example.com")
+@WithAccount(username = "1008766193")
 void updateTopic_ValidationError_ShouldReturnBadRequest() throws Exception {
 
     mockMvc.perform(
@@ -568,13 +569,13 @@ void updateTopic_ValidationError_ShouldReturnBadRequest() throws Exception {
 
 @Test
 @DisplayName("投稿者本人以外がTopicを編集しようとすると403 Forbiddenになること")
-@WithMockUser(username = "other@example.com")
+@WithAccount(username = "2084992462")
 void updateTopic_NotOwner_ShouldReturnForbidden() throws Exception {
 
     when(
             topicService.updateTopic(
                     1L,
-                    "other@example.com",
+                    "2084992462",
                     "変更後タイトル",
                     "/images/after.jpg",
                     "変更後の問題"
@@ -607,7 +608,7 @@ void updateTopic_NotOwner_ShouldReturnForbidden() throws Exception {
 
     verify(topicService).updateTopic(
             1L,
-            "other@example.com",
+            "2084992462",
             "変更後タイトル",
             "/images/after.jpg",
             "変更後の問題"
@@ -616,13 +617,13 @@ void updateTopic_NotOwner_ShouldReturnForbidden() throws Exception {
 
 @Test
 @DisplayName("回答が存在するTopicを編集しようとすると409 Conflictになること")
-@WithMockUser(username = "owner@example.com")
+@WithAccount(username = "1008766193")
 void updateTopic_AnswerExists_ShouldReturnConflict() throws Exception {
 
     when(
             topicService.updateTopic(
                     1L,
-                    "owner@example.com",
+                    "1008766193",
                     "変更後タイトル",
                     "/images/after.jpg",
                     "変更後の問題"
@@ -655,7 +656,7 @@ void updateTopic_AnswerExists_ShouldReturnConflict() throws Exception {
 
     verify(topicService).updateTopic(
             1L,
-            "owner@example.com",
+            "1008766193",
             "変更後タイトル",
             "/images/after.jpg",
             "変更後の問題"
@@ -664,13 +665,13 @@ void updateTopic_AnswerExists_ShouldReturnConflict() throws Exception {
 
 @Test
 @DisplayName("存在しないTopicを編集しようとすると404 Not Foundになること")
-@WithMockUser(username = "owner@example.com")
+@WithAccount(username = "1008766193")
 void updateTopic_TopicNotFound_ShouldReturnNotFound() throws Exception {
 
     when(
             topicService.updateTopic(
                     999L,
-                    "owner@example.com",
+                    "1008766193",
                     "変更後タイトル",
                     "/images/after.jpg",
                     "変更後の問題"
@@ -703,7 +704,7 @@ void updateTopic_TopicNotFound_ShouldReturnNotFound() throws Exception {
 
     verify(topicService).updateTopic(
             999L,
-            "owner@example.com",
+            "1008766193",
             "変更後タイトル",
             "/images/after.jpg",
             "変更後の問題"
@@ -712,7 +713,7 @@ void updateTopic_TopicNotFound_ShouldReturnNotFound() throws Exception {
 
 @Test
 @DisplayName("投稿者本人がTopicを削除すると204 No Contentになること")
-@WithMockUser(username = "owner@example.com")
+@WithAccount(username = "1008766193")
 void deleteTopic_Owner_ShouldReturnNoContent() throws Exception {
 
     mockMvc.perform(
@@ -723,15 +724,15 @@ void deleteTopic_Owner_ShouldReturnNoContent() throws Exception {
 
     verify(topicService).deleteById(
             1L,
-            "owner@example.com",
+            "1008766193",
             false
     );
 }
 
 @Test
 @DisplayName("管理者が他ユーザーのTopicを削除すると204 No Contentになること")
-@WithMockUser(
-        username = "admin@example.com",
+@WithAccount(
+        username = "2291307405",
         roles = "ADMIN"
 )
 void deleteTopic_Admin_ShouldReturnNoContent() throws Exception {
@@ -744,14 +745,14 @@ void deleteTopic_Admin_ShouldReturnNoContent() throws Exception {
 
     verify(topicService).deleteById(
             1L,
-            "admin@example.com",
+            "2291307405",
             true
     );
 }
 
 @Test
 @DisplayName("投稿者本人でも管理者でもないユーザーがTopicを削除すると403 Forbiddenになること")
-@WithMockUser(username = "other@example.com")
+@WithAccount(username = "2084992462")
 void deleteTopic_NotOwnerAndNotAdmin_ShouldReturnForbidden() throws Exception {
 
     doThrow(
@@ -760,7 +761,7 @@ void deleteTopic_NotOwnerAndNotAdmin_ShouldReturnForbidden() throws Exception {
             )
     ).when(topicService).deleteById(
             1L,
-            "other@example.com",
+            "2084992462",
             false
     );
 
@@ -778,14 +779,14 @@ void deleteTopic_NotOwnerAndNotAdmin_ShouldReturnForbidden() throws Exception {
 
     verify(topicService).deleteById(
             1L,
-            "other@example.com",
+            "2084992462",
             false
     );
 }
 
 @Test
 @DisplayName("存在しないTopicを削除しようとすると404 Not Foundになること")
-@WithMockUser(username = "owner@example.com")
+@WithAccount(username = "1008766193")
 void deleteTopic_TopicNotFound_ShouldReturnNotFound() throws Exception {
 
     doThrow(
@@ -794,7 +795,7 @@ void deleteTopic_TopicNotFound_ShouldReturnNotFound() throws Exception {
             )
     ).when(topicService).deleteById(
             999L,
-            "owner@example.com",
+            "1008766193",
             false
     );
 
@@ -812,7 +813,7 @@ void deleteTopic_TopicNotFound_ShouldReturnNotFound() throws Exception {
 
     verify(topicService).deleteById(
             999L,
-            "owner@example.com",
+            "1008766193",
             false
     );
 }

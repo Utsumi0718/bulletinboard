@@ -46,7 +46,7 @@ class ContactRetentionIntegrationTest {
         org.mockito.Mockito.when(clock.instant()).thenAnswer(invocation -> Instant.now());
         contacts.deleteAll(); retentionLogs.deleteAll(); adminLogs.deleteAll();
         User admin=new User();admin.setUsername("admin-"+UUID.randomUUID());admin.setEmail("admin-"+UUID.randomUUID()+"@example.com");
-        admin.setPassword("hash");admin.setRole("ROLE_ADMIN");adminEmail=users.saveAndFlush(admin).getEmail();
+        admin.setPassword("hash");admin.setRole("ROLE_ADMIN");adminEmail=users.saveAndFlush(admin).getId().toString();
     }
     private Contact saved(ContactStatus status, LocalDateTime created) {
         Contact contact=new Contact();contact.setEmail("reply@example.com");contact.setCategory(ContactCategory.OTHER);

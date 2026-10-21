@@ -11,7 +11,7 @@ public record AdminAnswerResponse(Long id, Long topicId, Long ownerUserId, Strin
     public static AdminAnswerResponse from(Answer answer) {
         boolean parentDeleted = answer.getTopic().getDeletedAt() != null;
         return new AdminAnswerResponse(answer.getId(), answer.getTopic().getId(),
-                answer.getUser().getId(), answer.getUser().getUsername(), answer.getContent(),
+                answer.getUser().getId(), com.example.bulletinboard.service.WithdrawalIdentity.publicName(answer.getUser()), answer.getContent(),
                 answer.getDeletedAt() == null && !parentDeleted
                         ? AdminContentVisibility.PUBLIC : AdminContentVisibility.DELETED,
                 parentDeleted, answer.getCreatedAt(), answer.getUpdatedAt(), answer.getDeletedAt());

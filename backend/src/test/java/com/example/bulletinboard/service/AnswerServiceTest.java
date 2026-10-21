@@ -159,7 +159,8 @@ class AnswerServiceTest {
     void deleteAnswer_ShouldSetDeletedAt() {
 
     User answerUser = new User();
-    answerUser.setEmail("testuser01@example.com");
+    answerUser.setEmail("3125414876");
+answerUser.setId(3125414876L);
 
     Answer answer = new Answer();
     answer.setId(1L);
@@ -178,7 +179,7 @@ class AnswerServiceTest {
 
     answerService.deleteAnswer(
         1L,
-        "testuser01@example.com",
+        "3125414876",
         false
     );
 
@@ -196,7 +197,8 @@ class AnswerServiceTest {
   void updateAnswer_OwnerAndNoLikes_ShouldUpdateAnswer() {
 
     User answerUser = new User();
-    answerUser.setEmail("owner@example.com");
+    answerUser.setEmail("1008766193");
+answerUser.setId(1008766193L);
 
     Answer answer = new Answer();
     answer.setId(1L);
@@ -219,7 +221,7 @@ class AnswerServiceTest {
 
     Answer updated = answerService.updateAnswer(
         1L,
-        "owner@example.com",
+        "1008766193",
         "変更後"
     );
 
@@ -238,7 +240,8 @@ class AnswerServiceTest {
 void deleteAnswer_Admin_ShouldSetDeletedAt() {
 
     User answerUser = new User();
-    answerUser.setEmail("owner@example.com");
+    answerUser.setEmail("1008766193");
+answerUser.setId(1008766193L);
 
     Answer answer = new Answer();
     answer.setId(1L);
@@ -256,7 +259,7 @@ void deleteAnswer_Admin_ShouldSetDeletedAt() {
 
     answerService.deleteAnswer(
         1L,
-        "admin@example.com",
+        "2291307405",
         true
     );
 
@@ -274,7 +277,8 @@ void deleteAnswer_Admin_ShouldSetDeletedAt() {
 void deleteAnswer_NotOwnerAndNotAdmin_ShouldThrowException() {
 
     User answerUser = new User();
-    answerUser.setEmail("owner@example.com");
+    answerUser.setEmail("1008766193");
+answerUser.setId(1008766193L);
 
     Answer answer = new Answer();
     answer.setId(1L);
@@ -288,7 +292,7 @@ void deleteAnswer_NotOwnerAndNotAdmin_ShouldThrowException() {
             .assertThatThrownBy(
                     () -> answerService.deleteAnswer(
                             1L,
-                            "other@example.com",
+                            "2084992462",
                             false
                     )
             )
@@ -313,7 +317,7 @@ void deleteAnswer_AnswerNotFound_ShouldThrowException() {
             .assertThatThrownBy(
                     () -> answerService.deleteAnswer(
                             999L,
-                            "test@example.com",
+                            "2889091152",
                             false
                     )
             )
@@ -338,7 +342,7 @@ void updateAnswer_AnswerNotFound_ShouldThrowException() {
             .assertThatThrownBy(
                     () -> answerService.updateAnswer(
                             999L,
-                            "owner@example.com",
+                            "1008766193",
                             "変更後の回答"
                     )
             )
@@ -356,7 +360,8 @@ void updateAnswer_AnswerNotFound_ShouldThrowException() {
 void updateAnswer_NotOwner_ShouldThrowException() {
 
     User answerUser = new User();
-    answerUser.setEmail("owner@example.com");
+    answerUser.setEmail("1008766193");
+answerUser.setId(1008766193L);
 
     Answer answer = new Answer();
     answer.setId(1L);
@@ -370,7 +375,7 @@ void updateAnswer_NotOwner_ShouldThrowException() {
             .assertThatThrownBy(
                     () -> answerService.updateAnswer(
                             1L,
-                            "other@example.com",
+                            "2084992462",
                             "変更後の回答"
                     )
             )
@@ -388,7 +393,8 @@ void updateAnswer_NotOwner_ShouldThrowException() {
 void updateAnswer_LikeExists_ShouldThrowException() {
 
     User answerUser = new User();
-    answerUser.setEmail("owner@example.com");
+    answerUser.setEmail("1008766193");
+answerUser.setId(1008766193L);
 
     Answer answer = new Answer();
     answer.setId(1L);
@@ -406,7 +412,7 @@ void updateAnswer_LikeExists_ShouldThrowException() {
             .assertThatThrownBy(
                     () -> answerService.updateAnswer(
                             1L,
-                            "owner@example.com",
+                            "1008766193",
                             "変更後の回答"
                     )
             )

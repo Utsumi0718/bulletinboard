@@ -249,11 +249,11 @@ class AuthAccountFlowIntegrationTest {
         User updated = users.findById(user.getId()).orElseThrow();
         assertThat(updated.getAccountStatus()).isEqualTo(AccountStatus.WITHDRAWN);
         assertThat(updated.getWithdrawnAt()).isNotNull();
-        mvc.perform(get("/api/topics").session(other)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/topics").session(other)).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/auth/login").with(csrf()).param("email", email)
                         .param("password", OLD_PASSWORD))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.reason").value("WITHDRAWN"));
+                .andExpect(jsonPath("$.reason").value("WRONG_CREDENTIALS"));
     }
 
     @Test

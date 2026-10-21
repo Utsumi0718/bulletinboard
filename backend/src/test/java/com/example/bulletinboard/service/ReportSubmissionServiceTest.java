@@ -30,7 +30,7 @@ import com.example.bulletinboard.repository.UserRepository;
 @ExtendWith(MockitoExtension.class)
 class ReportSubmissionServiceTest {
     private static final long TOPIC_ID = 31L;
-    private static final String EMAIL = "reporter@example.com";
+    private static final String EMAIL = "965257759";
     private static final ReportRequest REQUEST = new ReportRequest(ReportReason.SPAM, null);
 
     @Mock ReportService reportService;
@@ -56,7 +56,7 @@ class ReportSubmissionServiceTest {
         doThrow(failure(sql)).when(reportService).submitTopic(TOPIC_ID, EMAIL, REQUEST);
         User reporter = new User();
         reporter.setId(7L);
-        when(users.findByEmail(EMAIL)).thenReturn(Optional.of(reporter));
+        when(users.findById(Long.valueOf(EMAIL))).thenReturn(Optional.of(reporter));
         when(reports.existsByReporterUserIdAndTargetTypeAndTargetId(7L, ReportTargetType.TOPIC, TOPIC_ID))
                 .thenReturn(true);
 
@@ -73,7 +73,7 @@ class ReportSubmissionServiceTest {
                 .when(reportService).submitProfile(profileId, EMAIL, REQUEST);
         User reporter = new User();
         reporter.setId(7L);
-        when(users.findByEmail(EMAIL)).thenReturn(Optional.of(reporter));
+        when(users.findById(Long.valueOf(EMAIL))).thenReturn(Optional.of(reporter));
         when(reports.existsByReporterUserIdAndTargetTypeAndTargetId(7L, ReportTargetType.PROFILE, profileId))
                 .thenReturn(true);
         assertThatThrownBy(() -> submission.submitProfile(profileId, EMAIL, REQUEST))
@@ -96,7 +96,7 @@ class ReportSubmissionServiceTest {
                 .when(reportService).submitTopic(TOPIC_ID, EMAIL, REQUEST);
         User reporter = new User();
         reporter.setId(7L);
-        when(users.findByEmail(EMAIL)).thenReturn(Optional.of(reporter));
+        when(users.findById(Long.valueOf(EMAIL))).thenReturn(Optional.of(reporter));
         when(reports.existsByReporterUserIdAndTargetTypeAndTargetId(7L, ReportTargetType.TOPIC, TOPIC_ID))
                 .thenReturn(false);
 
@@ -111,7 +111,7 @@ class ReportSubmissionServiceTest {
                 .when(reportService).submitAnswer(TOPIC_ID, EMAIL, REQUEST);
         User reporter = new User();
         reporter.setId(7L);
-        when(users.findByEmail(EMAIL)).thenReturn(Optional.of(reporter));
+        when(users.findById(Long.valueOf(EMAIL))).thenReturn(Optional.of(reporter));
         when(reports.existsByReporterUserIdAndTargetTypeAndTargetId(7L, ReportTargetType.ANSWER, TOPIC_ID))
                 .thenReturn(true);
 

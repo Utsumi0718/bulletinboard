@@ -1,4 +1,5 @@
 package com.example.bulletinboard.service;
+import com.example.bulletinboard.security.ActorIds;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -40,9 +41,9 @@ public class AdminUserService {
         return PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
     }
 
-    private User admin(String email) {
-        if (email == null || email.isBlank()) throw new UserNotFoundException("ログインユーザー情報を取得できませんでした。");
-        User user = users.findByEmail(email)
+    private User admin(String actorId) {
+        if (actorId == null || actorId.isBlank()) throw new UserNotFoundException("ログインユーザー情報を取得できませんでした。");
+        User user = users.findById(ActorIds.parse(actorId))
                 .orElseThrow(() -> new UserNotFoundException("ログインユーザー情報を取得できませんでした。"));
         if (!"ROLE_ADMIN".equals(user.getRole()) || user.getAccountStatus() != AccountStatus.ACTIVE) {
             throw new ForbiddenOperationException("この操作は管理者のみ実行できます。");
@@ -55,37 +56,37 @@ public class AdminUserService {
     }
 
     @Transactional(readOnly = true)
-    public Page<AdminUserResponse> list(int page, int size, String adminEmail) {
-        admin(adminEmail);
+    public Page<AdminUserResponse> list(int page, int size, String actorId) {
+        admin(actorId);
         return users.findAll(page(page, size)).map(AdminUserResponse::from);
     }
 
     @Transactional(readOnly = true)
-    public AdminUserResponse detail(Long id, String adminEmail) {
-        admin(adminEmail);
+    public AdminUserResponse detail(Long id, String actorId) {
+        admin(actorId);
         return AdminUserResponse.from(target(id));
     }
 
     @Transactional(readOnly = true)
-    public Page<AdminUserActivityResponse> topics(Long id, int page, int size, String adminEmail) {
-        admin(adminEmail);
+    public Page<AdminUserActivityResponse> topics(Long id, int page, int size, String actorId) {
+        admin(actorId);
         target(id);
         return topics.findByUserId(id, page(page, size)).map(AdminUserActivityResponse::from);
     }
 
     @Transactional(readOnly = true)
-    public Page<AdminUserActivityResponse> answers(Long id, int page, int size, String adminEmail) {
-        admin(adminEmail);
+    public Page<AdminUserActivityResponse> answers(Long id, int page, int size, String actorId) {
+        admin(actorId);
         target(id);
         return answers.findByUserId(id, page(page, size)).map(AdminUserActivityResponse::from);
     }
 
     @Transactional
-    public AdminUserResponse setStatus(Long id, AccountStatus next, String adminEmail) {
+    public AdminUserResponse setStatus(Long id, AccountStatus next, String actorId) {
         if (next != AccountStatus.ACTIVE && next != AccountStatus.FROZEN) {
             throw new IllegalArgumentException("指定された状態には変更できません。");
         }
-        User actor = admin(adminEmail);
+        User actor = admin(actorId);
         User user = users.findByIdForUpdate(id).orElseThrow(AdminUserNotFoundException::new);
         if (actor.getId().equals(user.getId()) || "ROLE_ADMIN".equals(user.getRole()) ||
                 user.getAccountStatus() == AccountStatus.WITHDRAWN) {

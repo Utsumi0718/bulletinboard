@@ -3,6 +3,7 @@ package com.example.bulletinboard.controller.api;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
+import static com.example.bulletinboard.support.TestActors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import java.sql.Timestamp;
@@ -16,7 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.test.context.support.WithMockUser;
+import com.example.bulletinboard.support.WithAccount;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -38,6 +39,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
         "spring.jpa.open-in-view=false", "spring.flyway.enabled=false", "spring.sql.init.mode=never"})
 @AutoConfigureMockMvc
 @DirtiesContext(classMode=DirtiesContext.ClassMode.AFTER_CLASS)
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class ContactPolicyIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired ContactRateLimitService limiter;
@@ -49,7 +51,13 @@ class ContactPolicyIntegrationTest {
     @Autowired com.example.bulletinboard.repository.UserRepository users;
     @MockitoBean ContactNotificationService notifications;
 
-    @BeforeEach void clear() { contacts.deleteAll(); jdbc.update("DELETE FROM contact_rate_limit_buckets"); }
+    @BeforeEach void clear() {
+        contacts.deleteAll(); jdbc.update("DELETE FROM contact_rate_limit_buckets");
+        if(users.findByEmail("policy-admin@example.test").isEmpty()) {
+            var actor=new User();actor.setUsername("policy-admin");actor.setEmail("policy-admin@example.test");
+            actor.setPassword("test-only");actor.setRole("ROLE_ADMIN");users.saveAndFlush(actor);
+        }
+    }
     private void send(String ip, String body, int status) throws Exception {
         mvc.perform(post("/api/contacts").with(csrf()).with(r->{r.setRemoteAddr(ip);return r;})
                 .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().is(status));
@@ -141,13 +149,13 @@ class ContactPolicyIntegrationTest {
         // DBに保存した非ACTIVE Userと認証名を一致させる。
         mvc.perform(post("/api/contacts").session(session).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(valid())).andExpect(status().isCreated());
     }
-    @Test @WithMockUser(roles="ADMIN") void newCategoryIsPersistedAndVisibleToAdmin() throws Exception {
+    @Test @WithAccount(username="policy-admin@example.test",roles="ADMIN") void newCategoryIsPersistedAndVisibleToAdmin() throws Exception {
         submission.submitContact(request()); var stored=contacts.findAll().getFirst();
         assertThat(stored.getName()).isNull(); assertThat(stored.getCategory()).isEqualTo(ContactCategory.BUG_REPORT);
         mvc.perform(get("/api/admin/contacts")).andExpect(status().isOk()).andExpect(jsonPath("$.content[0].category").value("BUG_REPORT"));
         mvc.perform(get("/api/admin/contacts/{id}",stored.getId())).andExpect(status().isOk()).andExpect(jsonPath("$.category").value("BUG_REPORT"));
     }
-    @Test @WithMockUser(roles="ADMIN") void legacyNameRemainsAndCategoryStaysUnknown() throws Exception {
+    @Test @WithAccount(username="policy-admin@example.test",roles="ADMIN") void legacyNameRemainsAndCategoryStaysUnknown() throws Exception {
         var contact=new Contact();contact.setName("過去の名前");contact.setEmail("legacy@example.com");contact.setSubject("過去");contact.setMessage("本文");
         long id=contacts.saveAndFlush(contact).getId();
         mvc.perform(get("/api/admin/contacts/{id}",id)).andExpect(status().isOk()).andExpect(jsonPath("$.name").value("過去の名前"))

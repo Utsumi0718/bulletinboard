@@ -16,6 +16,7 @@ public record RegisterRequest(
         @NotBlank(message = "メールアドレスを入力してください")
         @Email(message = "正しいメールアドレスの形式で入力してください")
         @Size(max = 255, message = "メールアドレスは255文字以内で入力してください")
+        @Pattern(regexp = "(?i)^(?!.*@(?:[^@]*\\.)?invalid$).*$", message = "このメールアドレスは使用できません")
         String email,
 
         @NotBlank(message = "パスワードを入力してください")

@@ -3,7 +3,7 @@ package com.example.bulletinboard.controller.api;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static com.example.bulletinboard.support.TestActors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -71,6 +71,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 })
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class ReportFlowIntegrationTest {
     private static final String OWNER = "owner@example.com";
     private static final String REPORTER = "reporter@example.com";
@@ -101,6 +102,8 @@ class ReportFlowIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.update("DELETE FROM privacy_audit_events");
+        jdbc.update("DELETE FROM privacy_retention_records");
         snapshots.deleteAll();
         reports.deleteAll();
         topics.deleteAll();
@@ -269,7 +272,7 @@ class ReportFlowIntegrationTest {
         result.setUsername(name);
         result.setEmail(email);
         result.setPassword("test-only-not-used-for-login");
-        result.setRole(role);
+        result.setRole(role); result.setPrivacyReviewer("ROLE_ADMIN".equals(role));
         result.setAccountStatus(AccountStatus.ACTIVE);
         return result;
     }

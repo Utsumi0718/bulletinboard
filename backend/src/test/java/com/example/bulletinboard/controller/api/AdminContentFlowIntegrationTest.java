@@ -3,7 +3,7 @@ package com.example.bulletinboard.controller.api;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static com.example.bulletinboard.support.TestActors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -68,6 +68,7 @@ import com.example.bulletinboard.service.TopicService;
 })
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class AdminContentFlowIntegrationTest {
     private static final String ADMIN = "admin@example.com";
     private static final String OWNER = "owner@example.com";
@@ -302,7 +303,7 @@ class AdminContentFlowIntegrationTest {
         Topic topic = topic();
         mvc.perform(delete("/api/admin/topics/{id}", topic.getId())
                 .with(user("missing@example.com").roles("ADMIN")).with(csrf()))
-                .andExpect(status().isInternalServerError());
+                .andExpect(status().isForbidden());
         assertThat(topics.findById(topic.getId()).orElseThrow().getDeletedAt()).isNull();
         assertThat(logs.count()).isZero();
     }
@@ -311,10 +312,10 @@ class AdminContentFlowIntegrationTest {
     void adminStillCannotEditSomeoneElsesOrdinaryPost() {
         Topic topic = topic();
         Answer answer = answer(topic);
-        assertThatThrownBy(() -> topicService.updateTopic(topic.getId(), ADMIN,
+        assertThatThrownBy(() -> topicService.updateTopic(topic.getId(), com.example.bulletinboard.support.TestActors.key(ADMIN),
                 "changed", topic.getImage(), "changed"))
                 .isInstanceOf(ForbiddenOperationException.class);
-        assertThatThrownBy(() -> answerService.updateAnswer(answer.getId(), ADMIN, "changed"))
+        assertThatThrownBy(() -> answerService.updateAnswer(answer.getId(), com.example.bulletinboard.support.TestActors.key(ADMIN), "changed"))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
 

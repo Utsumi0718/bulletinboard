@@ -1,4 +1,5 @@
 package com.example.bulletinboard.service;
+import com.example.bulletinboard.security.ActorIds;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -120,7 +121,7 @@ public class AnswerService {
     @Transactional
      public void deleteAnswer(
         Long id,
-        String loginEmail,
+        String actorId,
         boolean isAdmin) {
 
       Answer answer = answerRepository
@@ -131,7 +132,7 @@ public class AnswerService {
      )
       );
     boolean isOwner =
-        answer.getUser().getEmail().equals(loginEmail);
+        answer.getUser().getId().equals(ActorIds.parse(actorId));
 
     if (!isOwner && !isAdmin) {
     throw new ForbiddenOperationException(
@@ -155,7 +156,7 @@ public class AnswerService {
 @Transactional
     public Answer updateAnswer(
         Long answerId,
-        String loginEmail,
+        String actorId,
         String content) {
 
     Answer answer = answerRepository
@@ -166,7 +167,7 @@ public class AnswerService {
         )
       );
 
-    if (!answer.getUser().getEmail().equals(loginEmail)) {
+    if (!answer.getUser().getId().equals(ActorIds.parse(actorId))) {
     throw new ForbiddenOperationException(
         "この回答を編集する権限がありません。"
     );
