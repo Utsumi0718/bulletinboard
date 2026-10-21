@@ -142,6 +142,17 @@ private AccountStatus accountStatus = AccountStatus.ACTIVE;
     @Column(name = "withdrawn_at")
     private LocalDateTime withdrawnAt;
 
+    /** 専用の個人情報取扱権限。通常の管理者へ自動付与しない。 */
+    @Column(name = "privacy_reviewer", nullable = false, columnDefinition = "boolean default false")
+    private boolean privacyReviewer = false;
+
+    /** 元の認証情報等の処理済み時刻。既存退会者は別承認で移行する。 */
+    @Column(name = "personal_data_erased_at")
+    private LocalDateTime personalDataErasedAt;
+
+    @Column(name = "authentication_version", nullable = false, columnDefinition = "bigint default 0")
+    private long authenticationVersion = 0;
+
     /*
      * 新規ユーザーをDBへ保存する直前に呼び出され、
      * createdAtが設定されていなければ現在日時を設定します。

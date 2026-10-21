@@ -1,7 +1,7 @@
 package com.example.bulletinboard.controller.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static com.example.bulletinboard.support.TestActors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -55,6 +55,7 @@ import com.example.bulletinboard.service.TopicService;
 })
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class WithdrawnDisplayNameIntegrationTest {
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
@@ -144,13 +145,13 @@ class WithdrawnDisplayNameIntegrationTest {
     }
 
     @Test
-    void adminDetailRetainsOriginalNameForInvestigation() throws Exception {
+    void ordinaryAdminDetailMasksWithdrawnIdentity() throws Exception {
         User owner = account(AccountStatus.WITHDRAWN);
         User admin = account(AccountStatus.ACTIVE);
         admin.setRole("ROLE_ADMIN");
         users.saveAndFlush(admin);
         mvc.perform(get("/api/admin/users/{id}", owner.getId()).with(user(admin.getEmail()).roles("ADMIN")))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.username").value(owner.getUsername()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.username").value("退会済みユーザー"))
                 .andExpect(jsonPath("$.accountStatus").value("WITHDRAWN"));
     }
 

@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static com.example.bulletinboard.support.TestActors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -45,10 +45,11 @@ import ch.qos.logback.core.read.ListAppender;
 
 @WebMvcTest(TopicImageApiController.class)
 @Import(SecurityConfig.class)
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class TopicImageApiControllerTest {
     private static final String BASE = "/api/topic-images";
     private static final String ID = "11111111-1111-1111-1111-111111111111";
-    private static final String EMAIL = "owner@example.com";
+    private static final String EMAIL = "1008766193";
     @Autowired MockMvc mvc;
     @MockitoBean TopicImageService service;
     @MockitoBean TopicImageValidator validator;
@@ -124,7 +125,7 @@ class TopicImageApiControllerTest {
                     .andExpect(jsonPath("$.error").value("Internal Server Error"))
                     .andExpect(jsonPath("$.message").value("画像の処理に失敗しました。時間をおいて再度お試しください。"))
                     .andExpect(jsonPath("$.path").value(upload ? BASE : BASE + "/" + ID)).andReturn();
-            assertThat(result.getResponse().getContentAsString()).doesNotContain("SELECT", "fake@example.com", "fake-secret");
+            assertThat(result.getResponse().getContentAsString()).doesNotContain("SELECT", "3861941907", "fake-secret");
             List<ILoggingEvent> errors = appender.list.stream().filter(event -> event.getLevel() == Level.ERROR).toList();
             assertThat(errors).hasSize(1);
             assertThat(errors.getFirst().getFormattedMessage()).isEqualTo("topic_image_error errorType=" + failure.getClass().getSimpleName());

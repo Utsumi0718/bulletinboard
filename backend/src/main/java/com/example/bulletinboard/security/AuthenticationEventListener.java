@@ -35,9 +35,9 @@ public class AuthenticationEventListener {
     */
    @EventListener
    public void onAuthenticationSuccess(AuthenticationSuccessEvent event){
-     String email = event.getAuthentication().getName();
+      String actorId = event.getAuthentication().getName();
      //成功した場合は失敗カウントを０にする
-     userDetailsService.resetFailedAttempts(email);
+      userDetailsService.resetFailedAttempts(actorId);
    }
 
    /**

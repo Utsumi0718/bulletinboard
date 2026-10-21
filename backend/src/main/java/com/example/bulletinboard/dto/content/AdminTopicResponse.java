@@ -9,7 +9,7 @@ public record AdminTopicResponse(Long id, Long ownerUserId, String ownerUsername
         String title, String question, String image, AdminContentVisibility visibility,
         LocalDateTime createdAt, LocalDateTime updatedAt, LocalDateTime deletedAt) {
     public static AdminTopicResponse from(Topic topic) {
-        return new AdminTopicResponse(topic.getId(), topic.getUser().getId(), topic.getUser().getUsername(),
+        return new AdminTopicResponse(topic.getId(), topic.getUser().getId(), com.example.bulletinboard.service.WithdrawalIdentity.publicName(topic.getUser()),
                 topic.getTitle(), topic.getQuestion(), topic.getImage(),
                 topic.getDeletedAt() == null ? AdminContentVisibility.PUBLIC : AdminContentVisibility.DELETED,
                 topic.getCreatedAt(), topic.getUpdatedAt(), topic.getDeletedAt());

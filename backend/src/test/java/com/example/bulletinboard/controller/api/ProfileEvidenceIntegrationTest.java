@@ -2,6 +2,7 @@ package com.example.bulletinboard.controller.api;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
+import static com.example.bulletinboard.support.TestActors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import java.util.List;
@@ -47,6 +48,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 })
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class ProfileEvidenceIntegrationTest {
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
@@ -54,7 +56,7 @@ class ProfileEvidenceIntegrationTest {
     @EnableJpaRepositories(basePackageClasses = UserRepository.class)
     @Import({ProfileApiController.class, ProfileImageService.class, ProfileImageValidator.class,
         TopicImageValidator.class, ReportApiController.class, ReportService.class, ReportSubmissionService.class,
-        AdminReportApiController.class, AdminReportService.class, TopicImageService.class,
+        AdminReportApiController.class, AdminReportService.class, PrivacyAdminApiController.class, WithdrawalMigrationPlanService.class, TopicImageService.class,
         CustomUserDetailsService.class, SecurityConfig.class, GlobalExceptionHandler.class,
         TopicApiController.class, TopicService.class, AnswerApiController.class, AnswerService.class, LikeService.class,
         AccountApiController.class, WithdrawalService.class, WithdrawalSubmissionService.class})
@@ -81,7 +83,7 @@ class ProfileEvidenceIntegrationTest {
         User legacy = account("legacy", "ROLE_USER"); users.saveAndFlush(legacy);
         owner = register("owner", "ROLE_USER");
         reporter = register("reporter", "ROLE_USER");
-        admin = register("admin", "ROLE_ADMIN");
+        admin = register("admin", "ROLE_ADMIN"); admin.setPrivacyReviewer(true); users.saveAndFlush(admin);
         profileId = profiles.findByUserId(owner.getId()).orElseThrow().getId();
         assertThat(profileId).isNotEqualTo(owner.getId());
     }
@@ -107,18 +109,18 @@ class ProfileEvidenceIntegrationTest {
                 .andExpect(content().contentType("image/png")).andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andExpect(header().string("Content-Security-Policy", "default-src 'none'; sandbox"));
-        mvc.perform(get("/api/admin/reports/{id}", reportId).with(user(admin.getEmail()).roles("ADMIN")))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.evidence.imageAvailable").value(true))
-                .andExpect(jsonPath("$.evidence.evidenceImageUrl").value("/api/admin/reports/" + reportId + "/evidence-image"));
+        mvc.perform(get("/api/admin/privacy/reports/{id}/evidence", reportId).with(user(admin.getEmail()).roles("ADMIN")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.imageAvailable").value(true))
+                .andExpect(jsonPath("$.evidenceImageUrl").value("/api/admin/reports/" + reportId + "/evidence-image"));
     }
 
     @Test void defaultProfileCanBeReportedWithoutInventingImageEvidence() throws Exception {
         report("ABUSE").andExpect(status().isCreated());
         assertThat(snapshots.findById(reportId()).orElseThrow().getImageContent()).isNull();
         evidence(reportId(), admin).andExpect(status().isNotFound());
-        mvc.perform(get("/api/admin/reports/{id}", reportId()).with(user(admin.getEmail()).roles("ADMIN")))
-                .andExpect(jsonPath("$.evidence.imageAvailable").value(false))
-                .andExpect(jsonPath("$.evidence.evidenceImageUrl").isEmpty());
+        mvc.perform(get("/api/admin/privacy/reports/{id}/evidence", reportId()).with(user(admin.getEmail()).roles("ADMIN")))
+                .andExpect(jsonPath("$.imageAvailable").value(false))
+                .andExpect(jsonPath("$.evidenceImageUrl").isEmpty());
     }
 
     @Test void changedReasonStillConflictsAndCanReportDoesNotCheckDuplicates() throws Exception {

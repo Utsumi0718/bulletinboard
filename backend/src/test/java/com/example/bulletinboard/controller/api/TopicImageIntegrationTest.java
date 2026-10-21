@@ -3,7 +3,7 @@ package com.example.bulletinboard.controller.api;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static com.example.bulletinboard.support.TestActors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -61,6 +61,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 })
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class TopicImageIntegrationTest {
     @TestComponent
     @Configuration(proxyBeanMethods = false)
@@ -156,7 +157,7 @@ class TopicImageIntegrationTest {
         // 実際のコミット時通信断を再現するテストではない。
         var validated = validator.validate(new MockMultipartFile("file", TopicImageFixtures.image("png")));
         assertThatThrownBy(() -> new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
-            imageService.upload(validated, OWNER);
+            imageService.upload(validated, com.example.bulletinboard.support.TestActors.key(OWNER));
             images.flush();
             users.saveAndFlush(account("duplicate", OWNER));
         })).isInstanceOf(DataIntegrityViolationException.class);

@@ -2,7 +2,7 @@ package com.example.bulletinboard.controller.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static com.example.bulletinboard.support.TestActors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -59,6 +59,7 @@ import com.example.bulletinboard.service.TopicImageService;
 })
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class AdminProfileFlowIntegrationTest {
     private static final String ADMIN = "admin@example.com";
     private static final String OWNER = "owner@example.com";
@@ -134,9 +135,9 @@ class AdminProfileFlowIntegrationTest {
                 .with(user(ADMIN).roles("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accountStatus").value("WITHDRAWN"))
-                .andExpect(jsonPath("$.iconReference").value("https://example.invalid/avatar.png"))
-                .andExpect(jsonPath("$.usesDefaultIcon").value(false))
-                .andExpect(jsonPath("$.bio").value("自己紹介"));
+                .andExpect(jsonPath("$.iconReference").isEmpty())
+                .andExpect(jsonPath("$.usesDefaultIcon").value(true))
+                .andExpect(jsonPath("$.bio").isEmpty());
     }
 
     @ParameterizedTest
@@ -285,7 +286,7 @@ class AdminProfileFlowIntegrationTest {
         profiles.saveAndFlush(profile);
         mvc.perform(delete("/api/admin/profiles/{id}/bio", profile.getId())
                 .with(user("missing@example.com").roles("ADMIN")).with(csrf()))
-                .andExpect(status().isInternalServerError());
+                .andExpect(status().isForbidden());
         assertThat(profile().getBio()).isEqualTo("残す");
         assertThat(logs.count()).isZero();
     }

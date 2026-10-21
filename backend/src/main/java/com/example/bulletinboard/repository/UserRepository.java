@@ -38,6 +38,11 @@ import com.example.bulletinboard.model.User;
  * - 管理者による状態変更ではUser行をロックして二重操作を直列に扱います。
  */
 public interface UserRepository extends JpaRepository<User, Long> {
+    @Modifying(clearAutomatically = true)
+    @Transactional
+    @Query("update User u set u.failedAttempt=0 where u.id=:id and u.accountStatus=:status")
+    void resetFailedAttemptsById(@Param("id") Long id,
+            @Param("status") com.example.bulletinboard.model.AccountStatus status);
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.id = :id")
     Optional<User> findByIdForUpdate(@Param("id") Long id);

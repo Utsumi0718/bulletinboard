@@ -31,7 +31,7 @@ import com.example.bulletinboard.service.TopicImageValidator.ValidatedImage;
 
 @ExtendWith(MockitoExtension.class)
 class TopicImageServiceTest {
-    private static final String EMAIL = "owner@example.com";
+    private static final String EMAIL = "1008766193";
     private static final String ID = "11111111-1111-1111-1111-111111111111";
     private static final String URL = TopicImageService.URL_PREFIX + ID;
     @Mock TopicImageRepository images;
@@ -63,7 +63,7 @@ class TopicImageServiceTest {
 
     @Test
     void rejectsMissingAuthenticatedUser() {
-        when(users.findByEmail(EMAIL)).thenReturn(Optional.empty());
+        when(users.findById(Long.valueOf(EMAIL))).thenReturn(Optional.empty());
         expectReason(() -> service.requireOwnedImage(URL, EMAIL), Reason.FORBIDDEN);
     }
 
@@ -110,7 +110,7 @@ class TopicImageServiceTest {
         User user = new User();
         user.setId(7L);
         user.setEmail(EMAIL);
-        when(users.findByEmail(EMAIL)).thenReturn(Optional.of(user));
+        when(users.findById(Long.valueOf(EMAIL))).thenReturn(Optional.of(user));
         return user;
     }
 

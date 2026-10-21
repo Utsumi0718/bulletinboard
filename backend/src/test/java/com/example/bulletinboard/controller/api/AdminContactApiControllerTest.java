@@ -33,7 +33,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithAnonymousUser;
-import org.springframework.security.test.context.support.WithMockUser;
+import com.example.bulletinboard.support.WithAccount;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -104,7 +104,7 @@ import ch.qos.logback.core.read.ListAppender;
  * 【テストの構成】
  * - Controller・SecurityConfig・GlobalExceptionHandlerは実物を使用します。
  * - AdminContactServiceとUserRepositoryはモックに置き換えます。
- * - @WithMockUserで管理者・一般ユーザーの認証状態を再現します。
+ * - @WithAccountで管理者・一般ユーザーの認証状態を再現します。
  * - @WithAnonymousUserで未ログイン状態を再現します。
  *
  * 【テストの範囲】
@@ -125,6 +125,7 @@ import ch.qos.logback.core.read.ListAppender;
         SecurityConfig.class,
         GlobalExceptionHandler.class
 })
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class AdminContactApiControllerTest {
 
     @Autowired
@@ -148,8 +149,8 @@ class AdminContactApiControllerTest {
      * GlobalExceptionHandlerが404と共通JSONへ変換することを確認します。
      */
     @Test
-    @WithMockUser(
-            username = "admin@example.com",
+    @WithAccount(
+            username = "2291307405",
             roles = "ADMIN"
     )
     @DisplayName("対象のお問い合わせが存在しない場合は404と共通エラーJSONを返す")
@@ -192,8 +193,8 @@ class AdminContactApiControllerTest {
      * 決定済みの11項目をJSONで返すことを確認します。
      */
     @Test
-    @WithMockUser(
-            username = "admin@example.com",
+    @WithAccount(
+            username = "2291307405",
             roles = "ADMIN"
     )
     @DisplayName("管理者がお問い合わせ詳細を取得すると200と詳細11項目を返す")
@@ -203,7 +204,7 @@ class AdminContactApiControllerTest {
         Contact contact = new Contact();
         contact.setId(1L);
         contact.setName("テスト太郎");
-        contact.setEmail("user@example.com");
+        contact.setEmail("1084137993");
         contact.setSubject("ログインについて");
         contact.setMessage("ログイン方法を教えてください。");
         contact.setStatus(ContactStatus.UNANSWERED);
@@ -235,7 +236,7 @@ class AdminContactApiControllerTest {
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.name").value("テスト太郎"))
                 .andExpect(
-                        jsonPath("$.email").value("user@example.com")
+                        jsonPath("$.email").value("1084137993")
                 )
                 .andExpect(
                         jsonPath("$.subject").value("ログインについて")
@@ -268,8 +269,8 @@ class AdminContactApiControllerTest {
  * 一覧用の6項目とページ情報を返すことを確認します。
  */
 @Test
-@WithMockUser(
-        username = "admin@example.com",
+@WithAccount(
+        username = "2291307405",
         roles = "ADMIN"
 )
 @DisplayName("管理者が一覧を取得すると標準のページ条件で200と一覧JSONを返す")
@@ -279,7 +280,7 @@ void getContacts_withoutParameters_shouldReturnDefaultPage() throws Exception {
     Contact contact = new Contact();
     contact.setId(1L);
     contact.setName("テスト太郎");
-    contact.setEmail("user@example.com");
+    contact.setEmail("1084137993");
     contact.setSubject("ログインについて");
     contact.setMessage("ログイン方法を教えてください。");
     contact.setStatus(ContactStatus.UNANSWERED);
@@ -353,8 +354,8 @@ void getContacts_withoutParameters_shouldReturnDefaultPage() throws Exception {
  * DBでの実際の絞り込みはRepositoryテストで確認します。
  */
 @Test
-@WithMockUser(
-        username = "admin@example.com",
+@WithAccount(
+        username = "2291307405",
         roles = "ADMIN"
 )
 @DisplayName("ページ番号・件数・状態を指定して一覧を取得できる")
@@ -428,8 +429,8 @@ void getContacts_withParameters_shouldPassConditionsToService()
         "0, 0, 0",
         "2, 21, 2"
 })
-@WithMockUser(
-        username = "admin@example.com",
+@WithAccount(
+        username = "2291307405",
         roles = "ADMIN"
 )
 void getContacts_whenPageIsEmpty_shouldReturn200WithEmptyContent(
@@ -477,8 +478,8 @@ void getContacts_whenPageIsEmpty_shouldReturn200WithEmptyContent(
  */
 @ParameterizedTest(name = "status=[{0}]は400で拒否する")
 @ValueSource(strings = {"", "   ", "UNKNOWN", "unanswered"})
-@WithMockUser(
-        username = "admin@example.com",
+@WithAccount(
+        username = "2291307405",
         roles = "ADMIN"
 )
 void getContacts_withInvalidStatus_shouldReturn400(
@@ -523,8 +524,8 @@ void getContacts_withInvalidStatus_shouldReturn400(
         "0, 0, 1ページあたりの件数は1～100で指定してください。",
         "0, 101, 1ページあたりの件数は1～100で指定してください。"
 })
-@WithMockUser(
-        username = "admin@example.com",
+@WithAccount(
+        username = "2291307405",
         roles = "ADMIN"
 )
 void getContacts_withOutOfRangeParameters_shouldReturn400(
@@ -573,7 +574,7 @@ void getContacts_withOutOfRangeParameters_shouldReturn400(
         "size, 1.5",
         "size, 2147483648"
 })
-@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@WithAccount(username = "2291307405", roles = "ADMIN")
 @DisplayName("ページ条件の型変換に失敗した場合は400を返しServiceを呼ばない")
 void getContacts_whenParameterTypeIsInvalid_shouldReturnBadRequest(
         String parameterName,
@@ -608,7 +609,7 @@ void getContacts_whenParameterTypeIsInvalid_shouldReturnBadRequest(
         "1.5",
         "9223372036854775808"
 })
-@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@WithAccount(username = "2291307405", roles = "ADMIN")
 @DisplayName("IDの型変換に失敗した場合は400を返しServiceを呼ばない")
 void getContact_whenIdTypeIsInvalid_shouldReturnBadRequest(
         String id) throws Exception {
@@ -671,7 +672,7 @@ void getContacts_whenAnonymous_shouldReturnUnauthorized(
         "/api/admin/contacts",
         "/api/admin/contacts/1"
 })
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "1084137993", roles = "USER")
 @DisplayName("一般ユーザーは403で拒否し管理Serviceを呼ばない")
 void getContacts_whenRegularUser_shouldReturnForbidden(
         String path) throws Exception {
@@ -698,7 +699,7 @@ void getContacts_whenRegularUser_shouldReturnForbidden(
  * Serviceはモック化し、HTTP応答と引数の受け渡しを検証します。
  */
 @Test
-@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@WithAccount(username = "2291307405", roles = "ADMIN")
 @DisplayName("管理者がCSRF付きで状態変更すると200と変更後の詳細情報を返す")
 void updateContactStatus_whenAdminWithCsrf_shouldReturnUpdatedContact()
         throws Exception {
@@ -706,7 +707,7 @@ void updateContactStatus_whenAdminWithCsrf_shouldReturnUpdatedContact()
     Contact updatedContact = new Contact();
     updatedContact.setId(1L);
     updatedContact.setName("テスト太郎");
-    updatedContact.setEmail("user@example.com");
+    updatedContact.setEmail("1084137993");
     updatedContact.setSubject("ログインについて");
     updatedContact.setMessage("ログイン方法を教えてください。");
     updatedContact.setStatus(ContactStatus.IN_PROGRESS);
@@ -720,7 +721,7 @@ void updateContactStatus_whenAdminWithCsrf_shouldReturnUpdatedContact()
     when(adminContactService.updateStatus(
             1L,
             ContactStatus.IN_PROGRESS,
-            "admin@example.com"
+            "2291307405"
     )).thenReturn(updatedContact);
 
     mockMvc.perform(
@@ -743,7 +744,7 @@ void updateContactStatus_whenAdminWithCsrf_shouldReturnUpdatedContact()
                 .andExpect(jsonPath("$.legalHoldReason").isEmpty())
             .andExpect(jsonPath("$.id").value(1))
             .andExpect(jsonPath("$.name").value("テスト太郎"))
-            .andExpect(jsonPath("$.email").value("user@example.com"))
+            .andExpect(jsonPath("$.email").value("1084137993"))
             .andExpect(jsonPath("$.subject").value("ログインについて"))
             .andExpect(jsonPath("$.message").value(
                     "ログイン方法を教えてください。"
@@ -760,7 +761,7 @@ void updateContactStatus_whenAdminWithCsrf_shouldReturnUpdatedContact()
     verify(adminContactService).updateStatus(
             1L,
             ContactStatus.IN_PROGRESS,
-            "admin@example.com"
+            "2291307405"
     );
 }
 
@@ -769,7 +770,7 @@ void updateContactStatus_whenAdminWithCsrf_shouldReturnUpdatedContact()
  * 404と共通エラーJSONを返すことを確認します。
  */
 @Test
-@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@WithAccount(username = "2291307405", roles = "ADMIN")
 @DisplayName("状態変更の対象が存在しない場合は404と共通JSONを返す")
 void updateContactStatus_whenContactNotFound_shouldReturnNotFound()
         throws Exception {
@@ -777,7 +778,7 @@ void updateContactStatus_whenContactNotFound_shouldReturnNotFound()
     when(adminContactService.updateStatus(
             999L,
             ContactStatus.IN_PROGRESS,
-            "admin@example.com"
+            "2291307405"
     )).thenThrow(new ContactNotFoundException());
 
     mockMvc.perform(
@@ -806,7 +807,7 @@ void updateContactStatus_whenContactNotFound_shouldReturnNotFound()
     verify(adminContactService).updateStatus(
             999L,
             ContactStatus.IN_PROGRESS,
-            "admin@example.com"
+            "2291307405"
     );
 }
 
@@ -819,7 +820,7 @@ void updateContactStatus_whenContactNotFound_shouldReturnNotFound()
         "{}",
         "{\"status\":null}"
 })
-@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@WithAccount(username = "2291307405", roles = "ADMIN")
 @DisplayName("変更先の状態が未指定またはnullの場合は400を返す")
 void updateContactStatus_whenStatusIsMissingOrNull_shouldReturnBadRequest(
         String requestBody) throws Exception {
@@ -864,7 +865,7 @@ void updateContactStatus_whenStatusIsMissingOrNull_shouldReturnBadRequest(
         "UNKNOWN",
         "in_progress"
 })
-@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@WithAccount(username = "2291307405", roles = "ADMIN")
 @DisplayName("不正な状態文字列は400で拒否しServiceを呼ばない")
 void updateContactStatus_whenStatusIsInvalid_shouldReturnBadRequest(
         String invalidStatus) throws Exception {
@@ -903,7 +904,7 @@ void updateContactStatus_whenStatusIsInvalid_shouldReturnBadRequest(
         "{\"status\":1}",
         "{\"status\":2}"
 })
-@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@WithAccount(username = "2291307405", roles = "ADMIN")
 @DisplayName("数値のstatusは400で拒否しServiceを呼ばない")
 void updateContactStatus_whenStatusIsNumber_shouldReturnBadRequest(
         String requestBody) throws Exception {
@@ -971,7 +972,7 @@ void updateContactStatus_whenAnonymous_shouldReturnUnauthorized()
  * 状態変更できないことを確認します。
  */
 @Test
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "1084137993", roles = "USER")
 @DisplayName("一般ユーザーによる状態変更は403で拒否しServiceを呼ばない")
 void updateContactStatus_whenRegularUser_shouldReturnForbidden()
         throws Exception {
@@ -1007,7 +1008,7 @@ void updateContactStatus_whenRegularUser_shouldReturnForbidden()
  * 状態変更できないことを確認します。
  */
 @Test
-@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@WithAccount(username = "2291307405", roles = "ADMIN")
 @DisplayName("状態変更はCSRFトークンなしなら403で拒否しServiceを呼ばない")
 void updateContactStatus_withoutCsrf_shouldReturnForbidden()
         throws Exception {
@@ -1040,7 +1041,7 @@ void updateContactStatus_withoutCsrf_shouldReturnForbidden()
  * 状態変更できないことを確認します。
  */
 @Test
-@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@WithAccount(username = "2291307405", roles = "ADMIN")
 @DisplayName("状態変更は不正CSRFトークンなら403で拒否しServiceを呼ばない")
 void updateContactStatus_withInvalidCsrf_shouldReturnForbidden()
         throws Exception {
@@ -1076,7 +1077,7 @@ void updateContactStatus_withInvalidCsrf_shouldReturnForbidden()
  * 実DBからの削除は、このモックテストでは検証しません。
  */
 @Test
-@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@WithAccount(username = "2291307405", roles = "ADMIN")
 @DisplayName("管理者の削除は204を返し削除済み対象への再実行は404を返す")
 void deleteContact_whenAdmin_thenRepeated_shouldReturnNoContentThenNotFound()
         throws Exception {
@@ -1084,7 +1085,7 @@ void deleteContact_whenAdmin_thenRepeated_shouldReturnNoContentThenNotFound()
     doNothing()
             .doThrow(new ContactNotFoundException())
             .when(adminContactService)
-            .deleteContact(1L, "admin@example.com");
+            .deleteContact(1L, "2291307405");
 
     mockMvc.perform(
             delete("/api/admin/contacts/{id}", 1L)
@@ -1111,18 +1112,18 @@ void deleteContact_whenAdmin_thenRepeated_shouldReturnNoContentThenNotFound()
             ));
 
     verify(adminContactService, times(2))
-            .deleteContact(1L, "admin@example.com");
+            .deleteContact(1L, "2291307405");
 }
 
 @Test
-@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@WithAccount(username = "2291307405", roles = "ADMIN")
 @DisplayName("削除対象が存在しない場合は404と共通JSONを返す")
 void deleteContact_whenContactNotFound_shouldReturnNotFound()
         throws Exception {
 
     doThrow(new ContactNotFoundException())
             .when(adminContactService)
-            .deleteContact(999L, "admin@example.com");
+            .deleteContact(999L, "2291307405");
 
     mockMvc.perform(
             delete("/api/admin/contacts/{id}", 999L)
@@ -1142,7 +1143,7 @@ void deleteContact_whenContactNotFound_shouldReturnNotFound()
             ));
 
     verify(adminContactService)
-            .deleteContact(999L, "admin@example.com");
+            .deleteContact(999L, "2291307405");
 }
 
 @Test
@@ -1172,7 +1173,7 @@ void deleteContact_whenAnonymous_shouldReturnUnauthorized()
 }
 
 @Test
-@WithMockUser(username = "user@example.com", roles = "USER")
+@WithAccount(username = "1084137993", roles = "USER")
 @DisplayName("一般ユーザーによる削除は403で拒否しServiceを呼ばない")
 void deleteContact_whenRegularUser_shouldReturnForbidden()
         throws Exception {
@@ -1202,7 +1203,7 @@ void deleteContact_whenRegularUser_shouldReturnForbidden()
  */
 @ParameterizedTest(name = "不正トークンあり={0}")
 @ValueSource(booleans = {false, true})
-@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@WithAccount(username = "2291307405", roles = "ADMIN")
 @DisplayName("削除はCSRFなし・不正CSRFの場合403で拒否する")
 void deleteContact_whenCsrfMissingOrInvalid_shouldReturnForbidden(
         boolean invalidToken) throws Exception {
@@ -1252,7 +1253,7 @@ void deleteContact_whenCsrfMissingOrInvalid_shouldReturnForbidden(
         "DELETE, TRANSACTION_SYSTEM",
         "DELETE, UNEXPECTED_ROLLBACK"
 })
-@WithMockUser(username = "admin@example.com", roles = "ADMIN")
+@WithAccount(username = "2291307405", roles = "ADMIN")
 @DisplayName("管理操作のDB障害は安全な500応答と運営用ログに変換する")
 void adminOperation_whenDatabaseFailure_shouldReturnSafeErrorAndLog(
         String operation,
@@ -1305,7 +1306,7 @@ void adminOperation_whenDatabaseFailure_shouldReturnSafeErrorAndLog(
         when(adminContactService.updateStatus(
                 1L,
                 ContactStatus.IN_PROGRESS,
-                "admin@example.com"
+                "2291307405"
         )).thenThrow(failure);
 
         path = "/api/admin/contacts/1/status";
@@ -1323,7 +1324,7 @@ void adminOperation_whenDatabaseFailure_shouldReturnSafeErrorAndLog(
 
         doThrow(failure)
                 .when(adminContactService)
-                .deleteContact(1L, "admin@example.com");
+                .deleteContact(1L, "2291307405");
 
         path = "/api/admin/contacts/1";
         request = delete(path).with(csrf());
@@ -1367,10 +1368,10 @@ void adminOperation_whenDatabaseFailure_shouldReturnSafeErrorAndLog(
         assertThat(responseBody).doesNotContain(
                 "SQL_SECRET",
                 "SELECT *",
-                "private@example.com",
+                "2303199169",
                 "PASSWORD_SECRET",
                 "CAUSE_SECRET",
-                "admin@example.com"
+                "2291307405"
         );
 
         assertThat(appender.list)
@@ -1393,10 +1394,10 @@ void adminOperation_whenDatabaseFailure_shouldReturnSafeErrorAndLog(
                             .doesNotContain(
                                     "SQL_SECRET",
                                     "SELECT *",
-                                    "private@example.com",
+                                    "2303199169",
                                     "PASSWORD_SECRET",
                                     "CAUSE_SECRET",
-                                    "admin@example.com"
+                                    "2291307405"
                             );
                 });
 
@@ -1410,11 +1411,11 @@ void adminOperation_whenDatabaseFailure_shouldReturnSafeErrorAndLog(
             verify(adminContactService).updateStatus(
                     1L,
                     ContactStatus.IN_PROGRESS,
-                    "admin@example.com"
+                    "2291307405"
             );
         } else {
             verify(adminContactService)
-                    .deleteContact(1L, "admin@example.com");
+                    .deleteContact(1L, "2291307405");
         }
 
     } finally {

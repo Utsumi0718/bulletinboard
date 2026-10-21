@@ -25,7 +25,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
+import com.example.bulletinboard.support.WithAccount;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -105,6 +105,7 @@ import com.example.bulletinboard.service.TopicService;
  */
 
 @WebMvcTest(AnswerApiController.class)
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class AnswerApiControllerTest {
 
     @Autowired
@@ -125,7 +126,7 @@ class AnswerApiControllerTest {
 
 @Test
 @DisplayName("指定TopicのAnswer一覧をLike情報付きで200 OKで取得できること")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void getAnswersByTopicId_ShouldReturnAnswerList() throws Exception {
 
     Topic topic = new Topic();
@@ -135,13 +136,13 @@ void getAnswersByTopicId_ShouldReturnAnswerList() throws Exception {
     User currentUser = new User();
     currentUser.setId(1L);
     currentUser.setUsername("testuser01");
-    currentUser.setEmail("testuser01@example.com");
+    currentUser.setEmail("3125414876");
 
     // Answer投稿者
     User answerUser = new User();
     answerUser.setId(2L);
     answerUser.setUsername("answeruser01");
-    answerUser.setEmail("answeruser01@example.com");
+    answerUser.setEmail("775820296");
 
     Answer answer = new Answer();
     answer.setId(10L);
@@ -160,8 +161,8 @@ void getAnswersByTopicId_ShouldReturnAnswerList() throws Exception {
     ).thenReturn(topic);
 
     when(
-            userDetailsService.findByEmail(
-                    "testuser01@example.com"
+            userDetailsService.findByActorId(
+                    "3125414876"
             )
     ).thenReturn(Optional.of(currentUser));
 
@@ -204,7 +205,7 @@ void getAnswersByTopicId_ShouldReturnAnswerList() throws Exception {
             .getById(1L);
 
     verify(userDetailsService)
-            .findByEmail("testuser01@example.com");
+            .findByActorId("3125414876");
 
     verify(answerService)
             .getAnswersByTopicId(1L);
@@ -223,7 +224,7 @@ void getAnswersByTopicId_ShouldReturnAnswerList() throws Exception {
 
 @Test
 @DisplayName("指定TopicにAnswerが0件の場合は200 OKで空配列を返すこと")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void getAnswersByTopicId_NoAnswers_ShouldReturnEmptyList() throws Exception {
 
     Topic topic = new Topic();
@@ -232,15 +233,15 @@ void getAnswersByTopicId_NoAnswers_ShouldReturnEmptyList() throws Exception {
     User currentUser = new User();
     currentUser.setId(1L);
     currentUser.setUsername("testuser01");
-    currentUser.setEmail("testuser01@example.com");
+    currentUser.setEmail("3125414876");
 
     when(
             topicService.getById(1L)
     ).thenReturn(topic);
 
     when(
-            userDetailsService.findByEmail(
-                    "testuser01@example.com"
+            userDetailsService.findByActorId(
+                    "3125414876"
             )
     ).thenReturn(Optional.of(currentUser));
 
@@ -272,7 +273,7 @@ void getAnswersByTopicId_NoAnswers_ShouldReturnEmptyList() throws Exception {
             .getById(1L);
 
     verify(userDetailsService)
-            .findByEmail("testuser01@example.com");
+            .findByActorId("3125414876");
 
     verify(answerService)
             .getAnswersByTopicId(1L);
@@ -291,7 +292,7 @@ void getAnswersByTopicId_NoAnswers_ShouldReturnEmptyList() throws Exception {
 
 @Test
 @DisplayName("存在しないTopicのAnswer一覧を取得しようとすると404 Not Foundになること")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void getAnswersByTopicId_TopicNotFound_ShouldReturnNotFound() throws Exception {
 
     when(
@@ -319,19 +320,19 @@ void getAnswersByTopicId_TopicNotFound_ShouldReturnNotFound() throws Exception {
 
 @Test
 @DisplayName("指定TopicへAnswerを投稿すると201 Createdと作成済みAnswerを返すこと")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void createAnswer_ShouldReturnCreatedAnswer() throws Exception {
 
     User user = new User();
     user.setUsername("testuser01");
-    user.setEmail("testuser01@example.com");
+    user.setEmail("3125414876");
 
     Topic topic = new Topic();
     topic.setId(1L);
 
     when(
-            userDetailsService.findByEmail(
-                    "testuser01@example.com"
+            userDetailsService.findByActorId(
+                    "3125414876"
             )
     ).thenReturn(Optional.of(user));
 
@@ -374,7 +375,7 @@ void createAnswer_ShouldReturnCreatedAnswer() throws Exception {
                     .value("testuser01"));
 
     verify(userDetailsService)
-            .findByEmail("testuser01@example.com");
+            .findByActorId("3125414876");
 
     verify(topicService)
             .getById(1L);
@@ -400,7 +401,7 @@ void createAnswer_ShouldReturnCreatedAnswer() throws Exception {
 
 @Test
 @DisplayName("Answer投稿でValidationエラーの場合は400 Bad Requestになること")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void createAnswer_ValidationError_ShouldReturnBadRequest() throws Exception {
 
     mockMvc.perform(
@@ -426,16 +427,16 @@ void createAnswer_ValidationError_ShouldReturnBadRequest() throws Exception {
 
 @Test
 @DisplayName("存在しないTopicへAnswerを投稿しようとすると404 Not Foundになること")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void createAnswer_TopicNotFound_ShouldReturnNotFound() throws Exception {
 
     User user = new User();
     user.setUsername("testuser01");
-    user.setEmail("testuser01@example.com");
+    user.setEmail("3125414876");
 
     when(
-            userDetailsService.findByEmail(
-                    "testuser01@example.com"
+            userDetailsService.findByActorId(
+                    "3125414876"
             )
     ).thenReturn(Optional.of(user));
 
@@ -466,7 +467,7 @@ void createAnswer_TopicNotFound_ShouldReturnNotFound() throws Exception {
                     .value("/api/topics/999/answers"));
 
     verify(userDetailsService)
-            .findByEmail("testuser01@example.com");
+            .findByActorId("3125414876");
 
     verify(topicService)
             .getById(999L);
@@ -474,12 +475,12 @@ void createAnswer_TopicNotFound_ShouldReturnNotFound() throws Exception {
 
 @Test
 @DisplayName("Answer投稿時にログインユーザー情報を取得できない場合は500 Internal Server Errorになること")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void createAnswer_UserNotFound_ShouldReturnInternalServerError() throws Exception {
 
     when(
-            userDetailsService.findByEmail(
-                    "testuser01@example.com"
+            userDetailsService.findByActorId(
+                    "3125414876"
             )
     ).thenReturn(Optional.empty());
 
@@ -503,18 +504,18 @@ void createAnswer_UserNotFound_ShouldReturnInternalServerError() throws Exceptio
                     .value("/api/topics/1/answers"));
 
     verify(userDetailsService)
-            .findByEmail("testuser01@example.com");
+            .findByActorId("3125414876");
 }
 
 
 @Test
 @DisplayName("投稿者本人がAnswerを編集すると200 OKと更新済みAnswerを返すこと")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void updateAnswer_ShouldReturnUpdatedAnswer() throws Exception {
 
     User user = new User();
     user.setUsername("testuser01");
-    user.setEmail("testuser01@example.com");
+    user.setEmail("3125414876");
 
     Answer updatedAnswer = new Answer();
     updatedAnswer.setId(100L);
@@ -530,7 +531,7 @@ void updateAnswer_ShouldReturnUpdatedAnswer() throws Exception {
     when(
             answerService.updateAnswer(
                     100L,
-                    "testuser01@example.com",
+                    "3125414876",
                     "変更後の回答"
             )
     ).thenReturn(updatedAnswer);
@@ -555,14 +556,14 @@ void updateAnswer_ShouldReturnUpdatedAnswer() throws Exception {
     verify(answerService)
             .updateAnswer(
                     100L,
-                    "testuser01@example.com",
+                    "3125414876",
                     "変更後の回答"
             );
 }
 
 @Test
 @DisplayName("Answer編集でValidationエラーの場合は400 Bad Requestになること")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void updateAnswer_ValidationError_ShouldReturnBadRequest() throws Exception {
 
     mockMvc.perform(
@@ -597,13 +598,13 @@ void updateAnswer_ValidationError_ShouldReturnBadRequest() throws Exception {
 
 @Test
 @DisplayName("投稿者本人以外がAnswerを編集しようとすると403 Forbiddenになること")
-@WithMockUser(username = "other@example.com")
+@WithAccount(username = "2084992462")
 void updateAnswer_Forbidden_ShouldReturnForbidden() throws Exception {
 
     when(
             answerService.updateAnswer(
                     100L,
-                    "other@example.com",
+                    "2084992462",
                     "変更後の回答"
             )
     ).thenThrow(
@@ -633,7 +634,7 @@ void updateAnswer_Forbidden_ShouldReturnForbidden() throws Exception {
     verify(answerService)
             .updateAnswer(
                     100L,
-                    "other@example.com",
+                    "2084992462",
                     "変更後の回答"
             );
 }
@@ -641,13 +642,13 @@ void updateAnswer_Forbidden_ShouldReturnForbidden() throws Exception {
 
 @Test
 @DisplayName("存在しないAnswerを編集しようとすると404 Not Foundになること")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void updateAnswer_AnswerNotFound_ShouldReturnNotFound() throws Exception {
 
     when(
             answerService.updateAnswer(
                     999L,
-                    "testuser01@example.com",
+                    "3125414876",
                     "変更後の回答"
             )
     ).thenThrow(
@@ -677,13 +678,13 @@ void updateAnswer_AnswerNotFound_ShouldReturnNotFound() throws Exception {
 
 @Test
 @DisplayName("Likeが付いているAnswerを編集しようとすると409 Conflictになること")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void updateAnswer_LikeExists_ShouldReturnConflict() throws Exception {
 
     when(
             answerService.updateAnswer(
                     100L,
-                    "testuser01@example.com",
+                    "3125414876",
                     "変更後の回答"
             )
     ).thenThrow(
@@ -713,7 +714,7 @@ void updateAnswer_LikeExists_ShouldReturnConflict() throws Exception {
 
 @Test
 @DisplayName("投稿者本人がAnswerを削除すると204 No Contentになること")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void deleteAnswer_Owner_ShouldReturnNoContent() throws Exception {
 
     mockMvc.perform(
@@ -725,15 +726,15 @@ void deleteAnswer_Owner_ShouldReturnNoContent() throws Exception {
     verify(answerService)
             .deleteAnswer(
                     100L,
-                    "testuser01@example.com",
+                    "3125414876",
                     false
             );
 }
 
 @Test
 @DisplayName("管理者が他ユーザーのAnswerを削除すると204 No Contentになること")
-@WithMockUser(
-        username = "admin@example.com",
+@WithAccount(
+        username = "2291307405",
         roles = "ADMIN"
 )
 void deleteAnswer_Admin_ShouldReturnNoContent() throws Exception {
@@ -747,14 +748,14 @@ void deleteAnswer_Admin_ShouldReturnNoContent() throws Exception {
     verify(answerService)
             .deleteAnswer(
                     100L,
-                    "admin@example.com",
+                    "2291307405",
                     true
             );
 }
 
 @Test
 @DisplayName("削除権限のないユーザーがAnswerを削除しようとすると403 Forbiddenになること")
-@WithMockUser(username = "other@example.com")
+@WithAccount(username = "2084992462")
 void deleteAnswer_Forbidden_ShouldReturnForbidden() throws Exception {
 
     doThrow(
@@ -764,7 +765,7 @@ void deleteAnswer_Forbidden_ShouldReturnForbidden() throws Exception {
     ).when(answerService)
             .deleteAnswer(
                     100L,
-                    "other@example.com",
+                    "2084992462",
                     false
             );
 
@@ -783,14 +784,14 @@ void deleteAnswer_Forbidden_ShouldReturnForbidden() throws Exception {
     verify(answerService)
             .deleteAnswer(
                     100L,
-                    "other@example.com",
+                    "2084992462",
                     false
             );
 }
 
 @Test
 @DisplayName("存在しないAnswerを削除しようとすると404 Not Foundになること")
-@WithMockUser(username = "testuser01@example.com")
+@WithAccount(username = "3125414876")
 void deleteAnswer_AnswerNotFound_ShouldReturnNotFound() throws Exception {
 
     doThrow(
@@ -800,7 +801,7 @@ void deleteAnswer_AnswerNotFound_ShouldReturnNotFound() throws Exception {
     ).when(answerService)
             .deleteAnswer(
                     999L,
-                    "testuser01@example.com",
+                    "3125414876",
                     false
             );
 
@@ -819,7 +820,7 @@ void deleteAnswer_AnswerNotFound_ShouldReturnNotFound() throws Exception {
     verify(answerService)
             .deleteAnswer(
                     999L,
-                    "testuser01@example.com",
+                    "3125414876",
                     false
             );
 }

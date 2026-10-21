@@ -23,6 +23,9 @@ public class RegistrationService {
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
+        if (WithdrawalIdentity.reservedEmail(request.email()) || WithdrawalIdentity.reservedUsername(request.username())) {
+            throw new IllegalArgumentException("予約された登録情報は使用できません。");
+        }
         if (users.existsByUsername(request.username())) {
             throw new RegistrationConflictException(Field.USERNAME);
         }

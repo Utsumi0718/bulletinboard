@@ -78,7 +78,7 @@ import jakarta.validation.Valid;
  *   → Topic不存在・論理削除済みの場合は404 Not Found
  *
  * 【設計上のポイント】
- * - 認証PrincipalにはログインIDであるemailが設定されます。
+ * - 認証Principalには不変のUser IDが設定されます。
  * - Topicに関する業務ルールはTopicServiceへ委譲します。
  * - ControllerではHTTPリクエストの受付、
  *   認証情報の取得、DTO変換、HTTPレスポンス生成を担当します。
@@ -182,7 +182,7 @@ public class TopicApiController {
 
     TopicResponse response =
             TopicResponse.from(topic, authentication == null ? null :
-                    userDetailsService.findByEmail(authentication.getName()).orElse(null));
+                    userDetailsService.findByActorId(authentication.getName()).orElse(null));
 
     return ResponseEntity.ok(response);
 }
@@ -192,7 +192,7 @@ public class TopicApiController {
     /**
  * 新しいTopicを投稿します。
  *
- * Authenticationからログインユーザーのemailを取得し、
+ * AuthenticationからログインユーザーのUser IDを取得し、
  * CustomUserDetailsServiceを使用してUserを取得します。
  *
  * TopicRequestのtitle・image・questionと
@@ -217,10 +217,10 @@ public class TopicApiController {
         @Valid @RequestBody TopicRequest request,
         Authentication authentication) {
 
-    String loginEmail = authentication.getName();
+    String actorId = authentication.getName();
 
     User user = userDetailsService
-            .findByEmail(loginEmail)
+            .findByActorId(actorId)
             .orElseThrow(() -> new UserNotFoundException(
         "ログインユーザー情報を取得できませんでした。"
           ));
@@ -246,7 +246,7 @@ public class TopicApiController {
 /**
  * 指定されたTopicを編集します。
  *
- * Authenticationからログインユーザーのemailを取得し、
+ * AuthenticationからログインユーザーのUser IDを取得し、
  * TopicRequestのtitle・image・questionとともに
  * TopicServiceへ編集処理を委譲します。
  *
@@ -281,11 +281,11 @@ public ResponseEntity<TopicResponse> updateTopic(
         @Valid @RequestBody TopicRequest request,
         Authentication authentication) {
 
-    String loginEmail = authentication.getName();
+    String actorId = authentication.getName();
 
     Topic updatedTopic = topicService.updateTopic(
             id,
-            loginEmail,
+            actorId,
             request.getTitle(),
             request.getImage(),
             request.getQuestion()
@@ -300,10 +300,10 @@ public ResponseEntity<TopicResponse> updateTopic(
 /**
  * 指定されたTopicを論理削除します。
  *
- * Authenticationからログインユーザーのemailを取得し、
+ * AuthenticationからログインユーザーのUser IDを取得し、
  * ROLE_ADMIN権限を持っているかを判定します。
  *
- * TopicServiceへTopic ID・loginEmail・管理者判定結果を渡し、
+ * TopicServiceへTopic ID・actorId・管理者判定結果を渡し、
  * 削除可否の判定と論理削除処理を委譲します。
  *
  * 削除できるのは投稿者本人またはROLE_ADMINです。
@@ -328,7 +328,7 @@ public ResponseEntity<Void> deleteTopic(
         @PathVariable Long id,
         Authentication authentication) {
 
-    String loginEmail = authentication.getName();
+    String actorId = authentication.getName();
 
     boolean isAdmin = authentication.getAuthorities()
             .stream()
@@ -338,7 +338,7 @@ public ResponseEntity<Void> deleteTopic(
 
     topicService.deleteById(
             id,
-            loginEmail,
+            actorId,
             isAdmin
     );
 

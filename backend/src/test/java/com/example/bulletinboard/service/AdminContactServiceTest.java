@@ -294,14 +294,14 @@ void updateStatus_shouldUpdateContactAndSaveOperationLog() {
 
     User adminUser = new User();
     adminUser.setId(10L);
-    adminUser.setEmail("admin@example.com");
+    adminUser.setEmail("2291307405");
     adminUser.setRole("ROLE_ADMIN");
 
     Contact contact = new Contact();
     contact.setId(1L);
     contact.setStatus(ContactStatus.UNANSWERED);
 
-    when(userRepository.findByEmail("admin@example.com"))
+    when(userRepository.findById(Long.valueOf("2291307405")))
             .thenReturn(Optional.of(adminUser));
 
     when(contactRepository.findByIdForUpdate(1L))
@@ -313,7 +313,7 @@ void updateStatus_shouldUpdateContactAndSaveOperationLog() {
     Contact result = adminContactService.updateStatus(
             1L,
             ContactStatus.IN_PROGRESS,
-            "admin@example.com"
+            "2291307405"
     );
 
     // お問い合わせの状態が変更され、保存結果が返ることを確認。
@@ -321,7 +321,7 @@ void updateStatus_shouldUpdateContactAndSaveOperationLog() {
     assertThat(result.getStatus())
             .isEqualTo(ContactStatus.IN_PROGRESS);
 
-    verify(userRepository).findByEmail("admin@example.com");
+    verify(userRepository).findById(Long.valueOf("2291307405"));
     verify(contactRepository).findByIdForUpdate(1L);
     verify(contactRepository).saveAndFlush(contact);
 
@@ -352,7 +352,7 @@ void updateStatus_whenSameStatus_shouldNotSaveOrAddLog() {
 
     User adminUser = new User();
     adminUser.setId(10L);
-    adminUser.setEmail("admin@example.com");
+    adminUser.setEmail("2291307405");
     adminUser.setRole("ROLE_ADMIN");
 
     LocalDateTime createdAt =
@@ -366,7 +366,7 @@ void updateStatus_whenSameStatus_shouldNotSaveOrAddLog() {
     contact.setCreatedAt(createdAt);
     contact.setUpdatedAt(updatedAt);
 
-    when(userRepository.findByEmail("admin@example.com"))
+    when(userRepository.findById(Long.valueOf("2291307405")))
             .thenReturn(Optional.of(adminUser));
 
     when(contactRepository.findByIdForUpdate(1L))
@@ -375,7 +375,7 @@ void updateStatus_whenSameStatus_shouldNotSaveOrAddLog() {
     Contact result = adminContactService.updateStatus(
             1L,
             ContactStatus.IN_PROGRESS,
-            "admin@example.com"
+            "2291307405"
     );
 
     // 現在のEntityを返し、状態・日時を変更しない。
@@ -403,10 +403,10 @@ void updateStatus_whenContactNotFound_shouldThrowAndNotSave() {
 
     User adminUser = new User();
     adminUser.setId(10L);
-    adminUser.setEmail("admin@example.com");
+    adminUser.setEmail("2291307405");
     adminUser.setRole("ROLE_ADMIN");
 
-    when(userRepository.findByEmail("admin@example.com"))
+    when(userRepository.findById(Long.valueOf("2291307405")))
             .thenReturn(Optional.of(adminUser));
 
     when(contactRepository.findByIdForUpdate(999L))
@@ -415,7 +415,7 @@ void updateStatus_whenContactNotFound_shouldThrowAndNotSave() {
     assertThatThrownBy(() -> adminContactService.updateStatus(
             999L,
             ContactStatus.IN_PROGRESS,
-            "admin@example.com"
+            "2291307405"
     ))
             .isInstanceOf(ContactNotFoundException.class)
             .hasMessage("指定されたお問い合わせが見つかりません。");
@@ -436,18 +436,18 @@ void updateStatus_whenContactNotFound_shouldThrowAndNotSave() {
 @DisplayName("操作するユーザーが存在しない場合は状態変更と履歴追加を行わない")
 void updateStatus_whenUserNotFound_shouldThrowAndNotSave() {
 
-    when(userRepository.findByEmail("admin@example.com"))
+    when(userRepository.findById(Long.valueOf("2291307405")))
             .thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> adminContactService.updateStatus(
             1L,
             ContactStatus.IN_PROGRESS,
-            "admin@example.com"
+            "2291307405"
     ))
             .isInstanceOf(UserNotFoundException.class)
             .hasMessage("ログインユーザー情報を取得できませんでした。");
 
-    verify(userRepository).findByEmail("admin@example.com");
+    verify(userRepository).findById(Long.valueOf("2291307405"));
 
     // 操作者を特定できないため、お問い合わせの処理には進まない。
     verifyNoInteractions(
@@ -466,21 +466,21 @@ void updateStatus_whenUserIsNotAdmin_shouldThrowAndNotSave() {
 
     User user = new User();
     user.setId(20L);
-    user.setEmail("user@example.com");
+    user.setEmail("1084137993");
     user.setRole("ROLE_USER");
 
-    when(userRepository.findByEmail("user@example.com"))
+    when(userRepository.findById(Long.valueOf("1084137993")))
             .thenReturn(Optional.of(user));
 
     assertThatThrownBy(() -> adminContactService.updateStatus(
             1L,
             ContactStatus.IN_PROGRESS,
-            "user@example.com"
+            "1084137993"
     ))
             .isInstanceOf(ForbiddenOperationException.class)
             .hasMessage("この操作は管理者のみ実行できます。");
 
-    verify(userRepository).findByEmail("user@example.com");
+    verify(userRepository).findById(Long.valueOf("1084137993"));
 
     // 管理者ではないため、お問い合わせの処理へ進まない。
     verifyNoInteractions(
@@ -503,7 +503,7 @@ void updateStatus_whenSaveFails_shouldThrowAndNotAddLog() {
 
     User adminUser = new User();
     adminUser.setId(10L);
-    adminUser.setEmail("admin@example.com");
+    adminUser.setEmail("2291307405");
     adminUser.setRole("ROLE_ADMIN");
 
     Contact contact = new Contact();
@@ -515,7 +515,7 @@ void updateStatus_whenSaveFails_shouldThrowAndNotAddLog() {
                     "テスト用のDB接続失敗"
             );
 
-    when(userRepository.findByEmail("admin@example.com"))
+    when(userRepository.findById(Long.valueOf("2291307405")))
             .thenReturn(Optional.of(adminUser));
 
     when(contactRepository.findByIdForUpdate(1L))
@@ -527,7 +527,7 @@ void updateStatus_whenSaveFails_shouldThrowAndNotAddLog() {
     assertThatThrownBy(() -> adminContactService.updateStatus(
             1L,
             ContactStatus.IN_PROGRESS,
-            "admin@example.com"
+            "2291307405"
     ))
             .isSameAs(failure);
 
@@ -556,14 +556,14 @@ void updateStatus_shouldUpdateContactAndSaveOperationLog(
 
     User adminUser = new User();
     adminUser.setId(10L);
-    adminUser.setEmail("admin@example.com");
+    adminUser.setEmail("2291307405");
     adminUser.setRole("ROLE_ADMIN");
 
     Contact contact = new Contact();
     contact.setId(1L);
     contact.setStatus(beforeStatus);
 
-    when(userRepository.findByEmail("admin@example.com"))
+    when(userRepository.findById(Long.valueOf("2291307405")))
             .thenReturn(Optional.of(adminUser));
 
     when(contactRepository.findByIdForUpdate(1L))
@@ -575,13 +575,13 @@ void updateStatus_shouldUpdateContactAndSaveOperationLog(
     Contact result = adminContactService.updateStatus(
             1L,
             afterStatus,
-            "admin@example.com"
+            "2291307405"
     );
 
     assertThat(result).isSameAs(contact);
     assertThat(result.getStatus()).isEqualTo(afterStatus);
 
-    verify(userRepository).findByEmail("admin@example.com");
+    verify(userRepository).findById(Long.valueOf("2291307405"));
     verify(contactRepository).findByIdForUpdate(1L);
     verify(contactRepository).saveAndFlush(contact);
 
@@ -614,7 +614,7 @@ void updateStatus_whenNewStatusIsNull_shouldRejectWithoutRepositoryAccess() {
     assertThatThrownBy(() -> adminContactService.updateStatus(
             1L,
             null,
-            "admin@example.com"
+            "2291307405"
     ))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("ステータスを指定してください。");
@@ -670,7 +670,7 @@ void deleteContact_whenAdmin_shouldDeleteAndSaveLog(
     when(contactRepository.findByIdForUpdate(1L))
             .thenReturn(Optional.of(contact));
 
-    adminContactService.deleteContact(1L, "admin@example.com");
+    adminContactService.deleteContact(1L, "2291307405");
 
     ArgumentCaptor<AdminOperationLog> logCaptor =
             ArgumentCaptor.forClass(AdminOperationLog.class);
@@ -681,7 +681,7 @@ void deleteContact_whenAdmin_shouldDeleteAndSaveLog(
             adminOperationLogRepository
     );
 
-    order.verify(userRepository).findByEmail("admin@example.com");
+    order.verify(userRepository).findById(Long.valueOf("2291307405"));
     order.verify(contactRepository).findByIdForUpdate(1L);
     order.verify(contactRepository).delete(contact);
     order.verify(contactRepository).flush();
@@ -725,18 +725,18 @@ void deleteContact_whenLoginEmailIsMissingOrBlank_shouldReject(
 @DisplayName("削除の操作者が存在しない場合はお問い合わせを処理しない")
 void deleteContact_whenUserNotFound_shouldReject() {
 
-    when(userRepository.findByEmail("admin@example.com"))
+    when(userRepository.findById(Long.valueOf("2291307405")))
             .thenReturn(Optional.empty());
 
     assertThatThrownBy(
             () -> adminContactService.deleteContact(
-                    1L, "admin@example.com"
+                    1L, "2291307405"
             )
     )
             .isInstanceOf(UserNotFoundException.class)
             .hasMessage("ログインユーザー情報を取得できませんでした。");
 
-    verify(userRepository).findByEmail("admin@example.com");
+    verify(userRepository).findById(Long.valueOf("2291307405"));
     verifyNoInteractions(
             contactRepository,
             adminOperationLogRepository
@@ -749,21 +749,21 @@ void deleteContact_whenRegularUser_shouldReject() {
 
     User user = new User();
     user.setId(20L);
-    user.setEmail("user@example.com");
+    user.setEmail("1084137993");
     user.setRole("ROLE_USER");
 
-    when(userRepository.findByEmail("user@example.com"))
+    when(userRepository.findById(Long.valueOf("1084137993")))
             .thenReturn(Optional.of(user));
 
     assertThatThrownBy(
             () -> adminContactService.deleteContact(
-                    1L, "user@example.com"
+                    1L, "1084137993"
             )
     )
             .isInstanceOf(ForbiddenOperationException.class)
             .hasMessage("この操作は管理者のみ実行できます。");
 
-    verify(userRepository).findByEmail("user@example.com");
+    verify(userRepository).findById(Long.valueOf("1084137993"));
     verifyNoInteractions(
             contactRepository,
             adminOperationLogRepository
@@ -781,7 +781,7 @@ void deleteContact_whenContactNotFound_shouldReject() {
 
     assertThatThrownBy(
             () -> adminContactService.deleteContact(
-                    999L, "admin@example.com"
+                    999L, "2291307405"
             )
     )
             .isInstanceOf(ContactNotFoundException.class)
@@ -805,7 +805,7 @@ void deleteContact_whenDeleteFails_shouldStop() {
 
     assertThatThrownBy(
             () -> adminContactService.deleteContact(
-                    1L, "admin@example.com"
+                    1L, "2291307405"
             )
     ).isSameAs(failure);
 
@@ -828,7 +828,7 @@ void deleteContact_whenFlushFails_shouldStop() {
 
     assertThatThrownBy(
             () -> adminContactService.deleteContact(
-                    1L, "admin@example.com"
+                    1L, "2291307405"
             )
     ).isSameAs(failure);
 
@@ -853,7 +853,7 @@ void deleteContact_whenLogSaveFails_shouldPropagateException() {
 
     assertThatThrownBy(
             () -> adminContactService.deleteContact(
-                    1L, "admin@example.com"
+                    1L, "2291307405"
             )
     ).isSameAs(failure);
 
@@ -879,10 +879,10 @@ private User stubDeleteAdmin() {
 
     User admin = new User();
     admin.setId(10L);
-    admin.setEmail("admin@example.com");
+    admin.setEmail("2291307405");
     admin.setRole("ROLE_ADMIN");
 
-    when(userRepository.findByEmail("admin@example.com"))
+    when(userRepository.findById(Long.valueOf("2291307405")))
             .thenReturn(Optional.of(admin));
 
     return admin;

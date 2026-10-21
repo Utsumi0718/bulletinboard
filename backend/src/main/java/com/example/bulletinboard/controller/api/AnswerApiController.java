@@ -62,7 +62,7 @@ import jakarta.validation.Valid;
  *
  * - PUT /api/answers/{id}
  *   → Answerの編集
- *   → AuthenticationからloginEmailを取得
+ *   → AuthenticationからUser IDを取得
  *   → AnswerRequestのcontentをAnswerServiceへ渡す
  *   → 正常時 200 OKとAnswerResponse
  *   → 更新成功時はLikeが0件であるため
@@ -75,7 +75,7 @@ import jakarta.validation.Valid;
  *
  * - DELETE /api/answers/{id}
  *   → Answerの論理削除
- *   → AuthenticationからloginEmailを取得
+ *   → AuthenticationからUser IDを取得
  *   → ROLE_ADMIN判定
  *   → 投稿者本人またはROLE_ADMINのみ削除可能
  *   → 正常時 204 No Content
@@ -86,7 +86,7 @@ import jakarta.validation.Valid;
  * - ControllerではHTTP層の責務に集中します。
  * - Answerに関する業務ルールはAnswerServiceへ委譲します。
  * - Likeに関する取得処理はLikeServiceへ委譲します。
- * - 認証PrincipalにはログインIDであるemailが設定されます。
+ * - 認証Principalには不変のUser IDが設定されます。
  * - GET一覧ではAnswer ID一覧を作成し、
  *   Like件数とliked対象Answer IDを一括取得します。
  * - AnswerごとにLikeRepositoryへ問い合わせる方式を避け、
@@ -119,7 +119,7 @@ public class AnswerApiController {
      *
      * TopicServiceを使用して対象Topicが存在することを確認します。
      *
-     * Authenticationからログインユーザーのemailを取得し、
+     * AuthenticationからログインユーザーのUser IDを取得し、
      * CustomUserDetailsServiceを使用して現在のUserを取得します。
      *
      * Answer一覧取得後にAnswer ID一覧を作成し、
@@ -149,18 +149,18 @@ public class AnswerApiController {
         topicService.getById(topicId);
 
         /*
-         * 認証情報からログインIDであるemailを取得します。
+         * 認証情報から不変のUser IDを取得します。
          */
-        String loginEmail = authentication.getName();
+        String actorId = authentication.getName();
 
         /*
-         * loginEmailから現在ログインしているUserを取得します。
+         * User IDから現在ログインしているUserを取得します。
          *
          * liked状態を一括取得する際には、
          * User EntityではなくUser IDを使用します。
          */
         User currentUser = userDetailsService
-                .findByEmail(loginEmail)
+                .findByActorId(actorId)
                 .orElseThrow(() ->
                         new UserNotFoundException(
                                 "ログインユーザー情報を取得できませんでした。"
@@ -248,7 +248,7 @@ public class AnswerApiController {
     /**
      * 指定されたTopicへ新しいAnswerを投稿します。
      *
-     * Authenticationからログインユーザーのemailを取得し、
+     * AuthenticationからログインユーザーのUser IDを取得し、
      * CustomUserDetailsServiceを使ってUserを取得します。
      *
      * topicIdから投稿対象のTopicを取得し、
@@ -269,10 +269,10 @@ public class AnswerApiController {
             @Valid @RequestBody AnswerRequest request,
             Authentication authentication) {
 
-        String loginEmail = authentication.getName();
+        String actorId = authentication.getName();
 
         User currentUser = userDetailsService
-                .findByEmail(loginEmail)
+                .findByActorId(actorId)
                 .orElseThrow(() ->
                         new UserNotFoundException(
                                 "ログインユーザー情報を取得できませんでした。"
@@ -309,7 +309,7 @@ public class AnswerApiController {
     /**
      * 指定されたAnswerを編集します。
      *
-     * Authenticationからログインユーザーのemailを取得し、
+     * AuthenticationからログインユーザーのUser IDを取得し、
      * AnswerRequestのcontentとともに
      * AnswerServiceへ編集処理を委譲します。
      *
@@ -330,11 +330,11 @@ public class AnswerApiController {
             @Valid @RequestBody AnswerRequest request,
             Authentication authentication) {
 
-        String loginEmail = authentication.getName();
+        String actorId = authentication.getName();
 
         Answer updatedAnswer = answerService.updateAnswer(
                 id,
-                loginEmail,
+                actorId,
                 request.getContent()
         );
 
@@ -347,10 +347,10 @@ public class AnswerApiController {
     /**
      * 指定されたAnswerを論理削除します。
      *
-     * Authenticationからログインユーザーのemailを取得し、
+     * AuthenticationからログインユーザーのUser IDを取得し、
      * ROLE_ADMIN権限を持っているかを判定します。
      *
-     * AnswerServiceへAnswer ID・loginEmail・管理者判定結果を渡し、
+     * AnswerServiceへAnswer ID・actorId・管理者判定結果を渡し、
      * 削除処理を委譲します。
      *
      * 投稿者本人またはROLE_ADMINのみ削除可能です。
@@ -364,7 +364,7 @@ public class AnswerApiController {
             @PathVariable Long id,
             Authentication authentication) {
 
-        String loginEmail = authentication.getName();
+        String actorId = authentication.getName();
 
         boolean isAdmin = authentication.getAuthorities()
                 .stream()
@@ -376,7 +376,7 @@ public class AnswerApiController {
 
         answerService.deleteAnswer(
                 id,
-                loginEmail,
+                actorId,
                 isAdmin
         );
 

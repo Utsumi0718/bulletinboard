@@ -263,7 +263,8 @@ class TopicServiceTest {
     void deleteById_ShouldSetDeletedAt() {
 
     User topicUser = new User();
-    topicUser.setEmail("testuser01@example.com");
+    topicUser.setEmail("3125414876");
+topicUser.setId(3125414876L);
 
     Topic topic = new Topic();
     topic.setId(1L);
@@ -282,7 +283,7 @@ class TopicServiceTest {
 
     topicService.deleteById(
         1L,
-        "testuser01@example.com",
+        "3125414876",
         false
     );
 
@@ -300,7 +301,8 @@ class TopicServiceTest {
 void updateTopic_OwnerAndNoAnswer_ShouldUpdateTopic() {
 
     User topicUser = new User();
-    topicUser.setEmail("owner@example.com");
+    topicUser.setEmail("1008766193");
+topicUser.setId(1008766193L);
 
     Topic topic = new Topic();
     topic.setId(1L);
@@ -325,7 +327,7 @@ void updateTopic_OwnerAndNoAnswer_ShouldUpdateTopic() {
 
     Topic updated = topicService.updateTopic(
         1L,
-        "owner@example.com",
+        "1008766193",
         "変更後タイトル",
         "after.webp",
         "変更後の問題"
@@ -349,7 +351,8 @@ void updateTopic_OwnerAndNoAnswer_ShouldUpdateTopic() {
 void updateTopic_NotOwner_ShouldThrowException() {
 
     User topicUser = new User();
-    topicUser.setEmail("owner@example.com");
+    topicUser.setEmail("1008766193");
+topicUser.setId(1008766193L);
 
     Topic topic = new Topic();
     topic.setId(1L);
@@ -363,7 +366,7 @@ void updateTopic_NotOwner_ShouldThrowException() {
         .assertThatThrownBy(
             () -> topicService.updateTopic(
                 1L,
-                "other@example.com",
+                "2084992462",
                 "タイトル",
                 "image.webp",
                 "問題"
@@ -383,7 +386,8 @@ void updateTopic_NotOwner_ShouldThrowException() {
 void updateTopic_AnswerExists_ShouldThrowException() {
 
     User topicUser = new User();
-    topicUser.setEmail("owner@example.com");
+    topicUser.setEmail("1008766193");
+topicUser.setId(1008766193L);
 
     Topic topic = new Topic();
     topic.setId(1L);
@@ -400,7 +404,7 @@ void updateTopic_AnswerExists_ShouldThrowException() {
     org.assertj.core.api.Assertions.assertThatThrownBy(
             () -> topicService.updateTopic(
                 1L,
-                "owner@example.com",
+                "1008766193",
                 "タイトル",
                 "image.webp",
                 "問題"
@@ -427,7 +431,7 @@ void updateTopic_TopicNotFound_ShouldThrowException() {
         .assertThatThrownBy(
             () -> topicService.updateTopic(
                 999L,
-                "owner@example.com",
+                "1008766193",
                 "タイトル",
                 "image.webp",
                 "問題"
@@ -447,7 +451,8 @@ void updateTopic_TopicNotFound_ShouldThrowException() {
 void deleteById_Admin_ShouldSetDeletedAt() {
 
     User topicUser = new User();
-    topicUser.setEmail("owner@example.com");
+    topicUser.setEmail("1008766193");
+topicUser.setId(1008766193L);
 
     Topic topic = new Topic();
     topic.setId(1L);
@@ -465,7 +470,7 @@ void deleteById_Admin_ShouldSetDeletedAt() {
 
     topicService.deleteById(
         1L,
-        "admin@example.com",
+        "2291307405",
         true
     );
 
@@ -481,7 +486,8 @@ void deleteById_Admin_ShouldSetDeletedAt() {
 void deleteById_NotOwnerAndNotAdmin_ShouldThrowException() {
 
     User topicUser = new User();
-    topicUser.setEmail("owner@example.com");
+    topicUser.setEmail("1008766193");
+topicUser.setId(1008766193L);
 
     Topic topic = new Topic();
     topic.setId(1L);
@@ -495,7 +501,7 @@ void deleteById_NotOwnerAndNotAdmin_ShouldThrowException() {
         .assertThatThrownBy(
             () -> topicService.deleteById(
                 1L,
-                "other@example.com",
+                "2084992462",
                 false
             )
         )
@@ -520,7 +526,7 @@ void deleteById_TopicNotFound_ShouldThrowException() {
         .assertThatThrownBy(
             () -> topicService.deleteById(
                 999L,
-                "test@example.com",
+                "2889091152",
                 false
             )
         )
@@ -580,7 +586,8 @@ void save_ShouldSaveTopic() {
 
     Topic topic = new Topic();
     User owner = new User();
-    owner.setEmail("owner@example.com");
+    owner.setEmail("1008766193");
+owner.setId(1008766193L);
     topic.setUser(owner);
     topic.setImage("/api/topic-images/11111111-1111-1111-1111-111111111111");
 
@@ -593,7 +600,7 @@ void save_ShouldSaveTopic() {
 
     assertThat(result).isSameAs(topic);
 
-    verify(topicImageService).requireOwnedImage(topic.getImage(), owner.getEmail());
+    verify(topicImageService).requireOwnedImage(topic.getImage(), owner.getId().toString());
 
     verify(
         topicRepository,

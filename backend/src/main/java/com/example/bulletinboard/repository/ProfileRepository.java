@@ -12,6 +12,7 @@ import com.example.bulletinboard.model.Profile;
 import jakarta.persistence.LockModeType;
 
 public interface ProfileRepository extends JpaRepository<Profile, Long> {
+    boolean existsByIcon(String icon);
     Optional<Profile> findByUserId(Long userId);
 
     @Query("select p from Profile p join fetch p.user where p.id = :id")

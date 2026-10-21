@@ -1,6 +1,10 @@
 package com.example.bulletinboard.service;
 
 import java.util.Optional;
+import java.util.List;
+import com.example.bulletinboard.security.AccountPrincipal;
+import com.example.bulletinboard.security.ActorIds;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -99,17 +103,14 @@ public class CustomUserDetailsService implements UserDetailsService {
          * DBのUserをSpring Security用の
          * UserDetailsへ変換します。
          *
-         * 新しいログインIDはemailなので、
-         * Security側のusernameにもemailを設定します。
+         * ログイン入力はemailですが、認証後のusernameには不変のUser IDを設定します。
+         * メール再利用後も、以前のSessionが別Userを指さないようにします。
          */
-        return org.springframework.security.core.userdetails.User
-            .builder()
-            .username(user.getEmail())
-            .password(user.getPassword())
-            .accountLocked(!user.isAccountNonLocked())
-            .disabled(!isActive)
-            .authorities(user.getRole())
-            .build();
+        if (user.getAccountStatus() == AccountStatus.WITHDRAWN) {
+            throw new UsernameNotFoundException("ユーザーが見つかりません。");
+        }
+        return new AccountPrincipal(user.getId(), user.getPassword(), isActive, user.isAccountNonLocked(),
+                List.of(new SimpleGrantedAuthority(user.getRole())),user.getAuthenticationVersion());
     }
 
     /*
@@ -147,21 +148,12 @@ public class CustomUserDetailsService implements UserDetailsService {
      */
     @Transactional
     public void increaseFailedAttempts(User user) {
-
-        int newFailedAttempts =
-            user.getFailedAttempt() + 1;
-
-        userRepository.updateFailedAttempts(
-            user.getEmail()
-        );
-
-        if (newFailedAttempts >= MAX_FAILED_ATTEMPTS) {
-
-            userRepository.updateAccountNonLocked(
-                user.getEmail(),
-                false
-            );
-        }
+        userRepository.findByIdForUpdate(user.getId()).ifPresent(current -> {
+            if (current.getAccountStatus() != AccountStatus.ACTIVE || !current.isAccountNonLocked()) return;
+            current.setFailedAttempt(current.getFailedAttempt() + 1);
+            if (current.getFailedAttempt() >= MAX_FAILED_ATTEMPTS) current.setAccountNonLocked(false);
+            userRepository.saveAndFlush(current);
+        });
     }
 
     /*
@@ -169,9 +161,13 @@ public class CustomUserDetailsService implements UserDetailsService {
      * ログイン失敗回数を0へ戻します。
      */
     @Transactional
-    public void resetFailedAttempts(String email) {
+    public void resetFailedAttempts(String actorId) {
+        userRepository.resetFailedAttemptsById(ActorIds.parse(actorId), AccountStatus.ACTIVE);
+    }
 
-        userRepository.resetFailedAttempts(email);
+    @Transactional(readOnly = true)
+    public Optional<User> findByActorId(String actorId) {
+        return userRepository.findById(ActorIds.parse(actorId));
     }
 
     /*

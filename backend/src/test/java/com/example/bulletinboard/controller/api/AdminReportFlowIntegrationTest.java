@@ -2,7 +2,7 @@ package com.example.bulletinboard.controller.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static com.example.bulletinboard.support.TestActors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -67,6 +67,7 @@ import com.example.bulletinboard.service.CustomUserDetailsService;
 })
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class AdminReportFlowIntegrationTest {
     private static final String ADMIN = "admin@example.com";
     private static final String REPORTER = "reporter@example.com";
@@ -77,10 +78,13 @@ class AdminReportFlowIntegrationTest {
     @EnableAutoConfiguration
     @EntityScan(basePackageClasses = User.class)
     @EnableJpaRepositories(basePackageClasses = UserRepository.class)
-    @Import({AdminReportApiController.class, AdminReportService.class,
+    @Import({AdminReportApiController.class, AdminReportService.class, PrivacyAdminApiController.class, com.example.bulletinboard.service.WithdrawalMigrationPlanService.class,
             CustomUserDetailsService.class, SecurityConfig.class, GlobalExceptionHandler.class})
     static class FlowConfiguration { }
 
+    @Autowired com.example.bulletinboard.service.PrivacyRetentionService retention;
+    @Autowired com.example.bulletinboard.repository.PrivacyRetentionRepository retentions;
+    @Autowired com.example.bulletinboard.repository.PrivacyAuditRepository audits;
     @Autowired MockMvc mvc;
     @Autowired UserRepository users;
     @Autowired ProfileRepository profiles;
@@ -96,6 +100,7 @@ class AdminReportFlowIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        audits.deleteAll(); retentions.deleteAll();
         logs.deleteAll();
         topicSnapshots.deleteAll();
         answerSnapshots.deleteAll();
@@ -166,12 +171,12 @@ class AdminReportFlowIntegrationTest {
         topics.saveAndFlush(topic);
         mvc.perform(get("/api/admin/reports/{id}", report.getId()).with(user(ADMIN).roles("ADMIN")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.currentTargetState").value("DELETED"))
-                .andExpect(jsonPath("$.evidence.topicTitle").value("通報時タイトル"))
-                .andExpect(jsonPath("$.evidence.topicQuestion").value("通報時本文"))
-                .andExpect(jsonPath("$.evidence.imageAvailable").value(true))
-                .andExpect(jsonPath("$.reporter.email").value(REPORTER))
-                .andExpect(jsonPath("$.targetOwner.email").value(OWNER));
+                .andExpect(jsonPath("$.currentTargetState").value("DELETED"));
+        mvc.perform(get("/api/admin/privacy/reports/{id}/evidence", report.getId()).with(user(ADMIN).roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.topicTitle").value("通報時タイトル"))
+                .andExpect(jsonPath("$.topicQuestion").value("通報時本文"))
+                .andExpect(jsonPath("$.imageAvailable").value(true));
     }
 
     @Test
@@ -193,9 +198,11 @@ class AdminReportFlowIntegrationTest {
         topics.saveAndFlush(topic);
         mvc.perform(get("/api/admin/reports/{id}", report.getId()).with(user(ADMIN).roles("ADMIN")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.currentTargetState").value("DELETED"))
-                .andExpect(jsonPath("$.evidence.answerContent").value("通報時回答"))
-                .andExpect(jsonPath("$.evidence.parentTopicTitle").value("通報時タイトル"));
+                .andExpect(jsonPath("$.currentTargetState").value("DELETED"));
+        mvc.perform(get("/api/admin/privacy/reports/{id}/evidence", report.getId()).with(user(ADMIN).roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.answerContent").value("通報時回答"))
+                .andExpect(jsonPath("$.parentTopicTitle").value("通報時タイトル"));
     }
 
     @Test
@@ -215,10 +222,12 @@ class AdminReportFlowIntegrationTest {
         users.saveAndFlush(owner);
         mvc.perform(get("/api/admin/reports/{id}", report.getId()).with(user(ADMIN).roles("ADMIN")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.currentTargetState").value("DELETED"))
-                .andExpect(jsonPath("$.evidence.profileDisplayName").value("owner"))
-                .andExpect(jsonPath("$.evidence.profileBio").value("通報時の自己紹介"))
-                .andExpect(jsonPath("$.evidence.imageAvailable").value(false));
+                .andExpect(jsonPath("$.currentTargetState").value("DELETED"));
+        mvc.perform(get("/api/admin/privacy/reports/{id}/evidence", report.getId()).with(user(ADMIN).roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.profileDisplayName").value("owner"))
+                .andExpect(jsonPath("$.profileBio").value("通報時の自己紹介"))
+                .andExpect(jsonPath("$.imageAvailable").value(false));
     }
 
     @ParameterizedTest
@@ -320,7 +329,7 @@ class AdminReportFlowIntegrationTest {
         mvc.perform(patch("/api/admin/reports/{id}/status", report.getId())
                 .with(user("missing@example.com").roles("ADMIN")).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"RESOLVED\"}"))
-                .andExpect(status().isInternalServerError());
+                .andExpect(status().isForbidden());
         assertThat(reports.findById(report.getId()).orElseThrow().getStatus())
                 .isEqualTo(ReportStatus.UNHANDLED);
         assertThat(logs.count()).isZero();
@@ -331,7 +340,7 @@ class AdminReportFlowIntegrationTest {
         result.setUsername(name);
         result.setEmail(email);
         result.setPassword("test-password");
-        result.setRole(role);
+        result.setRole(role); result.setPrivacyReviewer("ROLE_ADMIN".equals(role));
         return result;
     }
 
@@ -343,7 +352,9 @@ class AdminReportFlowIntegrationTest {
         result.setTargetOwnerUserId(users.findByEmail(OWNER).orElseThrow().getId());
         result.setReason(ReportReason.SPAM);
         result.setDetail("detail");
-        return reports.saveAndFlush(result);
+        result=reports.saveAndFlush(result);
+        retention.pending(com.example.bulletinboard.model.PrivacyRetentionRecord.Target.REPORT_EVIDENCE, result.getId().toString(),result.getTargetOwnerUserId(),result.getId());
+        return result;
     }
 
     private Topic createTopic() {

@@ -1,4 +1,5 @@
 package com.example.bulletinboard.service;
+import com.example.bulletinboard.security.ActorIds;
 
 import java.sql.SQLException;
 
@@ -29,27 +30,27 @@ public class ReportSubmissionService {
     }
 
     @Transactional(propagation = Propagation.NEVER)
-    public void submitTopic(Long topicId, String email, ReportRequest request) {
-        submit(ReportTargetType.TOPIC, topicId, email, () -> reportService.submitTopic(topicId, email, request));
+    public void submitTopic(Long topicId, String actorId, ReportRequest request) {
+        submit(ReportTargetType.TOPIC, topicId, actorId, () -> reportService.submitTopic(topicId, actorId, request));
     }
 
     @Transactional(propagation = Propagation.NEVER)
-    public void submitAnswer(Long answerId, String email, ReportRequest request) {
-        submit(ReportTargetType.ANSWER, answerId, email, () -> reportService.submitAnswer(answerId, email, request));
+    public void submitAnswer(Long answerId, String actorId, ReportRequest request) {
+        submit(ReportTargetType.ANSWER, answerId, actorId, () -> reportService.submitAnswer(answerId, actorId, request));
     }
 
     @Transactional(propagation = Propagation.NEVER)
-    public void submitProfile(Long profileId, String email, ReportRequest request) {
-        submit(ReportTargetType.PROFILE, profileId, email,
-                () -> reportService.submitProfile(profileId, email, request));
+    public void submitProfile(Long profileId, String actorId, ReportRequest request) {
+        submit(ReportTargetType.PROFILE, profileId, actorId,
+                () -> reportService.submitProfile(profileId, actorId, request));
     }
 
-    private void submit(ReportTargetType targetType, Long targetId, String email, Runnable action) {
+    private void submit(ReportTargetType targetType, Long targetId, String actorId, Runnable action) {
         try {
             action.run();
         } catch (DataAccessException | TransactionException ex) {
             // 失敗した保存トランザクションの外から、確定した行だけを確認する。
-            if (isUniqueViolation(ex) && users.findByEmail(email)
+            if (isUniqueViolation(ex) && users.findById(ActorIds.parse(actorId))
                     .map(user -> reports.existsByReporterUserIdAndTargetTypeAndTargetId(
                             user.getId(), targetType, targetId))
                     .orElse(false)) {

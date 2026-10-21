@@ -110,14 +110,14 @@ class LoginSecurityTest {
     }
 
     @Test
-    void withdrawnAccountReturnsWithdrawn() throws Exception {
+    void withdrawnAccountReturnsCommonCredentialsError() throws Exception {
         User user = currentUser();
         user.setAccountStatus(AccountStatus.WITHDRAWN);
         users.save(user);
 
         login(PASSWORD)
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.reason").value("WITHDRAWN"));
+                .andExpect(jsonPath("$.reason").value("WRONG_CREDENTIALS"));
     }
 
     @Test

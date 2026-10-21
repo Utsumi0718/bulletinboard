@@ -11,8 +11,8 @@ public record AdminProfileResponse(Long id, Long userId, String username, Accoun
         LocalDateTime createdAt, LocalDateTime updatedAt) {
     public static AdminProfileResponse from(Profile profile) {
         return new AdminProfileResponse(profile.getId(), profile.getUser().getId(),
-                profile.getUser().getUsername(), profile.getUser().getAccountStatus(),
-                profile.getIcon(), profile.getIcon() == null, profile.getBio(),
+                com.example.bulletinboard.service.WithdrawalIdentity.publicName(profile.getUser()), profile.getUser().getAccountStatus(),
+                profile.getUser().getAccountStatus() == AccountStatus.WITHDRAWN ? null : profile.getIcon(), profile.getUser().getAccountStatus() == AccountStatus.WITHDRAWN || profile.getIcon() == null, profile.getUser().getAccountStatus() == AccountStatus.WITHDRAWN ? null : profile.getBio(),
                 profile.getCreatedAt(), profile.getUpdatedAt());
     }
 }

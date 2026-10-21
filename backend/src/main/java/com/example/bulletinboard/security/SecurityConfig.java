@@ -224,8 +224,8 @@ public class SecurityConfig {
                      * accountStatusがACTIVE以外の場合、
                      * Spring SecurityからDisabledExceptionが発生します。
                      *
-                     * FROZENとWITHDRAWNではユーザーへ表示する内容が異なるため、
-                     * emailからUserを取得し、accountStatusを確認します。
+                     * 凍結は専用応答、退会は未登録・資格情報不一致と共通応答にします。
+                     * この認証前の照会だけは入力メールアドレスを使用します。
                      */
                     } else if (exception instanceof DisabledException) {
 
@@ -247,7 +247,7 @@ public class SecurityConfig {
                                         if (user.getAccountStatus()
                                                 == AccountStatus.WITHDRAWN) {
 
-                                            return "withdrawn";
+                                            return "wrong";
                                         }
 
                                         /*
@@ -286,7 +286,6 @@ public class SecurityConfig {
                     String reason = switch (errorType) {
                         case "locked" -> "LOCKED";
                         case "frozen" -> "FROZEN";
-                        case "withdrawn" -> "WITHDRAWN";
                         case "email_empty" -> "EMAIL_REQUIRED";
                         case "password_empty" -> "PASSWORD_REQUIRED";
                         case "both_empty" -> "CREDENTIALS_REQUIRED";
@@ -295,7 +294,6 @@ public class SecurityConfig {
                     String message = switch (reason) {
                         case "LOCKED" -> "ログインに複数回失敗したため、アカウントがロックされています。";
                         case "FROZEN" -> "このアカウントは凍結されています。";
-                        case "WITHDRAWN" -> "このアカウントは退会済みです。";
                         case "EMAIL_REQUIRED" -> "メールアドレスを入力してください。";
                         case "PASSWORD_REQUIRED" -> "パスワードを入力してください。";
                         case "CREDENTIALS_REQUIRED" -> "メールアドレスとパスワードを入力してください。";

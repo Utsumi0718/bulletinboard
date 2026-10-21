@@ -4,13 +4,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
-import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.example.bulletinboard.dto.error.ErrorResponse;
@@ -47,22 +44,38 @@ public class ActiveAccountFilter extends OncePerRequestFilter {
                 (path.equals("/api/csrf") && HttpMethod.GET.matches(request.getMethod()));
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         HttpSession session = request.getSession(false);
-        // フォームログインで保存された既存セッションだけを再確認する。
-        // Securityテスト等のリクエスト単位の一時認証はDB上のセッションではない。
-        boolean savedLogin = session != null &&
-                session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY) != null;
-        if (!publicPath && savedLogin && auth != null && auth.isAuthenticated() &&
-                auth.getDetails() instanceof WebAuthenticationDetails &&
-                !(auth instanceof AnonymousAuthenticationToken) &&
-                users.findByEmail(auth.getName()).map(user -> user.getAccountStatus() != AccountStatus.ACTIVE)
-                        .orElse(true)) {
+        boolean authenticated = auth != null && auth.isAuthenticated()
+                && !(auth instanceof AnonymousAuthenticationToken);
+        // 旧Principalはメール検索へフォールバックせず、公開APIでも認証状態を破棄する。
+        boolean legacy = authenticated && !(auth.getPrincipal() instanceof AccountPrincipal);
+        boolean inactive = false;
+        if (authenticated && !legacy && !publicPath) {
+            AccountPrincipal principal = (AccountPrincipal) auth.getPrincipal();
+            try {
+                inactive = users.findById(principal.userId())
+                        .map(user -> user.getAccountStatus() != AccountStatus.ACTIVE
+                                || user.getAuthenticationVersion()!=principal.authenticationVersion()).orElse(true);
+            } catch (org.springframework.dao.DataAccessException | org.springframework.transaction.TransactionException ex) {
+                // FilterのDB例外はControllerAdviceへ届かないため、内部情報を含めず応答する。
+                response.setStatus(500);
+                response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                response.setHeader("Cache-Control", "no-store");
+                mapper.writeValue(response.getWriter(), new ErrorResponse(500,"Internal Server Error",
+                        "処理に失敗しました。時間をおいて再度お試しください。",request.getRequestURI()));
+                return;
+            }
+        }
+        if (legacy || inactive) {
             SecurityContextHolder.clearContext();
             if (session != null) session.invalidate();
-            response.setStatus(HttpStatus.FORBIDDEN.value());
+            if (publicPath) { chain.doFilter(request, response); return; }
+            response.setStatus(legacy ? 401 : 403);
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            mapper.writeValue(response.getWriter(), new ErrorResponse(403, "Forbidden",
-                    "このリクエストは許可されていません。", request.getRequestURI()));
+            mapper.writeValue(response.getWriter(), new ErrorResponse(legacy ? 401 : 403,
+                    legacy ? "Unauthorized" : "Forbidden",
+                    legacy ? "ログインが必要です。" : "このリクエストは許可されていません。", request.getRequestURI()));
             return;
         }
         chain.doFilter(request, response);

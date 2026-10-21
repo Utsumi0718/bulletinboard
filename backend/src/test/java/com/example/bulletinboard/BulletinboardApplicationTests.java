@@ -2,7 +2,7 @@ package com.example.bulletinboard;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static com.example.bulletinboard.support.TestActors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -21,7 +21,17 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class BulletinboardApplicationTests {
+	@Autowired com.example.bulletinboard.repository.UserRepository users;
+	@org.junit.jupiter.api.BeforeEach
+	void prepareAuthenticatedActor() {
+		if (users.findByEmail("removal-check").isEmpty()) {
+			var actor=new com.example.bulletinboard.model.User();
+			actor.setEmail("removal-check"); actor.setUsername("removal-check");
+			actor.setPassword("test-only"); actor.setRole("ROLE_ADMIN"); users.saveAndFlush(actor);
+		}
+	}
 	@Autowired
 	private MockMvc mvc;
 	@Autowired

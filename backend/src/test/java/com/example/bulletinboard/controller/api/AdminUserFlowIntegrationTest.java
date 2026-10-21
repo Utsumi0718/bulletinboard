@@ -2,7 +2,7 @@ package com.example.bulletinboard.controller.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static com.example.bulletinboard.support.TestActors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -55,6 +55,7 @@ import com.example.bulletinboard.service.CustomUserDetailsService;
 })
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class AdminUserFlowIntegrationTest {
     private static final String ADMIN = "admin@example.com";
     private static final String OTHER_ADMIN = "other-admin@example.com";
@@ -263,7 +264,7 @@ class AdminUserFlowIntegrationTest {
         mvc.perform(patch("/api/admin/users/{id}/status", member().getId())
                 .with(user("missing@example.com").roles("ADMIN")).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"FROZEN\"}"))
-                .andExpect(status().isInternalServerError());
+                .andExpect(status().isForbidden());
         assertThat(member().getAccountStatus()).isEqualTo(AccountStatus.ACTIVE);
         assertThat(logs.count()).isZero();
     }

@@ -10,7 +10,7 @@ public record AdminUserResponse(Long id, String username, String email, String r
         AccountStatus accountStatus, boolean accountNonLocked, int failedAttempt,
         LocalDateTime createdAt, LocalDateTime withdrawnAt) {
     public static AdminUserResponse from(User user) {
-        return new AdminUserResponse(user.getId(), user.getUsername(), user.getEmail(), user.getRole(),
+        return new AdminUserResponse(user.getId(), com.example.bulletinboard.service.WithdrawalIdentity.publicName(user), com.example.bulletinboard.service.WithdrawalIdentity.publicEmail(user), user.getRole(),
                 user.getAccountStatus(), user.isAccountNonLocked(), user.getFailedAttempt(),
                 user.getCreatedAt(), user.getWithdrawnAt());
     }

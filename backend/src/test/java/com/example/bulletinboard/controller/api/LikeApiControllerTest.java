@@ -23,7 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
+import com.example.bulletinboard.support.WithAccount;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -49,6 +49,7 @@ import com.example.bulletinboard.service.LikeService;
  */
 @WebMvcTest(LikeApiController.class)
 @Import(SecurityConfig.class)
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class LikeApiControllerTest {
 
     @Autowired
@@ -61,7 +62,7 @@ class LikeApiControllerTest {
     private UserRepository userRepository;
 
     @Test
-    @WithMockUser(username = "testuser@example.com")
+    @WithAccount(username = "883786395")
     @DisplayName("Like追加成功時に200 OKとliked=true・最新Like件数が返ること")
     void toggleLike_WhenLikeAdded_ShouldReturnOkAndLikeResponse()
             throws Exception {
@@ -76,7 +77,7 @@ class LikeApiControllerTest {
         when(
                 likeService.toggleLike(
                         10L,
-                        "testuser@example.com"
+                        "883786395"
                 )
         ).thenReturn(response);
 
@@ -104,12 +105,12 @@ class LikeApiControllerTest {
                 times(1)
         ).toggleLike(
                 10L,
-                "testuser@example.com"
+                "883786395"
         );
     }
 
     @Test
-    @WithMockUser(username = "testuser@example.com")
+    @WithAccount(username = "883786395")
     @DisplayName("Like解除成功時に200 OKとliked=false・最新Like件数が返ること")
     void toggleLike_WhenLikeRemoved_ShouldReturnOkAndLikeResponse()
         throws Exception {
@@ -124,7 +125,7 @@ class LikeApiControllerTest {
     when(
             likeService.toggleLike(
                     10L,
-                    "testuser@example.com"
+                    "883786395"
             )
     ).thenReturn(response);
 
@@ -152,7 +153,7 @@ class LikeApiControllerTest {
             times(1)
     ).toggleLike(
             10L,
-            "testuser@example.com"
+            "883786395"
     );
 }
 
@@ -180,7 +181,7 @@ void toggleLike_Unauthenticated_ShouldReturnUnauthorizedAndNotCallService()
 }
 
 @Test
-@WithMockUser(username = "testuser@example.com")
+@WithAccount(username = "883786395")
 @DisplayName("CSRF TokenなしでLike APIへPOSTすると403 ForbiddenとなりLikeServiceは実行されないこと")
 void toggleLike_WithoutCsrf_ShouldReturnForbiddenAndNotCallService()
         throws Exception {
@@ -201,7 +202,7 @@ void toggleLike_WithoutCsrf_ShouldReturnForbiddenAndNotCallService()
 }
 
 @Test
-@WithMockUser(username = "testuser@example.com")
+@WithAccount(username = "883786395")
 @DisplayName("Answerが存在しない場合に404 Not FoundとErrorResponseが返ること")
 void toggleLike_WhenAnswerNotFound_ShouldReturnNotFound()
         throws Exception {
@@ -210,7 +211,7 @@ void toggleLike_WhenAnswerNotFound_ShouldReturnNotFound()
     when(
             likeService.toggleLike(
                     10L,
-                    "testuser@example.com"
+                    "883786395"
             )
     ).thenThrow(
             new AnswerNotFoundException(
@@ -252,12 +253,12 @@ void toggleLike_WhenAnswerNotFound_ShouldReturnNotFound()
             times(1)
     ).toggleLike(
             10L,
-            "testuser@example.com"
+            "883786395"
     );
 }
 
 @Test
-@WithMockUser(username = "testuser@example.com")
+@WithAccount(username = "883786395")
 @DisplayName("論理削除済みAnswerへのLikeで404 Not FoundとErrorResponseが返ること")
 void toggleLike_WhenAnswerIsDeleted_ShouldReturnNotFound()
         throws Exception {
@@ -266,7 +267,7 @@ void toggleLike_WhenAnswerIsDeleted_ShouldReturnNotFound()
     when(
             likeService.toggleLike(
                     10L,
-                    "testuser@example.com"
+                    "883786395"
             )
     ).thenThrow(
             new AnswerNotFoundException(
@@ -308,12 +309,12 @@ void toggleLike_WhenAnswerIsDeleted_ShouldReturnNotFound()
             times(1)
     ).toggleLike(
             10L,
-            "testuser@example.com"
+            "883786395"
     );
 }
 
 @Test
-@WithMockUser(username = "testuser@example.com")
+@WithAccount(username = "883786395")
 @DisplayName("論理削除済みTopic配下のAnswerへのLikeで404 Not FoundとErrorResponseが返ること")
 void toggleLike_WhenParentTopicIsDeleted_ShouldReturnNotFound()
         throws Exception {
@@ -322,7 +323,7 @@ void toggleLike_WhenParentTopicIsDeleted_ShouldReturnNotFound()
     when(
             likeService.toggleLike(
                     10L,
-                    "testuser@example.com"
+                    "883786395"
             )
     ).thenThrow(
             new AnswerNotFoundException(
@@ -364,12 +365,12 @@ void toggleLike_WhenParentTopicIsDeleted_ShouldReturnNotFound()
             times(1)
     ).toggleLike(
             10L,
-            "testuser@example.com"
+            "883786395"
     );
 }
 
 @Test
-@WithMockUser(username = "testuser@example.com")
+@WithAccount(username = "883786395")
 @DisplayName("自分自身のAnswerへのLikeで403 ForbiddenとErrorResponseが返ること")
 void toggleLike_WhenLikingOwnAnswer_ShouldReturnForbidden()
         throws Exception {
@@ -378,7 +379,7 @@ void toggleLike_WhenLikingOwnAnswer_ShouldReturnForbidden()
     when(
             likeService.toggleLike(
                     10L,
-                    "testuser@example.com"
+                    "883786395"
             )
     ).thenThrow(
             new ForbiddenOperationException(
@@ -420,13 +421,13 @@ void toggleLike_WhenLikingOwnAnswer_ShouldReturnForbidden()
             times(1)
     ).toggleLike(
             10L,
-            "testuser@example.com"
+            "883786395"
     );
 }
 
 
 @Test
-@WithMockUser(username = "testuser@example.com")
+@WithAccount(username = "883786395")
 @DisplayName("Like登録競合時に409 ConflictとErrorResponseが返ること")
 void toggleLike_WhenLikeConflictOccurs_ShouldReturnConflict()
         throws Exception {
@@ -435,7 +436,7 @@ void toggleLike_WhenLikeConflictOccurs_ShouldReturnConflict()
     when(
             likeService.toggleLike(
                     10L,
-                    "testuser@example.com"
+                    "883786395"
             )
     ).thenThrow(
             new LikeConflictException(
@@ -477,7 +478,7 @@ void toggleLike_WhenLikeConflictOccurs_ShouldReturnConflict()
             times(1)
     ).toggleLike(
             10L,
-            "testuser@example.com"
+            "883786395"
     );
 }
 }

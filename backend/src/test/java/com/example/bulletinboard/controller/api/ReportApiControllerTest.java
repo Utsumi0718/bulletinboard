@@ -7,7 +7,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static com.example.bulletinboard.support.TestActors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -41,10 +41,11 @@ import ch.qos.logback.core.read.ListAppender;
 
 @WebMvcTest(ReportApiController.class)
 @Import(SecurityConfig.class)
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class ReportApiControllerTest {
     private static final String PATH = "/api/topics/44/reports";
     private static final String ANSWER_PATH = "/api/answers/44/reports";
-    private static final String EMAIL = "reporter@example.com";
+    private static final String EMAIL = "965257759";
     @Autowired MockMvc mvc;
     @MockitoBean ReportSubmissionService submission;
     @MockitoBean ReportService reports;
@@ -122,7 +123,7 @@ class ReportApiControllerTest {
                     .andExpect(jsonPath("$.message").value(Reason.FAILED.message))
                     .andExpect(jsonPath("$.path").value(PATH)).andReturn();
             assertThat(response.getResponse().getContentAsString())
-                    .doesNotContain("SELECT", "fake_password", "secret@example.com");
+                    .doesNotContain("SELECT", "fake_password", "135583086");
             var errors = appender.list.stream().filter(e -> e.getLevel() == Level.ERROR).toList();
             assertThat(errors).hasSize(1);
             assertThat(errors.getFirst().getFormattedMessage())
@@ -186,7 +187,7 @@ class ReportApiControllerTest {
                     .andExpect(status().isInternalServerError())
                     .andExpect(jsonPath("$.message").value(Reason.FAILED.message))
                     .andExpect(jsonPath("$.path").value(ANSWER_PATH)).andReturn();
-            assertThat(response.getResponse().getContentAsString()).doesNotContain("SELECT", "secret@example.com");
+            assertThat(response.getResponse().getContentAsString()).doesNotContain("SELECT", "135583086");
             var errors = appender.list.stream().filter(e -> e.getLevel() == Level.ERROR).toList();
             assertThat(errors).hasSize(1);
             assertThat(errors.getFirst().getFormattedMessage())

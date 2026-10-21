@@ -169,7 +169,7 @@ class AdminContactServiceIntegrationTest {
         Contact result = adminContactService.updateStatus(
                 contactId,
                 ContactStatus.IN_PROGRESS,
-                ADMIN_EMAIL
+                userRepository.findByEmail(ADMIN_EMAIL).orElseThrow().getId().toString()
         );
 
         // Serviceが戻った後、新しいトランザクションで読み直す。
@@ -210,7 +210,7 @@ class AdminContactServiceIntegrationTest {
         adminContactService.updateStatus(
                 contactId,
                 ContactStatus.IN_PROGRESS,
-                ADMIN_EMAIL
+                userRepository.findByEmail(ADMIN_EMAIL).orElseThrow().getId().toString()
         );
 
         LocalDateTime beforeUpdatedAt =
@@ -230,7 +230,7 @@ class AdminContactServiceIntegrationTest {
         adminContactService.updateStatus(
                 contactId,
                 ContactStatus.IN_PROGRESS,
-                ADMIN_EMAIL
+                userRepository.findByEmail(ADMIN_EMAIL).orElseThrow().getId().toString()
         );
 
         transactionTemplate.executeWithoutResult(tx -> {
@@ -259,7 +259,7 @@ class AdminContactServiceIntegrationTest {
 
         adminContactService.deleteContact(
                 contactId,
-                ADMIN_EMAIL
+                userRepository.findByEmail(ADMIN_EMAIL).orElseThrow().getId().toString()
         );
 
         transactionTemplate.executeWithoutResult(tx -> {
@@ -286,7 +286,7 @@ class AdminContactServiceIntegrationTest {
                     adminContactService.updateStatus(
                             contactId,
                             ContactStatus.IN_PROGRESS,
-                            ADMIN_EMAIL
+                            userRepository.findByEmail(ADMIN_EMAIL).orElseThrow().getId().toString()
                     )
             ).isInstanceOf(DataIntegrityViolationException.class);
         } finally {
@@ -306,7 +306,7 @@ class AdminContactServiceIntegrationTest {
             assertThatThrownBy(() ->
                     adminContactService.deleteContact(
                             contactId,
-                            ADMIN_EMAIL
+                            userRepository.findByEmail(ADMIN_EMAIL).orElseThrow().getId().toString()
                     )
             ).isInstanceOf(DataIntegrityViolationException.class);
         } finally {

@@ -5,7 +5,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static com.example.bulletinboard.support.TestActors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -49,8 +49,9 @@ import ch.qos.logback.core.read.ListAppender;
 
 @WebMvcTest(AdminReportApiController.class)
 @Import(SecurityConfig.class)
+@org.junit.jupiter.api.extension.ExtendWith(com.example.bulletinboard.support.TestActorExtension.class)
 class AdminReportApiControllerTest {
-    private static final String ADMIN = "admin@example.com";
+    private static final String ADMIN = "2291307405";
     private static final String LIST = "/api/admin/reports";
     private static final String DETAIL = "/api/admin/reports/44";
     private static final String STATUS = "/api/admin/reports/44/status";
@@ -116,7 +117,7 @@ class AdminReportApiControllerTest {
         when(service.detail(44L, ADMIN)).thenReturn(detailResponse());
         mvc.perform(get(DETAIL).with(user(ADMIN).roles("ADMIN")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.reporter.email").value("reporter@example.com"))
+                .andExpect(jsonPath("$.reporter.email").value("965257759"))
                 .andExpect(jsonPath("$.reporterReportCount").value(3));
     }
 
@@ -151,7 +152,7 @@ class AdminReportApiControllerTest {
     @Test
     void anonymousAndRegularUserCannotReadPrivateDetail() throws Exception {
         mvc.perform(get(DETAIL)).andExpect(status().isUnauthorized());
-        mvc.perform(get(DETAIL).with(user("member@example.com"))).andExpect(status().isForbidden());
+        mvc.perform(get(DETAIL).with(user("3248456280"))).andExpect(status().isForbidden());
         verifyNoInteractions(service);
     }
 
@@ -160,7 +161,7 @@ class AdminReportApiControllerTest {
         String body = "{\"status\":\"RESOLVED\"}";
         mvc.perform(patch(STATUS).with(user(ADMIN).roles("ADMIN"))
                 .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isForbidden());
-        mvc.perform(patch(STATUS).with(user("member@example.com")).with(csrf())
+        mvc.perform(patch(STATUS).with(user("3248456280")).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isForbidden());
         mvc.perform(patch(STATUS).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isUnauthorized());
@@ -208,7 +209,7 @@ class AdminReportApiControllerTest {
                     .andExpect(jsonPath("$.message").value(
                             "通報の管理処理でエラーが発生しました。画面を再読み込みして状態を確認してください。"))
                     .andReturn().getResponse().getContentAsString();
-            assertThat(body).doesNotContain("SELECT", "fake_password", "secret@example.com");
+            assertThat(body).doesNotContain("SELECT", "fake_password", "135583086");
             var errors = appender.list.stream().filter(event -> event.getLevel() == Level.ERROR).toList();
             assertThat(errors).hasSize(1);
             assertThat(errors.getFirst().getFormattedMessage())
@@ -225,7 +226,7 @@ class AdminReportApiControllerTest {
     private AdminReportDetailResponse detailResponse() {
         return new AdminReportDetailResponse(44L, ReportTargetType.TOPIC, 5L,
                 new com.example.bulletinboard.dto.report.AdminReportUserResponse(8L, "reporter",
-                        "reporter@example.com", com.example.bulletinboard.model.AccountStatus.ACTIVE),
+                        "965257759", com.example.bulletinboard.model.AccountStatus.ACTIVE),
                 9L, null, ReportReason.SPAM, "スパム・迷惑行為", "detail",
                 ReportStatus.RESOLVED, LocalDateTime.now(), LocalDateTime.now(), 3,
                 "PUBLIC", null, List.of());

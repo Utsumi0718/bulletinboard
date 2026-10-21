@@ -39,8 +39,10 @@ import com.example.bulletinboard.repository.UserRepository;
 
 @ExtendWith(MockitoExtension.class)
 class ReportServiceTest {
+    @Mock PrivacyRetentionService retention;
+    @Mock PrivacyAccessService privacyAccess;
     private static final long TOPIC_ID = 44L;
-    private static final String EMAIL = "reporter@example.com";
+    private static final String EMAIL = "965257759";
     private static final String IMAGE_URL = "/api/topic-images/11111111-1111-1111-1111-111111111111";
     @Mock UserRepository users;
     @Mock com.example.bulletinboard.repository.AnswerRepository answers;
@@ -104,14 +106,14 @@ class ReportServiceTest {
     @ParameterizedTest
     @EnumSource(value = AccountStatus.class, names = {"FROZEN", "WITHDRAWN"})
     void serviceRejectsInactiveReporterEvenWithAuthenticatedRequest(AccountStatus status) {
-        when(users.findByEmail(EMAIL)).thenReturn(Optional.of(user(11L, EMAIL, "ROLE_USER", status)));
+        when(users.findById(Long.valueOf(EMAIL))).thenReturn(Optional.of(user(11L, EMAIL, "ROLE_USER", status)));
         expect(Reason.FORBIDDEN);
         verify(topics, never()).findReportableByIdForUpdate(any());
     }
 
     @Test
     void rejectsSelfReport() {
-        when(users.findByEmail(EMAIL)).thenReturn(Optional.of(user(22L, EMAIL, "ROLE_USER", AccountStatus.ACTIVE)));
+        when(users.findById(Long.valueOf(EMAIL))).thenReturn(Optional.of(user(22L, EMAIL, "ROLE_USER", AccountStatus.ACTIVE)));
         when(topics.findReportableByIdForUpdate(TOPIC_ID)).thenReturn(Optional.of(topic(AccountStatus.ACTIVE)));
         expect(Reason.FORBIDDEN);
         verify(reports, never()).saveAndFlush(any());
@@ -119,13 +121,13 @@ class ReportServiceTest {
 
     @Test
     void missingReporterIsForbidden() {
-        when(users.findByEmail(EMAIL)).thenReturn(Optional.empty());
+        when(users.findById(Long.valueOf(EMAIL))).thenReturn(Optional.empty());
         expect(Reason.FORBIDDEN);
     }
 
     @Test
     void missingOrDeletedTopicIsNotReportable() {
-        when(users.findByEmail(EMAIL)).thenReturn(Optional.of(user(11L, EMAIL, "ROLE_USER", AccountStatus.ACTIVE)));
+        when(users.findById(Long.valueOf(EMAIL))).thenReturn(Optional.of(user(11L, EMAIL, "ROLE_USER", AccountStatus.ACTIVE)));
         when(topics.findReportableByIdForUpdate(TOPIC_ID)).thenReturn(Optional.empty());
         expect(Reason.NOT_FOUND);
     }
@@ -151,7 +153,7 @@ class ReportServiceTest {
         assertThatThrownBy(() -> service.submitTopic(TOPIC_ID, EMAIL, request))
                 .isInstanceOfSatisfying(ReportOperationException.class,
                         ex -> assertThat(ex.getReason()).isEqualTo(Reason.INVALID));
-        verify(users, never()).findByEmail(any());
+        verify(users, never()).findById(any());
     }
 
     private void expect(Reason reason) {
@@ -162,22 +164,22 @@ class ReportServiceTest {
     }
 
     private void reporterAndTopic(AccountStatus ownerStatus) {
-        when(users.findByEmail(EMAIL)).thenReturn(Optional.of(user(11L, EMAIL, "ROLE_USER", AccountStatus.ACTIVE)));
+        when(users.findById(Long.valueOf(EMAIL))).thenReturn(Optional.of(user(11L, EMAIL, "ROLE_USER", AccountStatus.ACTIVE)));
         when(topics.findReportableByIdForUpdate(TOPIC_ID)).thenReturn(Optional.of(topic(ownerStatus)));
     }
 
     private void happyCase(String role, AccountStatus ownerStatus) {
-        when(users.findByEmail(EMAIL)).thenReturn(Optional.of(user(11L, EMAIL, role, AccountStatus.ACTIVE)));
+        when(users.findById(Long.valueOf(EMAIL))).thenReturn(Optional.of(user(11L, EMAIL, role, AccountStatus.ACTIVE)));
         when(topics.findReportableByIdForUpdate(TOPIC_ID)).thenReturn(Optional.of(topic(ownerStatus)));
         when(images.findOwnedSource(IMAGE_URL, 22L))
                 .thenReturn(Optional.of(new TopicImage(22L, "image/png", new byte[]{1, 2, 3})));
-        when(reports.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(reports.saveAndFlush(any())).thenAnswer(invocation -> { Report saved=invocation.getArgument(0); saved.setId(1L); return saved; });
     }
 
     private Topic topic(AccountStatus ownerStatus) {
         Topic topic = new Topic();
         topic.setId(TOPIC_ID);
-        topic.setUser(user(22L, "owner@example.com", "ROLE_USER", ownerStatus));
+        topic.setUser(user(22L, "1008766193", "ROLE_USER", ownerStatus));
         topic.setTitle("撮影時のタイトル");
         topic.setQuestion("撮影時の本文");
         topic.setImage(IMAGE_URL);

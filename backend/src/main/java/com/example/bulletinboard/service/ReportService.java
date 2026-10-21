@@ -1,4 +1,5 @@
 package com.example.bulletinboard.service;
+import com.example.bulletinboard.security.ActorIds;
 
 import java.util.Arrays;
 
@@ -31,6 +32,7 @@ import com.example.bulletinboard.repository.UserRepository;
 
 /** お題・回答・プロフィールの通報判定と、通報情報・証拠の原子的な保存を担当する。 */
 @Service
+@org.springframework.context.annotation.Import(PrivacyModule.class)
 public class ReportService {
     private final UserRepository users;
     private final TopicRepository topics;
@@ -42,12 +44,15 @@ public class ReportService {
     private final ReportAnswerSnapshotRepository answerSnapshots;
     private final ReportProfileSnapshotRepository profileSnapshots;
     private final ProfileImageService profileImages;
+    private final PrivacyRetentionService retention;
+    private final PrivacyAccessService privacyAccess;
 
     public ReportService(UserRepository users, TopicRepository topics, AnswerRepository answers,
             ProfileRepository profiles,
             TopicImageService images, ReportRepository reports,
             ReportTopicSnapshotRepository snapshots, ReportAnswerSnapshotRepository answerSnapshots,
-            ReportProfileSnapshotRepository profileSnapshots, ProfileImageService profileImages) {
+            ReportProfileSnapshotRepository profileSnapshots, ProfileImageService profileImages,
+            PrivacyRetentionService retention,PrivacyAccessService privacyAccess) {
         this.users = users;
         this.topics = topics;
         this.answers = answers;
@@ -58,12 +63,13 @@ public class ReportService {
         this.answerSnapshots = answerSnapshots;
         this.profileSnapshots = profileSnapshots;
         this.profileImages = profileImages;
+        this.retention=retention;this.privacyAccess=privacyAccess;
     }
 
     @Transactional
-    public void submitTopic(Long topicId, String reporterEmail, ReportRequest request) {
+    public void submitTopic(Long topicId, String actorId, ReportRequest request) {
         validate(request, topicId);
-        User reporter = requireActiveReporter(reporterEmail, topicId);
+        User reporter = requireActiveReporter(actorId, topicId);
 
         // 編集・削除と同じ行ロックを取り、文章と画像IDを同じ版から読み取る。
         var topic = topics.findReportableByIdForUpdate(topicId)
@@ -89,12 +95,14 @@ public class ReportService {
         report.setDetail(request.detail());
         report = reports.saveAndFlush(report);
         snapshots.saveAndFlush(new ReportTopicSnapshot(report, topic, image));
+        retention.pending(com.example.bulletinboard.model.PrivacyRetentionRecord.Target.REPORT_EVIDENCE,
+                report.getId().toString(),ownerId,report.getId());
     }
 
     @Transactional
-    public void submitAnswer(Long answerId, String reporterEmail, ReportRequest request) {
+    public void submitAnswer(Long answerId, String actorId, ReportRequest request) {
         validate(request, answerId);
-        User reporter = requireActiveReporter(reporterEmail, answerId);
+        User reporter = requireActiveReporter(actorId, answerId);
         // 親Topicを先にロックする。編集・削除側はAnswer行をロックする。
         Long topicId = answers.findReportableTopicIdByAnswerId(answerId)
                 .orElseThrow(() -> new ReportOperationException(Reason.NOT_FOUND, answerId));
@@ -125,12 +133,14 @@ public class ReportService {
         report.setDetail(request.detail());
         report = reports.saveAndFlush(report);
         answerSnapshots.saveAndFlush(new ReportAnswerSnapshot(report, answer, topic, image));
+        retention.pending(com.example.bulletinboard.model.PrivacyRetentionRecord.Target.REPORT_EVIDENCE,
+                report.getId().toString(),ownerId,report.getId());
     }
 
     @Transactional
-    public void submitProfile(Long profileId, String reporterEmail, ReportRequest request) {
+    public void submitProfile(Long profileId, String actorId, ReportRequest request) {
         validate(request, profileId);
-        User reporter = requireActiveReporter(reporterEmail, profileId);
+        User reporter = requireActiveReporter(actorId, profileId);
         Profile profile = profiles.findByIdForReport(profileId)
                 .orElseThrow(() -> new ReportOperationException(Reason.NOT_FOUND, profileId));
         User owner = profile.getUser();
@@ -157,12 +167,17 @@ public class ReportService {
         report.setDetail(request.detail());
         report = reports.saveAndFlush(report);
         profileSnapshots.saveAndFlush(new ReportProfileSnapshot(report, profile, image));
+        retention.pending(com.example.bulletinboard.model.PrivacyRetentionRecord.Target.REPORT_EVIDENCE,
+                report.getId().toString(),owner.getId(),report.getId());
     }
 
     /** 保持内容は管理者だけが参照する。画像取得時にもDB上のACTIVEを再確認する。 */
     @Transactional(readOnly = true)
-    public EvidenceImage getEvidenceImage(Long reportId, String adminEmail) {
-        User admin = users.findByEmail(adminEmail)
+    public EvidenceImage getEvidenceImage(Long reportId, String actorId) {
+        privacyAccess.require(actorId);
+        retention.requireEvidencePolicy(reportId);
+        privacyAccess.auditRead(actorId,"REPORT_EVIDENCE",reportId.toString(),"READ_IMAGE");
+        User admin = users.findById(ActorIds.parse(actorId))
                 .orElseThrow(() -> new ReportOperationException(Reason.FORBIDDEN, reportId));
         if (admin.getAccountStatus() != AccountStatus.ACTIVE || !"ROLE_ADMIN".equals(admin.getRole())) {
             throw new ReportOperationException(Reason.FORBIDDEN, reportId);
@@ -191,8 +206,8 @@ public class ReportService {
         return new EvidenceImage(snapshot.getImageContent(), snapshot.getContentType());
     }
 
-    private User requireActiveReporter(String email, Long targetId) {
-        User reporter = users.findByEmail(email)
+    private User requireActiveReporter(String actorId, Long targetId) {
+        User reporter = users.findById(ActorIds.parse(actorId))
                 .orElseThrow(() -> new ReportOperationException(Reason.FORBIDDEN, targetId));
         if (reporter.getAccountStatus() != AccountStatus.ACTIVE) {
             throw new ReportOperationException(Reason.FORBIDDEN, targetId);

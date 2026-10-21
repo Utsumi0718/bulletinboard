@@ -57,7 +57,7 @@ public class ContactApiController {
     @GetMapping("/prefill")
     public ResponseEntity<ContactPrefillResponse> prefill(Authentication authentication) {
         try {
-            var user = users.findByEmail(authentication.getName())
+            var user = users.findById(com.example.bulletinboard.security.ActorIds.parse(authentication.getName()))
                     .orElseThrow(() -> new UserNotFoundException("ログインユーザー情報を取得できませんでした。"));
             if (user.getAccountStatus() != AccountStatus.ACTIVE) {
                 throw new ForbiddenOperationException("このリクエストは許可されていません。");
