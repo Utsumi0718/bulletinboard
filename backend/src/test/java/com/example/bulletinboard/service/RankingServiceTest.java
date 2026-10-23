@@ -72,7 +72,7 @@ public class RankingServiceTest {
 
     Long topicId = 1L;
 
-    when(topicRepository.findById(topicId))
+    when(topicRepository.findAnyByIdForUpdate(topicId))
             .thenReturn(Optional.empty());
 
     rankingService.judgeRanking(
@@ -80,7 +80,7 @@ public class RankingServiceTest {
             RankingCheckpoint.DAY_7
     );
 
-    verify(topicRepository).findById(topicId);
+    verify(topicRepository).findAnyByIdForUpdate(topicId);
 
     verifyNoInteractions(
             answerRepository,
@@ -100,7 +100,7 @@ void shouldNotJudgeRankingWhenTopicIsDeleted() {
     Topic topic = new Topic();
     topic.setDeletedAt(LocalDateTime.now());
 
-    when(topicRepository.findById(topicId))
+    when(topicRepository.findAnyByIdForUpdate(topicId))
             .thenReturn(Optional.of(topic));
 
     rankingService.judgeRanking(
@@ -108,7 +108,7 @@ void shouldNotJudgeRankingWhenTopicIsDeleted() {
             RankingCheckpoint.DAY_7
     );
 
-    verify(topicRepository).findById(topicId);
+    verify(topicRepository).findAnyByIdForUpdate(topicId);
 
     verifyNoInteractions(
             answerRepository,
@@ -128,7 +128,7 @@ void shouldNotJudgeRankingWhenAlreadyJudged() {
     Topic topic = new Topic();
     RankingJudgment existingJudgment = new RankingJudgment();
 
-    when(topicRepository.findById(topicId))
+    when(topicRepository.findAnyByIdForUpdate(topicId))
             .thenReturn(Optional.of(topic));
 
     when(rankingJudgmentRepository.findByTopicAndCheckpoint(
@@ -142,7 +142,7 @@ void shouldNotJudgeRankingWhenAlreadyJudged() {
             RankingCheckpoint.DAY_7
     );
 
-    verify(topicRepository).findById(topicId);
+    verify(topicRepository).findAnyByIdForUpdate(topicId);
 
     verify(rankingJudgmentRepository)
             .findByTopicAndCheckpoint(
@@ -168,7 +168,7 @@ void shouldSaveOnlyRankingJudgmentWhenNoAnswersExist() {
 
     Topic topic = new Topic();
 
-    when(topicRepository.findById(topicId))
+    when(topicRepository.findAnyByIdForUpdate(topicId))
             .thenReturn(Optional.of(topic));
 
     when(rankingJudgmentRepository.findByTopicAndCheckpoint(
@@ -222,7 +222,7 @@ void shouldSaveOnlyRankingJudgmentWhenAllAnswersHaveZeroLikes() {
     Answer answer2 = new Answer();
     answer2.setId(20L);
 
-    when(topicRepository.findById(topicId))
+    when(topicRepository.findAnyByIdForUpdate(topicId))
             .thenReturn(Optional.of(topic));
 
     when(rankingJudgmentRepository.findByTopicAndCheckpoint(
@@ -295,7 +295,7 @@ void shouldSaveRankingResultAndAchievementWhenThereIsSingleWinner() {
     when(likeCount.getLikeCount())
             .thenReturn(5L);
 
-    when(topicRepository.findById(topicId))
+    when(topicRepository.findAnyByIdForUpdate(topicId))
             .thenReturn(Optional.of(topic));
 
     when(rankingJudgmentRepository.findByTopicAndCheckpoint(
@@ -389,7 +389,7 @@ void shouldSaveAllRankingResultsWhenMultipleAnswersTieForFirstPlace() {
     when(likeCount2.getLikeCount())
             .thenReturn(5L);
 
-    when(topicRepository.findById(topicId))
+    when(topicRepository.findAnyByIdForUpdate(topicId))
             .thenReturn(Optional.of(topic));
 
     when(rankingJudgmentRepository.findByTopicAndCheckpoint(
@@ -474,7 +474,7 @@ void shouldSaveAchievementForEachUserWhenMultipleUsersTieForFirstPlace() {
     when(likeCount2.getLikeCount())
             .thenReturn(5L);
 
-    when(topicRepository.findById(topicId))
+    when(topicRepository.findAnyByIdForUpdate(topicId))
             .thenReturn(Optional.of(topic));
 
     when(rankingJudgmentRepository.findByTopicAndCheckpoint(
@@ -563,7 +563,7 @@ void shouldSaveAllRankingResultsButOnlyOneAchievementWhenSameUserHasMultipleWinn
     when(likeCount2.getLikeCount())
             .thenReturn(5L);
 
-    when(topicRepository.findById(topicId))
+    when(topicRepository.findAnyByIdForUpdate(topicId))
             .thenReturn(Optional.of(topic));
 
     when(rankingJudgmentRepository.findByTopicAndCheckpoint(
@@ -664,7 +664,7 @@ void shouldSelectSmallerAnswerIdWhenWinningAnswersHaveSameCreatedAt() {
     when(likeCount2.getLikeCount())
             .thenReturn(5L);
 
-    when(topicRepository.findById(topicId))
+    when(topicRepository.findAnyByIdForUpdate(topicId))
             .thenReturn(Optional.of(topic));
 
     when(rankingJudgmentRepository.findByTopicAndCheckpoint(
@@ -748,7 +748,7 @@ void shouldNotCreateOrUpdateAchievementWhenAchievementAlreadyExists() {
     when(likeCount.getLikeCount())
             .thenReturn(5L);
 
-    when(topicRepository.findById(topicId))
+    when(topicRepository.findAnyByIdForUpdate(topicId))
             .thenReturn(Optional.of(topic));
 
     when(rankingJudgmentRepository.findByTopicAndCheckpoint(
@@ -826,7 +826,7 @@ void shouldCreateAchievementWhenUserFirstWinsAtDay14() {
     when(likeCount.getLikeCount())
             .thenReturn(5L);
 
-    when(topicRepository.findById(topicId))
+    when(topicRepository.findAnyByIdForUpdate(topicId))
             .thenReturn(Optional.of(topic));
 
     when(rankingJudgmentRepository.findByTopicAndCheckpoint(
@@ -897,7 +897,7 @@ void shouldCreateAchievementWhenUserFirstWinsAtDay21() {
     when(likeCount.getLikeCount())
             .thenReturn(5L);
 
-    when(topicRepository.findById(topicId))
+    when(topicRepository.findAnyByIdForUpdate(topicId))
             .thenReturn(Optional.of(topic));
 
     when(rankingJudgmentRepository.findByTopicAndCheckpoint(

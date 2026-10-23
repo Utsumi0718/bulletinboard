@@ -72,10 +72,10 @@ public class RankingService {
      * @param topicId 判定対象TopicのID
      * @param checkpoint 判定対象のチェックポイント
      */
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public void judgeRanking(Long topicId, RankingCheckpoint checkpoint) {
 
-        Optional<Topic> topic = topicRepository.findById(topicId);
+        Optional<Topic> topic = topicRepository.findAnyByIdForUpdate(topicId);
 
         // Topicが存在しない場合は処理を終了する
         if (topic.isEmpty()) {

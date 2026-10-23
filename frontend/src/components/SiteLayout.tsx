@@ -1,7 +1,9 @@
 import { useEffect, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router'
+import { useAuth } from '../auth/AuthContext'
 
 function Navigation() {
+  const { state } = useAuth()
   return (
     <nav aria-label="メインナビゲーション">
       <ul className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -19,6 +21,9 @@ function Navigation() {
             共通表示
           </Link>
         </li>
+        {state.status === 'authenticated' && state.user.role === 'ROLE_ADMIN' && <li>
+          <NavLink className="inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold text-slate-700 hover:bg-slate-100" to="/admin/topic-cleanup">クリーンアップ管理</NavLink>
+        </li>}
       </ul>
     </nav>
   )

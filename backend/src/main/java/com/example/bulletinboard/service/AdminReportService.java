@@ -37,6 +37,8 @@ import com.example.bulletinboard.repository.UserRepository;
 /** 管理者用の通報検索・証拠確認・状態変更を担当する。 */
 @Service
 public class AdminReportService {
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
     private static final int MAX_PAGE_SIZE = 100;
     private final ReportRepository reports;
     private final UserRepository users;
@@ -106,14 +108,27 @@ public class AdminReportService {
         return toDetail(report);
     }
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public AdminReportDetailResponse updateStatus(Long reportId, ReportStatus next, String adminEmail) {
         if (next == null) {
             throw new IllegalArgumentException("ステータスを指定してください。");
         }
         User admin = requireAdmin(adminEmail);
+        Report reference = reports.findById(reportId)
+                .orElseThrow(() -> new ReportOperationException(ReportOperationException.Reason.NOT_FOUND, reportId));
+        Long parent = null;
+        if (reference.getTargetType() == ReportTargetType.TOPIC) parent = reference.getTargetId();
+        if (reference.getTargetType() == ReportTargetType.ANSWER) {
+            parent = answers.findTopicIdIncludingDeleted(reference.getTargetId()).orElseGet(() ->
+                    answerSnapshots.findById(reportId).map(s -> s.getTopicId()).orElse(null));
+        }
+        if (parent != null) {
+            var topic = topics.findAnyByIdForUpdate(parent);
+            topic.ifPresent(t -> entityManager.refresh(t, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE));
+        }
         Report report = reports.findByIdForUpdate(reportId)
                 .orElseThrow(() -> new ReportOperationException(ReportOperationException.Reason.NOT_FOUND, reportId));
+        entityManager.refresh(report, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         ReportStatus before = report.getStatus();
         if (before != next) {
             report.setStatus(next);

@@ -140,7 +140,7 @@ public class TopicService {
      *
      * 本人がアップロードした管理下画像を確認して保存します。
      */
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public Topic save(Topic topic) {
         topicImageService.requireOwnedImage(topic.getImage(), topic.getUser().getEmail());
         return topicRepository.save(topic);
@@ -185,7 +185,7 @@ public class TopicService {
      * deletedAtに現在日時を設定します。
      */
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
      public void deleteById(
         Long id,
         String loginEmail,
@@ -209,6 +209,7 @@ public class TopicService {
 }
 
     topic.setDeletedAt(LocalDateTime.now());
+    topic.setCleanupDeletedAtUtc(LocalDateTime.now(java.time.ZoneOffset.UTC));
 
     topicRepository.save(topic);
 }
@@ -294,7 +295,7 @@ public class TopicService {
     * title、image、questionを更新します。
     */
 
-   @Transactional
+   @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
 public Topic updateTopic(
         Long topicId,
         String loginEmail,

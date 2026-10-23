@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { BrowserRouter, Link, Route, Routes } from 'react-router'
 import { ErrorState, LoadingState, UnauthenticatedState } from './components/FeedbackStates'
 import { SiteLayout } from './components/SiteLayout'
+import { TopicCleanupPage } from './pages/TopicCleanupPage'
 
 type PreviewState = 'none' | 'loading' | 'error' | 'unauthenticated'
 
@@ -84,6 +85,7 @@ function App() {
       <SiteLayout>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/admin/topic-cleanup" element={<TopicCleanupPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </SiteLayout>

@@ -60,7 +60,7 @@ public class ReportService {
         this.profileImages = profileImages;
     }
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public void submitTopic(Long topicId, String reporterEmail, ReportRequest request) {
         validate(request, topicId);
         User reporter = requireActiveReporter(reporterEmail, topicId);
@@ -91,7 +91,7 @@ public class ReportService {
         snapshots.saveAndFlush(new ReportTopicSnapshot(report, topic, image));
     }
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public void submitAnswer(Long answerId, String reporterEmail, ReportRequest request) {
         validate(request, answerId);
         User reporter = requireActiveReporter(reporterEmail, answerId);
@@ -127,7 +127,7 @@ public class ReportService {
         answerSnapshots.saveAndFlush(new ReportAnswerSnapshot(report, answer, topic, image));
     }
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public void submitProfile(Long profileId, String reporterEmail, ReportRequest request) {
         validate(request, profileId);
         User reporter = requireActiveReporter(reporterEmail, profileId);

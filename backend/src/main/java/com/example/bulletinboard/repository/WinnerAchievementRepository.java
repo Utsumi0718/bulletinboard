@@ -28,6 +28,16 @@ import com.example.bulletinboard.model.WinnerAchievement;
 public interface WinnerAchievementRepository
         extends JpaRepository<WinnerAchievement, Long> {
 
+    /** One achievement per User/Topic across active and archived records, including withdrawn users. */
+    @org.springframework.data.jpa.repository.Query(value = """
+        SELECT COUNT(*) FROM (
+          SELECT topic_id AS original_topic_id FROM winner_achievements WHERE user_id=:userId
+          UNION
+          SELECT original_topic_id FROM winner_achievement_archives WHERE user_id=:userId
+        ) achievements
+        """, nativeQuery = true)
+    long countIncludingArchives(@org.springframework.data.repository.query.Param("userId") Long userId);
+
     /*
      * 指定したUserとTopicに対応する
      * WinnerAchievementを取得します。

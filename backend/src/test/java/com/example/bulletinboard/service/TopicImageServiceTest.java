@@ -70,7 +70,7 @@ class TopicImageServiceTest {
     @Test
     void allowsOwnerToAttachImage() {
         active();
-        when(images.existsByIdAndOwnerUserId(ID, 7L)).thenReturn(true);
+        when(images.findOwnedForUpdate(ID, 7L)).thenReturn(Optional.of(new TopicImage(7L,"image/png",new byte[]{1})));
         service.requireOwnedImage(URL, EMAIL);
         verify(images, never()).findById(any());
     }

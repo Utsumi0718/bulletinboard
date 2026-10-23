@@ -124,6 +124,10 @@ public class AdminOperationLog {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    /** Required by the cleanup resume Service only; historical operations remain valid. */
+    @Column(name = "reason", length = 500, updatable = false)
+    private String reason;
+
     /**
      * 成功した管理操作の履歴を生成します。
      *

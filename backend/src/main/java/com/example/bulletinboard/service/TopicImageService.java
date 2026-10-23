@@ -53,14 +53,14 @@ public class TopicImageService {
     }
 
     /** 任意URL・パスを取得せず、本人の管理下画像だけをTopicへ設定する。 */
-    @Transactional(readOnly = true)
+    @Transactional
     public void requireOwnedImage(String url, String email) {
         User owner = requireActiveUser(email);
         if (url == null || !url.startsWith(URL_PREFIX)) {
             throw new TopicImageException(Reason.INVALID_REFERENCE);
         }
         String id = url.substring(URL_PREFIX.length());
-        if (!ID.matcher(id).matches() || !images.existsByIdAndOwnerUserId(id, owner.getId())) {
+        if (!ID.matcher(id).matches() || images.findOwnedForUpdate(id, owner.getId()).isEmpty()) {
             throw new TopicImageException(Reason.INVALID_REFERENCE);
         }
     }

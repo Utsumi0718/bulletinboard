@@ -27,6 +27,8 @@ import com.example.bulletinboard.repository.UserRepository;
 /** 管理用の取得と、既存のTopic/Answer削除処理を使う管理対応。 */
 @Service
 public class AdminContentService {
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
     private final TopicRepository topics;
     private final AnswerRepository answers;
     private final TopicImageRepository images;
@@ -111,7 +113,7 @@ public class AdminContentService {
         return images.findById(imageId).orElseThrow(AdminContentNotFoundException::new);
     }
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public void deleteTopic(Long id, String email) {
         User actor = admin(email);
         // 既存Serviceが行ロックと論理削除を行う。履歴も同じトランザクションに置く。
@@ -120,11 +122,13 @@ public class AdminContentService {
                 "DELETE", "PUBLIC", "DELETED"));
     }
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public void deleteAnswer(Long id, String email) {
         User actor = admin(email);
+        Long parent = answers.findTopicIdIncludingDeleted(id).orElseThrow(AdminContentNotFoundException::new);
+        var lockedTopic = TopicWriteLocks.lock(entityManager, parent, false);
         Answer answer = answers.findById(id).orElseThrow(AdminContentNotFoundException::new);
-        String before = answer.getTopic().getDeletedAt() == null ? "PUBLIC" : "PARENT_DELETED";
+        String before = lockedTopic.getDeletedAt() == null ? "PUBLIC" : "PARENT_DELETED";
         answerService.deleteAnswer(id, email, true);
         logs.saveAndFlush(new AdminOperationLog(actor, "ANSWER", id,
                 "DELETE", before, "DELETED"));
