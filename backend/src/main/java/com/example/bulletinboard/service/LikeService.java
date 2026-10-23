@@ -41,6 +41,9 @@ import com.example.bulletinboard.repository.LikeRepository;
 @Transactional(readOnly = true)
 public class LikeService {
 
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
     private final LikeRepository likeRepository;
     private final AnswerRepository answerRepository;
     private final CustomUserDetailsService customUserDetailsService;
@@ -58,7 +61,7 @@ public class LikeService {
     /**
       * 指定されたAnswerに対するLike状態を切り替える。
       *
-      * loginEmailからログインユーザーを取得し、
+      * actorIdからログインユーザーを取得し、
       * answerIdから論理削除されていないAnswerを取得する。
       *
       * 親Topicが論理削除済みの場合や、
@@ -70,7 +73,7 @@ public class LikeService {
       * 処理完了後は最新のLike状態とLike件数を返す。
       *
       * @param answerId   対象AnswerのID
-      * @param actorId ログインユーザーのメールアドレス
+      * @param actorId 認証済みユーザーのUser ID文字列
       * @return toggle後のLike状態と最新Like件数を持つLikeResponse
       * @throws UserNotFoundException       ログインユーザーを取得できない場合
       * @throws AnswerNotFoundException     Answerが存在しない、論理削除済み、
@@ -78,7 +81,7 @@ public class LikeService {
       * @throws ForbiddenOperationException 自分自身のAnswerへLikeしようとした場合
       * @throws LikeConflictException       Like登録時に重複登録競合が発生した場合
       */
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public LikeResponse toggleLike(Long answerId, String actorId) {
 
         User user = customUserDetailsService.findByActorId(actorId)
@@ -88,8 +91,14 @@ public class LikeService {
                         )
                 );
 
+        Long parent = answerRepository.findReportableTopicIdByAnswerId(answerId)
+                .orElseThrow(() -> new AnswerNotFoundException("この回答は存在しないか、削除されています。"));
+        try { TopicWriteLocks.lock(entityManager, parent, true); }
+        catch (com.example.bulletinboard.exception.TopicNotFoundException ex) {
+            throw new AnswerNotFoundException("この回答は存在しないか、削除されています。");
+        }
         Answer answer = answerRepository
-                .findByIdAndDeletedAtIsNull(answerId)
+                .findReportableByIdForUpdate(answerId)
                 .orElseThrow(() ->
                         new AnswerNotFoundException(
                                 "この回答は存在しないか、削除されています。"

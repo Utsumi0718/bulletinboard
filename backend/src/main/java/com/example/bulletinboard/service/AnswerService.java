@@ -58,6 +58,9 @@ import com.example.bulletinboard.repository.AnswerRepository;
 @Service
 public class AnswerService {
 
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
     private final AnswerRepository answerRepository;
     private final LikeService likeService;
 
@@ -77,8 +80,10 @@ public class AnswerService {
      *
      * 新規登録・更新のどちらでもRepositoryのsave()を使用します。
      */
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public Answer saveAnswer(Answer answer) {
+        var topic = TopicWriteLocks.lock(entityManager, answer.getTopic().getId(), true);
+        answer.setTopic(topic);
         return answerRepository.save(answer);
     }
 
@@ -118,11 +123,13 @@ public class AnswerService {
     * deletedAtに現在日時を設定します。
     */
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
      public void deleteAnswer(
         Long id,
         String actorId,
         boolean isAdmin) {
+
+       lockParent(id, false);
 
       Answer answer = answerRepository
         .findReportableByIdForUpdate(id)
@@ -153,11 +160,13 @@ public class AnswerService {
      *
      * 条件を満たした場合のみcontentを更新します。
      */
-@Transactional
+@Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public Answer updateAnswer(
         Long answerId,
         String actorId,
         String content) {
+
+    lockParent(answerId, true);
 
     Answer answer = answerRepository
         .findReportableByIdForUpdate(answerId)
@@ -183,4 +192,10 @@ public class AnswerService {
 
     return answerRepository.save(answer);
   }
+
+    private void lockParent(Long answerId, boolean requirePublic) {
+        Long topic = answerRepository.findReportableTopicIdByAnswerId(answerId)
+                .orElseThrow(() -> new AnswerNotFoundException("この回答は存在しないか、削除されています。"));
+        TopicWriteLocks.lock(entityManager, topic, requirePublic);
+    }
 }

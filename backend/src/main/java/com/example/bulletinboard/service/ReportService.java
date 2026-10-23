@@ -66,7 +66,7 @@ public class ReportService {
         this.retention=retention;this.privacyAccess=privacyAccess;
     }
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public void submitTopic(Long topicId, String actorId, ReportRequest request) {
         validate(request, topicId);
         User reporter = requireActiveReporter(actorId, topicId);
@@ -99,7 +99,7 @@ public class ReportService {
                 report.getId().toString(),ownerId,report.getId());
     }
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public void submitAnswer(Long answerId, String actorId, ReportRequest request) {
         validate(request, answerId);
         User reporter = requireActiveReporter(actorId, answerId);
@@ -137,7 +137,7 @@ public class ReportService {
                 report.getId().toString(),ownerId,report.getId());
     }
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public void submitProfile(Long profileId, String actorId, ReportRequest request) {
         validate(request, profileId);
         User reporter = requireActiveReporter(actorId, profileId);

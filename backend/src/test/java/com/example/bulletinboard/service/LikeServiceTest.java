@@ -68,6 +68,8 @@ import com.example.bulletinboard.repository.LikeRepository;
 @ExtendWith(MockitoExtension.class)
 class LikeServiceTest {
 
+    @Mock private jakarta.persistence.EntityManager entityManager;
+
     @Mock
     private LikeRepository likeRepository;
 
@@ -91,6 +93,8 @@ class LikeServiceTest {
     @BeforeEach
     void setUp() {
 
+        org.springframework.test.util.ReflectionTestUtils.setField(likeService,"entityManager",entityManager);
+
         loginUser = new User();
         loginUser.setId(1L);
         loginUser.setUsername("testuser");
@@ -108,6 +112,11 @@ class LikeServiceTest {
         testAnswer.setContent("テスト回答");
         testAnswer.setUser(answerOwner);
         testAnswer.setTopic(testTopic);
+        org.mockito.Mockito.lenient().when(answerRepository.findReportableTopicIdByAnswerId(org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(Optional.of(testTopic.getId()));
+        org.mockito.Mockito.lenient().when(entityManager.find(org.mockito.ArgumentMatchers.eq(Topic.class),
+                org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.eq(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)))
+                .thenReturn(testTopic);
     }
 
     @Test
@@ -118,7 +127,7 @@ class LikeServiceTest {
         when(customUserDetailsService.findByActorId(LOGIN_EMAIL))
                 .thenReturn(Optional.of(loginUser));
 
-        when(answerRepository.findByIdAndDeletedAtIsNull(ANSWER_ID))
+        when(answerRepository.findReportableByIdForUpdate(ANSWER_ID))
                 .thenReturn(Optional.of(testAnswer));
 
         when(likeRepository.findByUserAndAnswer(loginUser, testAnswer))
@@ -159,7 +168,7 @@ class LikeServiceTest {
         when(customUserDetailsService.findByActorId(LOGIN_EMAIL))
                 .thenReturn(Optional.of(loginUser));
 
-        when(answerRepository.findByIdAndDeletedAtIsNull(ANSWER_ID))
+        when(answerRepository.findReportableByIdForUpdate(ANSWER_ID))
                 .thenReturn(Optional.of(testAnswer));
 
         when(likeRepository.findByUserAndAnswer(loginUser, testAnswer))
@@ -197,7 +206,7 @@ class LikeServiceTest {
         when(customUserDetailsService.findByActorId(LOGIN_EMAIL))
                 .thenReturn(Optional.of(loginUser));
 
-        when(answerRepository.findByIdAndDeletedAtIsNull(ANSWER_ID))
+        when(answerRepository.findReportableByIdForUpdate(ANSWER_ID))
                 .thenReturn(Optional.empty());
 
         // When & Then
@@ -237,7 +246,7 @@ class LikeServiceTest {
         when(customUserDetailsService.findByActorId(LOGIN_EMAIL))
                 .thenReturn(Optional.of(loginUser));
 
-        when(answerRepository.findByIdAndDeletedAtIsNull(ANSWER_ID))
+        when(answerRepository.findReportableByIdForUpdate(ANSWER_ID))
                 .thenReturn(Optional.empty());
 
         assertThrows(
@@ -267,9 +276,6 @@ class LikeServiceTest {
 
         when(customUserDetailsService.findByActorId(LOGIN_EMAIL))
                 .thenReturn(Optional.of(loginUser));
-
-        when(answerRepository.findByIdAndDeletedAtIsNull(ANSWER_ID))
-                .thenReturn(Optional.of(testAnswer));
 
         // When & Then
         AnswerNotFoundException exception =
@@ -306,7 +312,7 @@ class LikeServiceTest {
         when(customUserDetailsService.findByActorId(LOGIN_EMAIL))
                 .thenReturn(Optional.of(loginUser));
 
-        when(answerRepository.findByIdAndDeletedAtIsNull(ANSWER_ID))
+        when(answerRepository.findReportableByIdForUpdate(ANSWER_ID))
                 .thenReturn(Optional.of(testAnswer));
 
         // When & Then
@@ -358,7 +364,7 @@ class LikeServiceTest {
         );
 
         verify(answerRepository, never())
-                .findByIdAndDeletedAtIsNull(any());
+                .findReportableByIdForUpdate(any());
 
         verify(likeRepository, never())
                 .findByUserAndAnswer(any(), any());
@@ -375,7 +381,7 @@ class LikeServiceTest {
         when(customUserDetailsService.findByActorId(LOGIN_EMAIL))
                 .thenReturn(Optional.of(loginUser));
 
-        when(answerRepository.findByIdAndDeletedAtIsNull(ANSWER_ID))
+        when(answerRepository.findReportableByIdForUpdate(ANSWER_ID))
                 .thenReturn(Optional.of(testAnswer));
 
         when(likeRepository.findByUserAndAnswer(loginUser, testAnswer))

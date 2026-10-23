@@ -38,6 +38,8 @@ import com.example.bulletinboard.model.Answer;
  */
 @Repository
 public interface AnswerRepository extends JpaRepository<Answer, Long> {
+    @Query("select a.topic.id from Answer a where a.id = :id")
+    Optional<Long> findTopicIdIncludingDeleted(@Param("id") Long id);
     @Query("select a from Answer a where a.deletedAt is null and a.topic.deletedAt is null")
     Page<Answer> findPublic(Pageable pageable);
 

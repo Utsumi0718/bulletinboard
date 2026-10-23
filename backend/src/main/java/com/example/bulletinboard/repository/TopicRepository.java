@@ -43,6 +43,10 @@ import jakarta.persistence.LockModeType;
  */
 @Repository
 public interface TopicRepository extends JpaRepository<Topic, Long> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from Topic t where t.id = :id")
+    Optional<Topic> findAnyByIdForUpdate(@Param("id") Long id);
     Page<Topic> findByUserId(Long userId, Pageable pageable);
 
     boolean existsByImageAndDeletedAtIsNull(String image);

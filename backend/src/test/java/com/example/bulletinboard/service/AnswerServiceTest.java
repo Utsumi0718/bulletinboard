@@ -74,6 +74,18 @@ import com.example.bulletinboard.repository.AnswerRepository;
 @ExtendWith(MockitoExtension.class)
 class AnswerServiceTest {
 
+    @Mock private jakarta.persistence.EntityManager entityManager;
+
+    @org.junit.jupiter.api.BeforeEach
+    void parentLock() {
+        org.springframework.test.util.ReflectionTestUtils.setField(answerService,"entityManager",entityManager);
+        org.mockito.Mockito.lenient().when(answerRepository.findReportableTopicIdByAnswerId(org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(Optional.of(1L));
+        org.mockito.Mockito.lenient().when(entityManager.find(org.mockito.ArgumentMatchers.eq(com.example.bulletinboard.model.Topic.class),
+                org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.eq(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)))
+                .thenAnswer(inv -> {var t=new com.example.bulletinboard.model.Topic();t.setId(1L);return t;});
+    }
+
     @Mock
     private AnswerRepository answerRepository;
 
@@ -89,6 +101,7 @@ class AnswerServiceTest {
 
         Answer answer = new Answer();
         answer.setContent("テスト回答");
+        var parent = new com.example.bulletinboard.model.Topic();parent.setId(1L);answer.setTopic(parent);
 
         when(
             answerRepository.save(answer)

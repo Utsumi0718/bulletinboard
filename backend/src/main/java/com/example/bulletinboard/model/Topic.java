@@ -124,6 +124,10 @@ public class Topic {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    /** UTC recorded by the new deletion path. Legacy timestamps stay unverified (null). */
+    @Column(name = "cleanup_deleted_at_utc")
+    private LocalDateTime cleanupDeletedAtUtc;
+
     /*
      * Topicを初めてDBへ保存する直前に呼び出され、
      * createdAtとupdatedAtを設定します。
