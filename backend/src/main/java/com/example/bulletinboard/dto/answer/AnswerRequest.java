@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 
 /*
  * 【クラスの役割】
- * Answerの新規投稿・編集時に、
+ * Answerの新規投稿時に、
  * クライアントから受け取る入力データを表すDTOです。
  *
  * APIではAnswer Entityを直接リクエストとして受け取らず、

@@ -16,7 +16,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.example.bulletinboard.exception.AnswerEditConflictException;
 import com.example.bulletinboard.exception.AnswerNotFoundException;
 import com.example.bulletinboard.exception.ForbiddenOperationException;
 import com.example.bulletinboard.model.Answer;
@@ -28,7 +27,7 @@ import com.example.bulletinboard.repository.AnswerRepository;
  * AnswerServiceのビジネスロジックを検証する
  * 単体テストクラスです。
  *
- * AnswerRepositoryとLikeServiceをMockitoでモック化し、
+ * AnswerRepositoryとEntityManagerをMockitoでモック化し、
  * 実際のデータベースには接続せず、
  * AnswerService単体の処理を検証します。
  *
@@ -36,12 +35,6 @@ import com.example.bulletinboard.repository.AnswerRepository;
  * - Answerの保存
  * - Topicに紐づくAnswer一覧取得
  * - AnswerのIDによる取得
- *
- * - Answer編集
- *   → 投稿者本人かつLikeが0件の場合は編集可能
- *   → Answer不存在時はAnswerNotFoundException
- *   → 投稿者本人以外はForbiddenOperationException
- *   → Likeが1件以上ある場合はAnswerEditConflictException
  *
  * - Answer削除
  *   → 投稿者本人による論理削除
@@ -52,23 +45,13 @@ import com.example.bulletinboard.repository.AnswerRepository;
  * 【設計上のポイント】
  * - 通常の取得対象はdeletedAtがNULLのAnswerのみです。
  *
- * - Answer編集は投稿者本人のみ可能です。
- *
- * - Likeが1件でも付いているAnswerは編集できません。
- *
- * - Answer編集時の権限エラーには
- *   ForbiddenOperationExceptionを使用します。
- *
- * - Like付きAnswerの編集競合には
- *   AnswerEditConflictExceptionを使用します。
- *
  * - Answer削除は投稿者本人またはROLE_ADMINのみ可能です。
  *
  * - Answer削除時の権限エラーには
  *   ForbiddenOperationExceptionを使用します。
  *
  * - Answer不存在・論理削除済みの場合は、
- *   編集・削除ともにAnswerNotFoundExceptionを使用します。
+ *   削除時にAnswerNotFoundExceptionを使用します。
  */
 
 @ExtendWith(MockitoExtension.class)
@@ -88,9 +71,6 @@ class AnswerServiceTest {
 
     @Mock
     private AnswerRepository answerRepository;
-
-    @Mock
-    private LikeService likeService;
 
     @InjectMocks
     private AnswerService answerService;
@@ -205,49 +185,6 @@ answerUser.setId(3125414876L);
      ).save(answer);
   }
 
-  @Test
-  @DisplayName("投稿者本人かつLikeが0件なら回答を編集できること")
-  void updateAnswer_OwnerAndNoLikes_ShouldUpdateAnswer() {
-
-    User answerUser = new User();
-    answerUser.setEmail("1008766193");
-answerUser.setId(1008766193L);
-
-    Answer answer = new Answer();
-    answer.setId(1L);
-    answer.setUser(answerUser);
-    answer.setContent("変更前");
-
-    when(
-        answerRepository.findReportableByIdForUpdate(1L)
-    ).thenReturn(Optional.of(answer));
-
-    when(
-        likeService.getLikeCount(answer)
-    ).thenReturn(0L);
-
-    when(
-        answerRepository.save(any(Answer.class))
-    ).thenAnswer(
-        invocation -> invocation.getArgument(0)
-    );
-
-    Answer updated = answerService.updateAnswer(
-        1L,
-        "1008766193",
-        "変更後"
-    );
-
-    assertThat(updated.getContent())
-        .isEqualTo("変更後");
-
-    verify(
-        answerRepository,
-        times(1)
-    ).save(answer);
-}
-
-
 @Test
 @DisplayName("管理者は他ユーザーのAnswerを削除できること")
 void deleteAnswer_Admin_ShouldSetDeletedAt() {
@@ -343,98 +280,4 @@ void deleteAnswer_AnswerNotFound_ShouldThrowException() {
     ).save(any(Answer.class));
 }
 
-@Test
-@DisplayName("存在しないAnswerを編集しようとするとAnswerNotFoundExceptionになること")
-void updateAnswer_AnswerNotFound_ShouldThrowException() {
-
-    when(
-            answerRepository.findReportableByIdForUpdate(999L)
-    ).thenReturn(Optional.empty());
-
-    org.assertj.core.api.Assertions
-            .assertThatThrownBy(
-                    () -> answerService.updateAnswer(
-                            999L,
-                            "1008766193",
-                            "変更後の回答"
-                    )
-            )
-            .isInstanceOf(AnswerNotFoundException.class)
-            .hasMessage("この回答は存在しないか、削除されています。");
-
-    verify(
-            answerRepository,
-            org.mockito.Mockito.never()
-    ).save(any(Answer.class));
-}
-
-@Test
-@DisplayName("投稿者本人以外がAnswerを編集しようとするとForbiddenOperationExceptionになること")
-void updateAnswer_NotOwner_ShouldThrowException() {
-
-    User answerUser = new User();
-    answerUser.setEmail("1008766193");
-answerUser.setId(1008766193L);
-
-    Answer answer = new Answer();
-    answer.setId(1L);
-    answer.setUser(answerUser);
-
-    when(
-            answerRepository.findReportableByIdForUpdate(1L)
-    ).thenReturn(Optional.of(answer));
-
-    org.assertj.core.api.Assertions
-            .assertThatThrownBy(
-                    () -> answerService.updateAnswer(
-                            1L,
-                            "2084992462",
-                            "変更後の回答"
-                    )
-            )
-            .isInstanceOf(ForbiddenOperationException.class)
-            .hasMessage("この回答を編集する権限がありません。");
-
-    verify(
-            answerRepository,
-            org.mockito.Mockito.never()
-    ).save(any(Answer.class));
-}
-
-@Test
-@DisplayName("Likeが付いているAnswerを編集しようとするとAnswerEditConflictExceptionになること")
-void updateAnswer_LikeExists_ShouldThrowException() {
-
-    User answerUser = new User();
-    answerUser.setEmail("1008766193");
-answerUser.setId(1008766193L);
-
-    Answer answer = new Answer();
-    answer.setId(1L);
-    answer.setUser(answerUser);
-
-    when(
-            answerRepository.findReportableByIdForUpdate(1L)
-    ).thenReturn(Optional.of(answer));
-
-    when(
-            likeService.getLikeCount(answer)
-    ).thenReturn(1L);
-
-    org.assertj.core.api.Assertions
-            .assertThatThrownBy(
-                    () -> answerService.updateAnswer(
-                            1L,
-                            "1008766193",
-                            "変更後の回答"
-                    )
-            )
-            .isInstanceOf(AnswerEditConflictException.class)
-            .hasMessage("いいねが付いている回答は編集できません。");
-
-    verify(
-            answerRepository,
-            org.mockito.Mockito.never()
-    ).save(any(Answer.class));
-}
 }

@@ -242,10 +242,8 @@ class TopicCleanupIntegrationTest {
     }
     @Test void disabledSchedulerDoesNothing() {new TopicCleanupScheduler(lease,db,properties,cleanup).run();assertThat(count("topic_cleanup_runs")).isZero();}
 
-    @Test void deletedParentRejectsAnswerEditingAndNewAnswers() {
+    @Test void deletedParentRejectsNewAnswers() {
         long t=topic(721,true),a=answer(t,owner);
-        assertThatThrownBy(()->answerService.updateAnswer(a,Long.toString(owner),"changed"))
-                .isInstanceOf(com.example.bulletinboard.exception.TopicNotFoundException.class);
         var newAnswer=new com.example.bulletinboard.model.Answer();var parent=new Topic();parent.setId(t);newAnswer.setTopic(parent);
         assertThatThrownBy(()->answerService.saveAnswer(newAnswer)).isInstanceOf(com.example.bulletinboard.exception.TopicNotFoundException.class);
         assertThat(jdbc.queryForObject("SELECT content FROM answers WHERE id=?",String.class,a)).isEqualTo("answer");

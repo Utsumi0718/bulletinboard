@@ -309,13 +309,10 @@ class AdminContentFlowIntegrationTest {
     }
 
     @Test
-    void adminStillCannotEditSomeoneElsesOrdinaryPost() {
+    void adminStillCannotEditSomeoneElsesTopic() {
         Topic topic = topic();
-        Answer answer = answer(topic);
         assertThatThrownBy(() -> topicService.updateTopic(topic.getId(), com.example.bulletinboard.support.TestActors.key(ADMIN),
                 "changed", topic.getImage(), "changed"))
-                .isInstanceOf(ForbiddenOperationException.class);
-        assertThatThrownBy(() -> answerService.updateAnswer(answer.getId(), com.example.bulletinboard.support.TestActors.key(ADMIN), "changed"))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
 

@@ -119,7 +119,7 @@ class ReportAnswerFlowIntegrationTest {
     }
 
     @Test
-    void keepsAnswerAndParentEvidenceAfterEditAndDeletion() throws Exception {
+    void keepsAnswerAndParentEvidenceAfterAnswerDeletionAndParentChange() throws Exception {
         Topic topic = createTopic();
         Answer answer = createAnswer(topic);
         assertThat(report(answer.getId(), REPORTER, "INAPPROPRIATE", "確認してください")).isEqualTo(201);
@@ -129,7 +129,6 @@ class ReportAnswerFlowIntegrationTest {
         assertThat(saved.getReporterUser().getId()).isEqualTo(users.findByEmail(REPORTER).orElseThrow().getId());
         assertThat(saved.getStatus()).isEqualTo(ReportStatus.UNHANDLED);
 
-        answerService.updateAnswer(answer.getId(), com.example.bulletinboard.support.TestActors.key(ANSWER_OWNER), "編集後の回答");
         answerService.deleteAnswer(answer.getId(), com.example.bulletinboard.support.TestActors.key(ANSWER_OWNER), false);
         new TransactionTemplate(transactions).executeWithoutResult(tx -> {
             Topic parent = topics.findById(topic.getId()).orElseThrow();
@@ -150,8 +149,15 @@ class ReportAnswerFlowIntegrationTest {
                 .with(user(ADMIN).roles("ADMIN")))
                 .andExpect(status().isOk()).andExpect(content().contentType("image/png"))
                 .andExpect(content().bytes(IMAGE));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM privacy_audit_events "
+                + "WHERE target_type='REPORT_EVIDENCE' AND target_id=? AND action='READ_IMAGE' AND actor_user_id=?",
+                Long.class, saved.getId().toString(), users.findByEmail(ADMIN).orElseThrow().getId()))
+                .isEqualTo(1);
         mvc.perform(get("/api/admin/reports/{id}/evidence-image", saved.getId()).with(user(REPORTER)))
                 .andExpect(status().isForbidden());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM privacy_audit_events "
+                + "WHERE target_type='REPORT_EVIDENCE' AND target_id=? AND action='READ_IMAGE'",
+                Long.class, saved.getId().toString())).isEqualTo(1);
         assertThat(reports.count()).isEqualTo(1);
         assertThat(answerSnapshots.count()).isEqualTo(1);
     }

@@ -8,7 +8,6 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.example.bulletinboard.exception.AnswerEditConflictException;
 import com.example.bulletinboard.exception.AnswerNotFoundException;
 import com.example.bulletinboard.exception.ForbiddenOperationException;
 import com.example.bulletinboard.model.Answer;
@@ -26,7 +25,6 @@ import com.example.bulletinboard.repository.AnswerRepository;
  * - 回答の保存
  * - 特定のお題に紐づく回答一覧の取得
  * - 回答のIDによる取得
- * - 回答の編集
  * - 回答の論理削除
  *
  * 【設計上のポイント】
@@ -36,10 +34,6 @@ import com.example.bulletinboard.repository.AnswerRepository;
  * - 通常の一覧取得・ID取得では、
  *   deletedAtがNULLのAnswerのみを対象とします。
  *
- * - Answerの編集は投稿者本人のみ可能です。
- *
- * - Likeが1件でも付いているAnswerは編集できません。
- *
  * - Answerの削除は投稿者本人またはROLE_ADMINのみ可能です。
  *
  * - Answerの削除は物理削除ではなく、
@@ -48,11 +42,9 @@ import com.example.bulletinboard.repository.AnswerRepository;
  * - Answerが存在しない、または論理削除済みの場合は、
  *   AnswerNotFoundExceptionを使用します。
  *
- * - 編集・削除権限がない場合は、
+ * - 削除権限がない場合は、
  *   ForbiddenOperationExceptionを使用します。
  *
- * - Likeが付いていて編集できない場合は、
- *   AnswerEditConflictExceptionを使用します。
  */
 
 @Service
@@ -62,23 +54,20 @@ public class AnswerService {
     private jakarta.persistence.EntityManager entityManager;
 
     private final AnswerRepository answerRepository;
-    private final LikeService likeService;
 
     /*
-     * AnswerRepositoryとLikeServiceをコンストラクタインジェクションします。
+     * AnswerRepositoryをコンストラクタインジェクションします。
     */
     public AnswerService(
-              AnswerRepository answerRepository,
-              LikeService likeService
+              AnswerRepository answerRepository
              ) {
         this.answerRepository = answerRepository;
-        this.likeService = likeService;
     }
 
     /*
      * 回答を保存します。
      *
-     * 新規登録・更新のどちらでもRepositoryのsave()を使用します。
+     * 新規投稿時にRepositoryのsave()を使用します。
      */
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public Answer saveAnswer(Answer answer) {
@@ -151,47 +140,6 @@ public class AnswerService {
 
     answerRepository.save(answer);
 }
-
-    /*
-     * 指定されたAnswerを編集します。
-     *
-     * 編集できるのはAnswerの投稿者本人のみです。
-     * また、Likeが1件でも付いているAnswerは編集できません。
-     *
-     * 条件を満たした場合のみcontentを更新します。
-     */
-@Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
-    public Answer updateAnswer(
-        Long answerId,
-        String actorId,
-        String content) {
-
-    lockParent(answerId, true);
-
-    Answer answer = answerRepository
-        .findReportableByIdForUpdate(answerId)
-       .orElseThrow(
-        () -> new AnswerNotFoundException(
-        "この回答は存在しないか、削除されています。"
-        )
-      );
-
-    if (!answer.getUser().getId().equals(ActorIds.parse(actorId))) {
-    throw new ForbiddenOperationException(
-        "この回答を編集する権限がありません。"
-    );
-    }
-
-    if (likeService.getLikeCount(answer) > 0) {
-    throw new AnswerEditConflictException(
-        "いいねが付いている回答は編集できません。"
-    );
-  }
-
-    answer.setContent(content);
-
-    return answerRepository.save(answer);
-  }
 
     private void lockParent(Long answerId, boolean requirePublic) {
         Long topic = answerRepository.findReportableTopicIdByAnswerId(answerId)

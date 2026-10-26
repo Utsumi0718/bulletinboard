@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,7 +32,7 @@ import jakarta.validation.Valid;
  * 【クラスの役割】
  * Answerに関するREST APIを提供するControllerです。
  *
- * Answer一覧取得、投稿、編集、削除を担当します。
+ * Answer一覧取得、投稿、削除を担当します。
  *
  * 業務ルールやデータ取得・保存処理はService層へ委譲し、
  * ControllerではHTTPリクエストの受け取り、
@@ -59,19 +58,6 @@ import jakarta.validation.Valid;
  *   → Validationエラー時 400 Bad Request
  *   → Topic不存在時 404 Not Found
  *   → ログインユーザー取得失敗時 500 Internal Server Error
- *
- * - PUT /api/answers/{id}
- *   → Answerの編集
- *   → AuthenticationからUser IDを取得
- *   → AnswerRequestのcontentをAnswerServiceへ渡す
- *   → 正常時 200 OKとAnswerResponse
- *   → 更新成功時はLikeが0件であるため
- *      liked = false
- *      likeCount = 0
- *   → Answer不存在時 404 Not Found
- *   → 編集権限がない場合は403 Forbidden
- *   → Likeが付いている場合は409 Conflict
- *   → Validationエラー時は400 Bad Request
  *
  * - DELETE /api/answers/{id}
  *   → Answerの論理削除
@@ -304,44 +290,6 @@ public class AnswerApiController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
-    }
-
-    /**
-     * 指定されたAnswerを編集します。
-     *
-     * AuthenticationからログインユーザーのUser IDを取得し、
-     * AnswerRequestのcontentとともに
-     * AnswerServiceへ編集処理を委譲します。
-     *
-     * Likeが1件以上付いているAnswerは編集できないため、
-     * 更新成功時はLike件数0であることが保証されます。
-     *
-     * そのため更新成功時のAnswerResponseでは、
-     * liked = false、likeCount = 0となります。
-     *
-     * @param id             編集対象AnswerのID
-     * @param request        更新する回答内容
-     * @param authentication ログインユーザーの認証情報
-     * @return 更新されたAnswerResponseと200 OK
-     */
-    @PutMapping("/answers/{id}")
-    public ResponseEntity<AnswerResponse> updateAnswer(
-            @PathVariable Long id,
-            @Valid @RequestBody AnswerRequest request,
-            Authentication authentication) {
-
-        String actorId = authentication.getName();
-
-        Answer updatedAnswer = answerService.updateAnswer(
-                id,
-                actorId,
-                request.getContent()
-        );
-
-        AnswerResponse response =
-                AnswerResponse.from(updatedAnswer);
-
-        return ResponseEntity.ok(response);
     }
 
     /**

@@ -103,7 +103,7 @@ public class ReportService {
     public void submitAnswer(Long answerId, String actorId, ReportRequest request) {
         validate(request, answerId);
         User reporter = requireActiveReporter(actorId, answerId);
-        // 親Topicを先にロックする。編集・削除側はAnswer行をロックする。
+        // 親Topicを先にロックし、回答の削除処理と同じ順序でAnswer行をロックする。
         Long topicId = answers.findReportableTopicIdByAnswerId(answerId)
                 .orElseThrow(() -> new ReportOperationException(Reason.NOT_FOUND, answerId));
         Topic topic = topics.findReportableByIdForUpdate(topicId)
